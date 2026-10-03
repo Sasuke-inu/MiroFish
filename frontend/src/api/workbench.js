@@ -76,3 +76,6 @@ export async function downloadResearch(projectId, format) {
     return { blob: response.data, filename: `research-${projectId}.${format}` }
   } catch { throw new Error(i18n.global.t('research.exportFailed')) }
 }
+
+export const getResearchPreparation = simulationId => request('get',`/api/simulation/${id(simulationId)}`,undefined,undefined,'')
+export async function stopResearchSimulation(simulationId) { await session(); return request('post','/api/simulation/stop',{simulation_id:simulationId},undefined,'') }

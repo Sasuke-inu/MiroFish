@@ -21,7 +21,7 @@
       </div>
 
       <div class="header-right">
-        <RouterLink class="research-return" :to="currentProjectId !== 'new' ? '/workbench/' + currentProjectId : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
+        <RouterLink class="research-return" :to="returnToResearch">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -86,6 +86,7 @@
 </template>
 
 <script setup>
+import {safeWorkbenchReturn} from '../utils/workbenchJourney'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -99,6 +100,7 @@ import PreferenceControls from '../components/PreferenceControls.vue'
 import WorkflowProgress from '../components/WorkflowProgress.vue'
 import service from '../api'
 
+const returnToResearch=computed(()=>safeWorkbenchReturn(route.query.from,currentProjectId.value !== 'new' ? '/workbench/' + currentProjectId.value : '/workbench'))
 const route = useRoute()
 const router = useRouter()
 const { t, tm } = useI18n()

@@ -8,18 +8,18 @@
 </template>
 <script setup>
 import {onUnmounted,ref,watch} from 'vue'
-import {useRouter} from 'vue-router'
+import {useRouter,useRoute} from 'vue-router'
 import {useI18n} from 'vue-i18n'
 import {verifyReportRun,createReportVersion,readReportTask} from '../api/workbench'
 const props=defineProps({simulationId:String,eligible:Boolean})
 const emit=defineEmits(['created'])
-const router=useRouter(),{t}=useI18n(),confirming=ref(false),busy=ref(false),error=ref(''),taskId=ref(''),taskMessage=ref(''),taskTerminal=ref(false)
+const router=useRouter(),route=useRoute(),{t}=useI18n(),confirming=ref(false),busy=ref(false),error=ref(''),taskId=ref(''),taskMessage=ref(''),taskTerminal=ref(false)
 let alive=true,generation=0
 const valid=token=>alive&&token===generation
 async function openResult(result,token){
   if(!valid(token))return
   const reportId=result.report_id || result.metadata?.report_id || result.result?.report_id
-  if(reportId){emit('created');await router.push({name:'Report',params:{reportId}});return}
+  if(reportId){emit('created');await router.push({name:'Report',params:{reportId},query:route.name==='Workbench'?{from:router.resolve({path:route.path,query:{...route.query,section:'results',panel:undefined,replay:props.simulationId,report:reportId}}).fullPath}:{}});return}
   taskMessage.value=result.error || result.message || ''
   taskTerminal.value=['completed','failed','stopped','interrupted','needs_review'].includes(result.status)
 }

@@ -21,7 +21,7 @@
       </div>
 
       <div class="header-right">
-        <RouterLink class="research-return" :to="projectData?.project_id ? '/workbench/' + projectData.project_id : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
+        <RouterLink class="research-return" :to="returnToResearch">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -75,6 +75,7 @@
 </template>
 
 <script setup>
+import {safeWorkbenchReturn} from '../utils/workbenchJourney'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -87,6 +88,7 @@ import WorkflowProgress from '../components/WorkflowProgress.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const returnToResearch=computed(()=>safeWorkbenchReturn(route.query.from,projectData.value?.project_id ? `/workbench/${projectData.value.project_id}?replay=${currentSimulationId.value}` : '/workbench'))
 const route = useRoute()
 const router = useRouter()
 
@@ -162,7 +164,7 @@ const toggleMaximize = (target) => {
   }
 }
 
-const handleGoBack = () => router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
+const handleGoBack = () => router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value },query:{from:returnToResearch.value} })
 
 const handleNextStep = () => {
   // Step3Simulation 组件会直接处理报告生成和路由跳转

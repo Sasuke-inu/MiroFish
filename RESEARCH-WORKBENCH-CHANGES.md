@@ -1,5 +1,26 @@
 # 研究工作台變更清單
 
+## 最新交付：主流程收斂（2026-10-03）
+
+比較基準 `ec7e524b032a603d822b7a571644c07e00352ecf`；分支 `codex/workspace-visual-refinement`，起始乾淨。21 個路徑：18 修改、3 新增。只有前端、翻譯、測試、忽略規則及這三份既有交接文件，沒有後端或使用者資料變更。最終提交與精確 diff 以本輪交付 HEAD 對基準的 Git diff 為準。
+
+- `frontend/src/views/WorkbenchView.vue`：既有工作台改為總覽／資料／結果；清單、狀態下一步、所選模擬／報告、來源／結果、草稿與次要入口收斂。
+- `frontend/src/utils/workbenchJourney.js`（新增）：可測試的顯示狀態、選擇、命名及舊網址映射；不另建後端生命週期。
+- `frontend/src/utils/savedReportMarkdown.js`（新增）、`frontend/src/components/Step4Report.vue`：抽取及共用既有安全報告閱讀格式，保留原解析行為。
+- `frontend/src/components/WorkbenchNavigation.vue`：主要導覽只保留研究與偏好／設定，完整任務與示範仍有具名入口。
+- `frontend/src/components/RunReplay.vue`：嵌入結果、沿用所選模擬及新分頁位置；跨模擬引用清除不相容報告選擇。
+- `frontend/src/components/ReportVersionAction.vue`：新版本操作完成後回到正確研究與報告版本。
+- `frontend/src/views/MainView.vue`、`SimulationView.vue`、`SimulationRunView.vue`、`ReportView.vue`：限定本輪的研究返回路徑，保留查詢選擇。
+- `frontend/src/api/workbench.js`：復用既有準備狀態讀取與明確停止 API；沒有新增後端 endpoint。
+- `frontend/tests/workbench-journey.test.js`（新增）、`frontend/tests/research-workbench.test.js`：三分頁、狀態真實性、選擇／返回／草稿／無開頁副作用回歸。
+- `locales/en.json`、`locales/zh-TW.json`、`locales/zh.json`：對應新導覽、狀態、限制文字。
+- `.gitignore`：忽略本機 `deploy/workbench-*.jpg` 驗收截圖。
+- `RESEARCH-WORKBENCH-HANDOFF.md`、`RESEARCH-WORKBENCH-STATUS.md`、`RESEARCH-WORKBENCH-CHANGES.md`：本輪結果、證據與未驗收事項；前輪記錄保留並標示歷史。
+
+驗證為同一最終前端來源快照的 325 項通過與成功建置。完整範圍、截圖和使用者待確認任務見交接文件。沒有提交憑證、私人設定、資料庫、上傳內容或本機測試輸出。
+
+## 前一輪交付清單（歷史）
+
 日期：2026-10-03。此為本輪工作區交付清單；最終提交身分見交付訊息或 git log。路徑以專案根目錄為基準。
 
 清單由 Git tracked changes 與非忽略 untracked 檔案整理：63 個修改、65 個新增，共 128 個檔案（含本文件）。批次按主要責任歸類，每個路徑只列一次；部分共用檔案支援多個功能。

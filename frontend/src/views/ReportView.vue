@@ -21,7 +21,7 @@
       </div>
 
       <div class="header-right">
-        <RouterLink class="research-return" :to="projectData?.project_id ? '/workbench/' + projectData.project_id : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
+        <RouterLink class="research-return" :to="returnToResearch">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -71,6 +71,7 @@
 </template>
 
 <script setup>
+import {safeWorkbenchReturn} from '../utils/workbenchJourney'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -96,6 +97,7 @@ const props = defineProps({
 const viewMode = ref('workbench')
 
 // Data State
+const returnToResearch=computed(()=>safeWorkbenchReturn(route.query.from,projectData.value?.project_id ? `/workbench/${projectData.value.project_id}?section=results&replay=${simulationId.value || ''}&report=${currentReportId.value}` : '/workbench'))
 const currentReportId = ref(props.reportId || route.params.reportId)
 let mounted = true
 let generation = 0
