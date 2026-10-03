@@ -1,0 +1,78 @@
+{
+  "checked_at": "2026-10-03T04:37:18.1583128+10:00",
+  "tests_passed": 103,
+  "tests_success": true,
+  "webp_bytes": 60728,
+  "svg_maps": 2,
+  "services": [
+    {
+      "service": "backend",
+      "health": "healthy",
+      "unchanged": true
+    },
+    {
+      "service": "frontend",
+      "health": "healthy",
+      "unchanged": false
+    },
+    {
+      "service": "graphiti",
+      "health": "healthy",
+      "unchanged": true
+    },
+    {
+      "service": "neo4j",
+      "health": "healthy",
+      "unchanged": true
+    }
+  ],
+  "http": [
+    {
+      "asset": "index.html",
+      "status": 200,
+      "type": "text/html",
+      "bytes": "12876"
+    },
+    {
+      "asset": "exploration-studio.webp",
+      "status": 200,
+      "type": "image/webp",
+      "bytes": "47188"
+    },
+    {
+      "asset": "first-connection.webp",
+      "status": 200,
+      "type": "image/webp",
+      "bytes": "13540"
+    },
+    {
+      "asset": "workflow-map.svg",
+      "status": 200,
+      "type": "image/svg+xml",
+      "bytes": "8666"
+    },
+    {
+      "asset": "ui-blueprint.svg",
+      "status": 200,
+      "type": "image/svg+xml",
+      "bytes": "12807"
+    },
+    {
+      "asset": "prompts.json",
+      "status": 200,
+      "type": "application/json",
+      "bytes": "3847"
+    }
+  ],
+  "browser": {
+    "original_theme_restored": "system",
+    "light_and_dark": true,
+    "home_hero_loaded": true,
+    "mobile_390_no_overflow": true,
+    "five_step_click_and_keyboard": true,
+    "empty_history_fixture_loaded": true,
+    "production_console_errors": 0
+  },
+  "new_simulation_started": false,
+  "new_firecrawl_scrape": false
+}

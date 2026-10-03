@@ -6,9 +6,9 @@
       <div class="header-tools">
         <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" :title="$t('graph.refreshGraph')">
           <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
-          <span class="btn-text">Refresh</span>
+          <span class="btn-text">{{ $t('studio.refresh') }}</span>
         </button>
-        <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.toggleMaximize')">
+        <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.toggleMaximize')" :aria-label="$t('graph.toggleMaximize')">
           <span class="icon-maximize">⛶</span>
         </button>
       </div>
@@ -16,8 +16,8 @@
     
     <div class="graph-container" ref="graphContainer">
       <!-- 图谱可视化 -->
-      <div v-if="graphData" class="graph-view">
-        <svg ref="graphSvg" class="graph-svg"></svg>
+      <div v-if="hasNodes" class="graph-view">
+        <svg ref="graphSvg" class="graph-svg" :aria-label="$t('graph.panelTitle')"></svg>
         
         <!-- 构建中/模拟中提示 -->
         <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint">
@@ -49,19 +49,19 @@
         </div>
         
         <!-- 节点/边详情面板 -->
-        <div v-if="selectedItem" class="detail-panel">
+        <div v-if="selectedItem" class="detail-panel" role="region" :aria-labelledby="detailTitleId" @keydown.esc.stop="closeDetailPanel">
           <div class="detail-panel-header">
-            <span class="detail-title">{{ selectedItem.type === 'node' ? $t('graph.nodeDetails') : $t('graph.relationship') }}</span>
-            <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: '#fff' }">
+            <span :id="detailTitleId" class="detail-title">{{ selectedItem.type === 'node' ? $t('graph.nodeDetails') : $t('studio.relation') }}</span>
+            <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: 'var(--studio-graph-badge-text, #fff)' }">
               {{ selectedItem.entityType }}
             </span>
-            <button class="detail-close" @click="closeDetailPanel">×</button>
+            <button ref="detailClose" class="detail-close" @click="closeDetailPanel" :aria-label="$t('common.close')">×</button>
           </div>
           
           <!-- 节点详情 -->
           <div v-if="selectedItem.type === 'node'" class="detail-content">
             <div class="detail-row">
-              <span class="detail-label">Name:</span>
+              <span class="detail-label">{{ $t('studio.name') }}:</span>
               <span class="detail-value">{{ selectedItem.data.name }}</span>
             </div>
             <div class="detail-row">
@@ -69,30 +69,30 @@
               <span class="detail-value uuid-text">{{ selectedItem.data.uuid }}</span>
             </div>
             <div class="detail-row" v-if="selectedItem.data.created_at">
-              <span class="detail-label">Created:</span>
+              <span class="detail-label">{{ $t('studio.created') }}:</span>
               <span class="detail-value">{{ formatDateTime(selectedItem.data.created_at) }}</span>
             </div>
             
             <!-- Properties -->
             <div class="detail-section" v-if="selectedItem.data.attributes && Object.keys(selectedItem.data.attributes).length > 0">
-              <div class="section-title">Properties:</div>
+              <div class="section-title">{{ $t('studio.properties') }}:</div>
               <div class="properties-list">
                 <div v-for="(value, key) in selectedItem.data.attributes" :key="key" class="property-item">
                   <span class="property-key">{{ key }}:</span>
-                  <span class="property-value">{{ value || 'None' }}</span>
+                  <span class="property-value">{{ value ?? $t('common.none') }}</span>
                 </div>
               </div>
             </div>
             
             <!-- Summary -->
             <div class="detail-section" v-if="selectedItem.data.summary">
-              <div class="section-title">Summary:</div>
+              <div class="section-title">{{ $t('studio.summary') }}:</div>
               <div class="summary-text">{{ selectedItem.data.summary }}</div>
             </div>
             
             <!-- Labels -->
             <div class="detail-section" v-if="selectedItem.data.labels && selectedItem.data.labels.length > 0">
-              <div class="section-title">Labels:</div>
+              <div class="section-title">{{ $t('studio.labels') }}:</div>
               <div class="labels-list">
                 <span v-for="label in selectedItem.data.labels" :key="label" class="label-tag">
                   {{ label }}
@@ -106,8 +106,8 @@
             <!-- 自环组详情 -->
             <template v-if="selectedItem.data.isSelfLoopGroup">
               <div class="edge-relation-header self-loop-header">
-                {{ selectedItem.data.source_name }} - Self Relations
-                <span class="self-loop-count">{{ selectedItem.data.selfLoopCount }} items</span>
+                {{ selectedItem.data.source_name }} · {{ $t('studio.relation') }}
+                <span class="self-loop-count">{{ selectedItem.data.selfLoopCount }} {{ $t('common.items') }}</span>
               </div>
               
               <div class="self-loop-list">
@@ -117,14 +117,15 @@
                   class="self-loop-item"
                   :class="{ expanded: expandedSelfLoops.has(loop.uuid || idx) }"
                 >
-                  <div 
+                  <button type="button"
                     class="self-loop-item-header"
                     @click="toggleSelfLoop(loop.uuid || idx)"
+                    :aria-expanded="expandedSelfLoops.has(loop.uuid || idx)"
                   >
                     <span class="self-loop-index">#{{ idx + 1 }}</span>
                     <span class="self-loop-name">{{ loop.name || loop.fact_type || 'RELATED' }}</span>
                     <span class="self-loop-toggle">{{ expandedSelfLoops.has(loop.uuid || idx) ? '−' : '+' }}</span>
-                  </div>
+                  </button>
                   
                   <div class="self-loop-item-content" v-show="expandedSelfLoops.has(loop.uuid || idx)">
                     <div class="detail-row" v-if="loop.uuid">
@@ -132,19 +133,19 @@
                       <span class="detail-value uuid-text">{{ loop.uuid }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.fact">
-                      <span class="detail-label">Fact:</span>
+                      <span class="detail-label">{{ $t('studio.fact') }}:</span>
                       <span class="detail-value fact-text">{{ loop.fact }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.fact_type">
-                      <span class="detail-label">Type:</span>
+                      <span class="detail-label">{{ $t('studio.type') }}:</span>
                       <span class="detail-value">{{ loop.fact_type }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.created_at">
-                      <span class="detail-label">Created:</span>
+                      <span class="detail-label">{{ $t('studio.created') }}:</span>
                       <span class="detail-value">{{ formatDateTime(loop.created_at) }}</span>
                     </div>
                     <div v-if="loop.episodes && loop.episodes.length > 0" class="self-loop-episodes">
-                      <span class="detail-label">Episodes:</span>
+                      <span class="detail-label">{{ $t('studio.episodes') }}:</span>
                       <div class="episodes-list compact">
                         <span v-for="ep in loop.episodes" :key="ep" class="episode-tag small">{{ ep }}</span>
                       </div>
@@ -165,21 +166,21 @@
                 <span class="detail-value uuid-text">{{ selectedItem.data.uuid }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Label:</span>
+                <span class="detail-label">{{ $t('studio.labels') }}:</span>
                 <span class="detail-value">{{ selectedItem.data.name || 'RELATED_TO' }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Type:</span>
-                <span class="detail-value">{{ selectedItem.data.fact_type || 'Unknown' }}</span>
+                <span class="detail-label">{{ $t('studio.type') }}:</span>
+                <span class="detail-value">{{ selectedItem.data.fact_type || $t('common.unknown') }}</span>
               </div>
               <div class="detail-row" v-if="selectedItem.data.fact">
-                <span class="detail-label">Fact:</span>
+                <span class="detail-label">{{ $t('studio.fact') }}:</span>
                 <span class="detail-value fact-text">{{ selectedItem.data.fact }}</span>
               </div>
               
               <!-- Episodes -->
               <div class="detail-section" v-if="selectedItem.data.episodes && selectedItem.data.episodes.length > 0">
-                <div class="section-title">Episodes:</div>
+                <div class="section-title">{{ $t('studio.episodes') }}:</div>
                 <div class="episodes-list">
                   <span v-for="ep in selectedItem.data.episodes" :key="ep" class="episode-tag">
                     {{ ep }}
@@ -188,11 +189,11 @@
               </div>
               
               <div class="detail-row" v-if="selectedItem.data.created_at">
-                <span class="detail-label">Created:</span>
+                <span class="detail-label">{{ $t('studio.created') }}:</span>
                 <span class="detail-value">{{ formatDateTime(selectedItem.data.created_at) }}</span>
               </div>
               <div class="detail-row" v-if="selectedItem.data.valid_at">
-                <span class="detail-label">Valid From:</span>
+                <span class="detail-label">{{ $t('graph.validFrom') }}:</span>
                 <span class="detail-value">{{ formatDateTime(selectedItem.data.valid_at) }}</span>
               </div>
             </template>
@@ -201,21 +202,23 @@
       </div>
       
       <!-- 加载状态 -->
-      <div v-else-if="loading" class="graph-state">
+      <div v-else-if="loading" class="graph-state" role="status">
         <div class="loading-spinner"></div>
         <p>{{ $t('graph.graphDataLoading') }}</p>
       </div>
       
       <!-- 等待/空状态 -->
-      <div v-else class="graph-state">
+      <div v-else class="graph-state" role="status">
         <div class="empty-icon">❖</div>
-        <p class="empty-text">{{ $t('graph.waitingOntology') }}</p>
+        <p v-if="awaitingGraphSetup" class="empty-text">{{ $t('graph.waitingSetup') }}</p>
+        <p v-else-if="graphData" class="empty-text">{{ $t('graph.emptyGraph') }}</p>
+        <p v-else class="empty-text">{{ $t('graph.waitingOntology') }}</p>
       </div>
     </div>
 
     <!-- 底部图例 (Bottom Left) -->
     <div v-if="graphData && entityTypes.length" class="graph-legend">
-      <span class="legend-title">Entity Types</span>
+      <span class="legend-title">{{ $t('studio.graphLegend') }}</span>
       <div class="legend-items">
         <div class="legend-item" v-for="type in entityTypes" :key="type.name">
           <span class="legend-dot" :style="{ background: type.color }"></span>
@@ -225,28 +228,40 @@
     </div>
     
     <!-- 显示边标签开关 -->
-    <div v-if="graphData" class="edge-labels-toggle">
+    <div v-if="hasNodes" class="edge-labels-toggle">
       <label class="toggle-switch">
-        <input type="checkbox" v-model="showEdgeLabels" />
+        <input type="checkbox" v-model="showEdgeLabels" :aria-label="$t('studio.showEdgeLabels')" />
         <span class="slider"></span>
       </label>
-      <span class="toggle-label">Show Edge Labels</span>
+      <span class="toggle-label">{{ $t('studio.showEdgeLabels') }}</span>
+    </div>
+    <div v-if="hasNodes" class="graph-zoom-tools">
+      <button type="button" @click="adjustZoom(1.3)" :aria-label="$t('graph.zoomIn')" :title="$t('graph.zoomIn')">+</button>
+      <button type="button" @click="adjustZoom(1 / 1.3)" :aria-label="$t('graph.zoomOut')" :title="$t('graph.zoomOut')">−</button>
+      <button type="button" @click="resetView" :aria-label="$t('graph.resetView')" :title="$t('graph.resetView')">↺</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'
 
 const props = defineProps({
   graphData: Object,
   loading: Boolean,
   currentPhase: Number,
+  awaitingGraphSetup: Boolean,
   isSimulating: Boolean
 })
 
 const emit = defineEmits(['refresh', 'toggle-maximize'])
+const { t, locale } = useI18n()
+const hasNodes = computed(() => (props.graphData?.nodes?.length || 0) > 0)
+const detailTitleId = useId()
+const detailClose = ref(null)
+let selectedTrigger = null
 
 const graphContainer = ref(null)
 const graphSvg = ref(null)
@@ -286,7 +301,8 @@ const entityTypes = computed(() => {
   if (!props.graphData?.nodes) return []
   const typeMap = {}
   // 美观的颜色调色板
-  const colors = ['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#3498db', '#9b59b6', '#27ae60', '#f39c12']
+  const colors = ['#9c5a22', '#5b643b', '#775569', '#3c6b50', '#9a4546', '#8b603b', '#636844', '#6c526e', '#4b684e', '#886618']
+    .map((color, index) => `var(--studio-graph-color-${index}, ${color})`)
   
   props.graphData.nodes.forEach(node => {
     const type = node.labels?.find(l => l !== 'Entity') || 'Entity'
@@ -303,7 +319,8 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   try {
     const date = new Date(dateStr)
-    return date.toLocaleString('en-US', { 
+    if (Number.isNaN(date.getTime())) return '—'
+    return date.toLocaleString(locale.value, {
       month: 'short', 
       day: 'numeric', 
       year: 'numeric',
@@ -319,11 +336,38 @@ const formatDateTime = (dateStr) => {
 const closeDetailPanel = () => {
   selectedItem.value = null
   expandedSelfLoops.value = new Set() // 重置展开状态
+  const svg = d3.select(graphSvg.value)
+  svg.selectAll('.nodes circle').attr('stroke', 'var(--studio-surface, #fff)').attr('stroke-width', 2.5)
+  svg.selectAll('.links path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
+  linkLabelBgRef?.attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
+  linkLabelsRef?.attr('fill', 'var(--studio-muted, #666)')
+  const key = selectedTrigger?.getAttribute('data-graph-key')
+  nextTick(() => {
+    const trigger = selectedTrigger?.isConnected ? selectedTrigger : Array.from(graphSvg.value?.querySelectorAll('[data-graph-key]') || []).find(element => element.getAttribute('data-graph-key') === key)
+    trigger?.focus()
+  })
+}
+
+watch(selectedItem, async (item) => {
+  if (item) { await nextTick(); detailClose.value?.focus() }
+})
+
+const activateGraphItem = (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  event.currentTarget.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 }
 
 let currentSimulation = null
 let linkLabelsRef = null
 let linkLabelBgRef = null
+let zoomBehavior = null
+const adjustZoom = (factor) => {
+  if (graphSvg.value && zoomBehavior) d3.select(graphSvg.value).call(zoomBehavior.scaleBy, factor)
+}
+const resetView = () => {
+  if (graphSvg.value && zoomBehavior) d3.select(graphSvg.value).call(zoomBehavior.transform, d3.zoomIdentity)
+}
 
 const renderGraph = () => {
   if (!graphSvg.value || !props.graphData) return
@@ -334,6 +378,7 @@ const renderGraph = () => {
   }
   
   const container = graphContainer.value
+  if (!container || container.clientWidth < 1 || container.clientHeight < 1) return
   const width = container.clientWidth
   const height = container.clientHeight
   
@@ -409,11 +454,12 @@ const renderGraph = () => {
         source: e.source_node_uuid,
         target: e.target_node_uuid,
         type: 'SELF_LOOP',
-        name: `Self Relations (${allSelfLoops.length})`,
+        name: `${t('studio.relation')} (${allSelfLoops.length})`,
         curvature: 0,
         isSelfLoop: true,
         rawData: {
           isSelfLoopGroup: true,
+          source_node_uuid: e.source_node_uuid,
           source_name: nodeName,
           target_name: nodeName,
           selfLoopCount: allSelfLoops.length,
@@ -466,7 +512,7 @@ const renderGraph = () => {
   // Color scale
   const colorMap = {}
   entityTypes.value.forEach(t => colorMap[t.name] = t.color)
-  const getColor = (type) => colorMap[type] || '#999'
+  const getColor = (type) => colorMap[type] || 'var(--studio-muted, #999)'
 
   // Simulation - 根据边数量动态调整节点间距
   const simulation = d3.forceSimulation(nodes)
@@ -489,9 +535,11 @@ const renderGraph = () => {
   const g = svg.append('g')
   
   // Zoom
-  svg.call(d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.1, 4]).on('zoom', (event) => {
+  zoomBehavior = d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.1, 4]).on('zoom', (event) => {
     g.attr('transform', event.transform)
-  }))
+  })
+  svg.call(zoomBehavior)
+  g.attr('transform', d3.zoomTransform(svg.node()))
 
   // Links - 使用 path 支持曲线
   const linkGroup = g.append('g').attr('class', 'links')
@@ -521,7 +569,7 @@ const renderGraph = () => {
     
     // 计算曲线控制点 - 根据边数量和距离动态调整
     const dx = tx - sx, dy = ty - sy
-    const dist = Math.sqrt(dx * dx + dy * dy)
+    const dist = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
     // 垂直于连线方向的偏移，根据距离比例计算，保证曲线明显可见
     // 边越多，偏移量占距离的比例越大
     const pairTotal = d.pairTotal || 1
@@ -552,7 +600,7 @@ const renderGraph = () => {
     
     // 二次贝塞尔曲线的中点 t=0.5
     const dx = tx - sx, dy = ty - sy
-    const dist = Math.sqrt(dx * dx + dy * dy)
+    const dist = Math.max(0.001, Math.sqrt(dx * dx + dy * dy))
     const pairTotal = d.pairTotal || 1
     const offsetRatio = 0.25 + pairTotal * 0.05
     const baseOffset = Math.max(35, dist * offsetRatio)
@@ -571,18 +619,24 @@ const renderGraph = () => {
   const link = linkGroup.selectAll('path')
     .data(edges)
     .enter().append('path')
-    .attr('stroke', '#C0C0C0')
+    .attr('role', 'button')
+    .attr('tabindex', 0)
+    .attr('data-graph-key', d => `edge:${d.rawData.uuid || d.rawData.source_node_uuid}`)
+    .attr('aria-label', d => `${d.rawData.source_name} → ${d.name} → ${d.rawData.target_name}`)
+    .on('keydown', activateGraphItem)
+    .attr('stroke', 'var(--studio-graph-edge, #C0C0C0)')
     .attr('stroke-width', 1.5)
     .attr('fill', 'none')
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
       event.stopPropagation()
+      selectedTrigger = event.currentTarget
       // 重置之前选中边的样式
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
+      linkLabels.attr('fill', 'var(--studio-muted, #666)')
       // 高亮当前选中的边
-      d3.select(event.target).attr('stroke', '#3498db').attr('stroke-width', 3)
+      d3.select(event.target).attr('stroke', 'var(--studio-graph-selection, #3498db)').attr('stroke-width', 3)
       
       selectedItem.value = {
         type: 'edge',
@@ -594,7 +648,7 @@ const renderGraph = () => {
   const linkLabelBg = linkGroup.selectAll('rect')
     .data(edges)
     .enter().append('rect')
-    .attr('fill', 'rgba(255,255,255,0.95)')
+    .attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
     .attr('rx', 3)
     .attr('ry', 3)
     .style('cursor', 'pointer')
@@ -602,12 +656,13 @@ const renderGraph = () => {
     .style('display', showEdgeLabels.value ? 'block' : 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
+      linkLabels.attr('fill', 'var(--studio-muted, #666)')
       // 高亮对应的边
-      link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
-      d3.select(event.target).attr('fill', 'rgba(52, 152, 219, 0.1)')
+      link.filter(l => l === d).attr('stroke', 'var(--studio-graph-selection, #3498db)').attr('stroke-width', 3)
+      selectedTrigger = link.filter(l => l === d).node()
+      d3.select(event.target).attr('fill', 'var(--studio-graph-selection-soft)')
       
       selectedItem.value = {
         type: 'edge',
@@ -620,8 +675,8 @@ const renderGraph = () => {
     .data(edges)
     .enter().append('text')
     .text(d => d.name)
-    .attr('font-size', '9px')
-    .attr('fill', '#666')
+    .attr('font-size', '11px')
+    .attr('fill', 'var(--studio-muted, #666)')
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
     .style('cursor', 'pointer')
@@ -630,12 +685,13 @@ const renderGraph = () => {
     .style('display', showEdgeLabels.value ? 'block' : 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
+      linkLabels.attr('fill', 'var(--studio-muted, #666)')
       // 高亮对应的边
-      link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
-      d3.select(event.target).attr('fill', '#3498db')
+      link.filter(l => l === d).attr('stroke', 'var(--studio-graph-selection, #3498db)').attr('stroke-width', 3)
+      selectedTrigger = link.filter(l => l === d).node()
+      d3.select(event.target).attr('fill', 'var(--studio-graph-selection, #3498db)')
       
       selectedItem.value = {
         type: 'edge',
@@ -654,9 +710,14 @@ const renderGraph = () => {
   const node = nodeGroup.selectAll('circle')
     .data(nodes)
     .enter().append('circle')
+    .attr('role', 'button')
+    .attr('tabindex', 0)
+    .attr('data-graph-key', d => `node:${d.id}`)
+    .attr('aria-label', d => `${d.name} · ${d.type}`)
+    .on('keydown', activateGraphItem)
     .attr('r', 10)
     .attr('fill', d => getColor(d.type))
-    .attr('stroke', '#fff')
+    .attr('stroke', 'var(--studio-surface, #fff)')
     .attr('stroke-width', 2.5)
     .style('cursor', 'pointer')
     .call(d3.drag()
@@ -697,14 +758,15 @@ const renderGraph = () => {
     )
     .on('click', (event, d) => {
       event.stopPropagation()
+      selectedTrigger = event.currentTarget
       // 重置所有节点样式
-      node.attr('stroke', '#fff').attr('stroke-width', 2.5)
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
+      node.attr('stroke', 'var(--studio-surface, #fff)').attr('stroke-width', 2.5)
+      linkGroup.selectAll('path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
       // 高亮选中节点
-      d3.select(event.target).attr('stroke', '#E91E63').attr('stroke-width', 4)
+      d3.select(event.target).attr('stroke', 'var(--studio-graph-selection, #b84d28)').attr('stroke-width', 4)
       // 高亮与此节点相连的边
       link.filter(l => l.source.id === d.id || l.target.id === d.id)
-        .attr('stroke', '#E91E63')
+        .attr('stroke', 'var(--studio-graph-selection, #b84d28)')
         .attr('stroke-width', 2.5)
       
       selectedItem.value = {
@@ -716,12 +778,12 @@ const renderGraph = () => {
     })
     .on('mouseenter', (event, d) => {
       if (!selectedItem.value || selectedItem.value.data?.uuid !== d.rawData.uuid) {
-        d3.select(event.target).attr('stroke', '#333').attr('stroke-width', 3)
+        d3.select(event.target).attr('stroke', 'var(--studio-ink, #333)').attr('stroke-width', 3)
       }
     })
     .on('mouseleave', (event, d) => {
       if (!selectedItem.value || selectedItem.value.data?.uuid !== d.rawData.uuid) {
-        d3.select(event.target).attr('stroke', '#fff').attr('stroke-width', 2.5)
+        d3.select(event.target).attr('stroke', 'var(--studio-surface, #fff)').attr('stroke-width', 2.5)
       }
     })
 
@@ -730,8 +792,8 @@ const renderGraph = () => {
     .data(nodes)
     .enter().append('text')
     .text(d => d.name.length > 8 ? d.name.substring(0, 8) + '…' : d.name)
-    .attr('font-size', '11px')
-    .attr('fill', '#333')
+    .attr('font-size', '13px')
+    .attr('fill', 'var(--studio-ink, #333)')
     .attr('font-weight', '500')
     .attr('dx', 14)
     .attr('dy', 4)
@@ -776,14 +838,34 @@ const renderGraph = () => {
   // 点击空白处关闭详情面板
   svg.on('click', () => {
     selectedItem.value = null
-    node.attr('stroke', '#fff').attr('stroke-width', 2.5)
-    linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-    linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-    linkLabels.attr('fill', '#666')
+    node.attr('stroke', 'var(--studio-surface, #fff)').attr('stroke-width', 2.5)
+    linkGroup.selectAll('path').attr('stroke', 'var(--studio-graph-edge, #C0C0C0)').attr('stroke-width', 1.5)
+    linkLabelBg.attr('fill', 'var(--studio-graph-label-bg, rgba(255,255,255,0.95))')
+    linkLabels.attr('fill', 'var(--studio-muted, #666)')
   })
 }
 
 watch(() => props.graphData, () => {
+  if (currentSimulation) currentSimulation.stop()
+  if (selectedItem.value) {
+    const selected = selectedItem.value
+    if (selected.type === 'node') {
+      const updated = props.graphData?.nodes?.find(node => node.uuid === selected.data.uuid)
+      if (updated) selected.data = updated
+      else selectedItem.value = null
+    } else if (selected.data.isSelfLoopGroup) {
+      const sourceId = selected.data.source_node_uuid
+      const loops = props.graphData?.edges?.filter(edge => edge.source_node_uuid === sourceId && edge.target_node_uuid === sourceId) || []
+      if (loops.length) {
+        selected.data.selfLoopEdges = loops
+        selected.data.selfLoopCount = loops.length
+      } else selectedItem.value = null
+    } else {
+      const updated = props.graphData?.edges?.find(edge => edge.uuid === selected.data.uuid)
+      if (updated) selected.data = { ...selected.data, ...updated }
+      else selectedItem.value = null
+    }
+  }
   nextTick(renderGraph)
 }, { deep: true })
 
@@ -801,12 +883,25 @@ const handleResize = () => {
   nextTick(renderGraph)
 }
 
+let graphResizeObserver = null
+let containerResizeTimer = null
+const scheduleContainerResize = () => {
+  clearTimeout(containerResizeTimer)
+  containerResizeTimer = setTimeout(handleResize, 120)
+}
+
 onMounted(() => {
+  nextTick(renderGraph)
   window.addEventListener('resize', handleResize)
+  // Layout switches resize the panel without resizing the browser window.
+  graphResizeObserver = new ResizeObserver(scheduleContainerResize)
+  if (graphContainer.value) graphResizeObserver.observe(graphContainer.value)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  graphResizeObserver?.disconnect()
+  clearTimeout(containerResizeTimer)
   if (currentSimulation) {
     currentSimulation.stop()
   }
@@ -818,8 +913,8 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: #FAFAFA;
-  background-image: radial-gradient(#D0D0D0 1.5px, transparent 1.5px);
+  background-color: var(--theme-surface-soft, #FAFAFA);
+  background-image: radial-gradient(var(--theme-surface-raised, #D0D0D0) 1.5px, transparent 1.5px);
   background-size: 24px 24px;
   overflow: hidden;
 }
@@ -834,14 +929,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0));
+  background: linear-gradient(to bottom, var(--theme-overlay, rgba(255,255,255,0.95)), rgba(255,255,255,0));
   pointer-events: none;
 }
 
 .panel-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--theme-ink, #333);
   pointer-events: auto;
 }
 
@@ -855,24 +950,24 @@ onUnmounted(() => {
 .tool-btn {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #E0E0E0;
-  background: #FFF;
+  border: 1px solid var(--theme-line, #E0E0E0);
+  background: var(--theme-surface, #FFF);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  color: #666;
+  color: var(--theme-muted, #666);
   transition: all 0.2s;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
   font-size: 13px;
 }
 
 .tool-btn:hover {
-  background: #F5F5F5;
-  color: #000;
-  border-color: #CCC;
+  background: var(--theme-surface-soft, #F5F5F5);
+  color: var(--theme-ink, #000);
+  border-color: var(--theme-line, #CCC);
 }
 
 .tool-btn .btn-text {
@@ -902,7 +997,7 @@ onUnmounted(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 
 .empty-icon {
@@ -916,10 +1011,10 @@ onUnmounted(() => {
   position: absolute;
   bottom: 24px;
   left: 24px;
-  background: rgba(255,255,255,0.95);
+  background: var(--theme-overlay, rgba(255,255,255,0.95));
   padding: 12px 16px;
   border-radius: 8px;
-  border: 1px solid #EAEAEA;
+  border: 1px solid var(--theme-line, #EAEAEA);
   box-shadow: 0 4px 16px rgba(0,0,0,0.06);
   z-index: 10;
 }
@@ -928,7 +1023,7 @@ onUnmounted(() => {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #E91E63;
+  color: var(--theme-accent-ink);
   margin-bottom: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -946,7 +1041,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #555;
+  color: var(--theme-ink, #555);
 }
 
 .legend-dot {
@@ -968,10 +1063,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   padding: 8px 14px;
   border-radius: 20px;
-  border: 1px solid #E0E0E0;
+  border: 1px solid var(--theme-line, #E0E0E0);
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   z-index: 10;
 }
@@ -996,7 +1091,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #E0E0E0;
+  background-color: var(--theme-surface-raised, #E0E0E0);
   border-radius: 22px;
   transition: 0.3s;
 }
@@ -1014,7 +1109,7 @@ onUnmounted(() => {
 }
 
 input:checked + .slider {
-  background-color: #7B2D8E;
+  background-color: var(--studio-button);
 }
 
 input:checked + .slider:before {
@@ -1023,7 +1118,7 @@ input:checked + .slider:before {
 
 .toggle-label {
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
 }
 
 /* Detail Panel - Right Side */
@@ -1033,8 +1128,8 @@ input:checked + .slider:before {
   right: 20px;
   width: 320px;
   max-height: calc(100% - 100px);
-  background: #FFF;
-  border: 1px solid #EAEAEA;
+  background: var(--theme-surface, #FFF);
+  border: 1px solid var(--theme-line, #EAEAEA);
   border-radius: 10px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.1);
   overflow: hidden;
@@ -1050,14 +1145,14 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #FAFAFA;
-  border-bottom: 1px solid #EEE;
+  background: var(--theme-surface-soft, #FAFAFA);
+  border-bottom: 1px solid var(--theme-line, #EEE);
   flex-shrink: 0;
 }
 
 .detail-title {
   font-weight: 600;
-  color: #333;
+  color: var(--theme-ink, #333);
   font-size: 14px;
 }
 
@@ -1075,14 +1170,14 @@ input:checked + .slider:before {
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #999;
+  color: var(--theme-muted, #999);
   line-height: 1;
   padding: 0;
   transition: color 0.2s;
 }
 
 .detail-close:hover {
-  color: #333;
+  color: var(--theme-ink, #333);
 }
 
 .detail-content {
@@ -1099,14 +1194,14 @@ input:checked + .slider:before {
 }
 
 .detail-label {
-  color: #888;
+  color: var(--theme-muted, #888);
   font-size: 12px;
   font-weight: 500;
   min-width: 80px;
 }
 
 .detail-value {
-  color: #333;
+  color: var(--theme-ink, #333);
   flex: 1;
   word-break: break-word;
 }
@@ -1114,24 +1209,24 @@ input:checked + .slider:before {
 .detail-value.uuid-text {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: #666;
+  color: var(--theme-muted, #666);
 }
 
 .detail-value.fact-text {
   line-height: 1.5;
-  color: #444;
+  color: var(--theme-ink, #444);
 }
 
 .detail-section {
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #F0F0F0;
+  border-top: 1px solid var(--theme-line, #F0F0F0);
 }
 
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--theme-muted, #666);
   margin-bottom: 10px;
 }
 
@@ -1147,19 +1242,19 @@ input:checked + .slider:before {
 }
 
 .property-key {
-  color: #888;
+  color: var(--theme-muted, #888);
   font-weight: 500;
   min-width: 90px;
 }
 
 .property-value {
-  color: #333;
+  color: var(--theme-ink, #333);
   flex: 1;
 }
 
 .summary-text {
   line-height: 1.6;
-  color: #444;
+  color: var(--theme-ink, #444);
   font-size: 12px;
 }
 
@@ -1172,11 +1267,11 @@ input:checked + .slider:before {
 .label-tag {
   display: inline-block;
   padding: 4px 12px;
-  background: #F5F5F5;
-  border: 1px solid #E0E0E0;
+  background: var(--theme-surface-soft, #F5F5F5);
+  border: 1px solid var(--theme-line, #E0E0E0);
   border-radius: 16px;
   font-size: 11px;
-  color: #555;
+  color: var(--theme-ink, #555);
 }
 
 .episodes-list {
@@ -1188,24 +1283,24 @@ input:checked + .slider:before {
 .episode-tag {
   display: inline-block;
   padding: 6px 10px;
-  background: #F8F8F8;
-  border: 1px solid #E8E8E8;
+  background: var(--theme-surface-soft, #F8F8F8);
+  border: 1px solid var(--theme-line, #E8E8E8);
   border-radius: 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: #666;
+  color: var(--theme-muted, #666);
   word-break: break-all;
 }
 
 /* Edge relation header */
 .edge-relation-header {
-  background: #F8F8F8;
+  background: var(--theme-surface-soft, #F8F8F8);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
   font-size: 13px;
   font-weight: 500;
-  color: #333;
+  color: var(--theme-ink, #333);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -1218,7 +1313,7 @@ input:checked + .slider:before {
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.65);
   backdrop-filter: blur(8px);
-  color: #fff;
+  color: var(--theme-on-filled, #fff);
   padding: 10px 20px;
   border-radius: 30px;
   font-size: 13px;
@@ -1242,7 +1337,7 @@ input:checked + .slider:before {
 .memory-icon {
   width: 18px;
   height: 18px;
-  color: #4CAF50;
+  color: var(--theme-success-ink, #4CAF50);
 }
 
 @keyframes breathe {
@@ -1265,7 +1360,7 @@ input:checked + .slider:before {
 .finished-hint .hint-icon {
   width: 18px;
   height: 18px;
-  color: #FFF;
+  color: var(--theme-on-filled, #FFF);
 }
 
 .finished-hint .hint-text {
@@ -1283,7 +1378,7 @@ input:checked + .slider:before {
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  color: #FFF;
+  color: var(--theme-on-filled, #FFF);
   transition: all 0.2s;
   margin-left: 8px;
   flex-shrink: 0;
@@ -1298,8 +1393,8 @@ input:checked + .slider:before {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #E0E0E0;
-  border-top-color: #7B2D8E;
+  border: 3px solid var(--theme-line, #E0E0E0);
+  border-top-color: var(--theme-purple-line, #7B2D8E);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -1310,15 +1405,15 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%);
-  border: 1px solid #C8E6C9;
+  background: var(--theme-success-surface);
+  border: 1px solid var(--theme-success-line);
 }
 
 .self-loop-count {
   margin-left: auto;
   font-size: 11px;
-  color: #666;
-  background: rgba(255,255,255,0.8);
+  color: var(--theme-muted, #666);
+  background: var(--theme-overlay, rgba(255,255,255,0.8));
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -1330,8 +1425,8 @@ input:checked + .slider:before {
 }
 
 .self-loop-item {
-  background: #FAFAFA;
-  border: 1px solid #EAEAEA;
+  background: var(--theme-surface-soft, #FAFAFA);
+  border: 1px solid var(--theme-line, #EAEAEA);
   border-radius: 8px;
 }
 
@@ -1340,24 +1435,24 @@ input:checked + .slider:before {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: #F5F5F5;
+  background: var(--theme-surface-soft, #F5F5F5);
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .self-loop-item-header:hover {
-  background: #EEEEEE;
+  background: var(--theme-surface-soft, #EEEEEE);
 }
 
 .self-loop-item.expanded .self-loop-item-header {
-  background: #E8E8E8;
+  background: var(--theme-surface-soft, #E8E8E8);
 }
 
 .self-loop-index {
   font-size: 10px;
   font-weight: 600;
-  color: #888;
-  background: #E0E0E0;
+  color: var(--theme-muted, #888);
+  background: var(--theme-surface-raised, #E0E0E0);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1365,7 +1460,7 @@ input:checked + .slider:before {
 .self-loop-name {
   font-size: 12px;
   font-weight: 500;
-  color: #333;
+  color: var(--theme-ink, #333);
   flex: 1;
 }
 
@@ -1377,20 +1472,20 @@ input:checked + .slider:before {
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
-  color: #888;
-  background: #E0E0E0;
+  color: var(--theme-muted, #888);
+  background: var(--theme-surface-raised, #E0E0E0);
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .self-loop-item.expanded .self-loop-toggle {
-  background: #D0D0D0;
-  color: #666;
+  background: var(--theme-surface-raised, #D0D0D0);
+  color: var(--theme-muted, #666);
 }
 
 .self-loop-item-content {
   padding: 12px;
-  border-top: 1px solid #EAEAEA;
+  border-top: 1px solid var(--theme-line, #EAEAEA);
 }
 
 .self-loop-item-content .detail-row {
@@ -1419,5 +1514,43 @@ input:checked + .slider:before {
 .episode-tag.small {
   padding: 3px 6px;
   font-size: 9px;
+}
+
+.tool-btn, .detail-close { min-width: 44px; min-height: 44px; }
+.tool-btn:focus-visible, .detail-close:focus-visible, .self-loop-item-header:focus-visible, .graph-zoom-tools button:focus-visible { outline: 3px solid var(--studio-accent, #b84d28); outline-offset: 2px; }
+.graph-svg :deep([role=button]:focus-visible) { outline: none; stroke: var(--studio-accent, #b84d28); stroke-width: 5px; }
+.toggle-switch input:focus-visible + .slider { outline: 3px solid var(--studio-accent, #b84d28); outline-offset: 3px; }
+.toggle-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
+.toggle-label, .detail-label, .summary-text, .legend-title { font-size: 13px; }
+.legend-title { color: var(--studio-muted, #657487); }
+.graph-legend { max-width: calc(100% - 90px); max-height: 115px; overflow-y: auto; }
+.legend-label { white-space: normal; overflow-wrap: anywhere; }
+.graph-state { width: calc(100% - 48px); max-width: 440px; line-height: 1.8; }
+.graph-zoom-tools { position: absolute; bottom: 20px; right: 16px; display: flex; flex-direction: column; border: 1px solid var(--theme-line, #e3e5e4); border-radius: 10px; overflow: hidden; z-index: 12; background: var(--theme-surface, #fff); }
+.graph-zoom-tools button { width: 44px; height: 44px; background: transparent; border: none; color: var(--theme-ink, #203449); font: 22px var(--studio-font, system-ui); cursor: pointer; }
+.graph-zoom-tools button + button { border-top: 1px solid var(--theme-line, #e3e5e4); }
+.graph-zoom-tools button:hover { background: var(--theme-surface-soft, #f7f6f2); }
+.graph-zoom-tools button:focus-visible { outline-offset: -4px; }
+.detail-panel { width: min(350px, calc(100% - 32px)); max-height: calc(100% - 90px); right: 16px; top: 76px; }
+.detail-panel-header { gap: 8px; padding: 8px 12px; }
+.detail-type-badge { max-width: 45%; overflow-wrap: anywhere; margin-right: 0; }
+.detail-content { overscroll-behavior: contain; }
+.property-value { min-width: 0; overflow-wrap: anywhere; }
+.property-key { min-width: 0; max-width: 45%; overflow-wrap: anywhere; }
+.self-loop-item-header { width: 100%; text-align: left; border: 0; font: inherit; border-radius: 8px; min-height: 44px; }
+.self-loop-header { background: var(--theme-success-surface, #e8f5e9); border-color: var(--theme-line, #c8e6c9); flex-wrap: wrap; }
+.graph-building-hint { max-width: calc(100% - 32px); padding: 10px 14px; bottom: 145px; z-index: 15; }
+.finished-hint .hint-text { white-space: normal; line-height: 1.5; }
+.hint-close-btn { width: 32px; height: 32px; }
+@media (max-width: 540px) {
+  .panel-header { padding: 12px; }
+  .panel-title { font-size: 13px; }
+  .header-tools { gap: 6px; }
+  .tool-btn { padding: 0 10px; }
+  .edge-labels-toggle { right: 12px; top: 66px; padding: 8px 10px; }
+  .graph-legend { left: 12px; bottom: 12px; padding: 10px; max-height: 92px; }
+  .legend-items { gap: 8px 12px; }
+  .legend-title { margin-bottom: 6px; }
+  .graph-zoom-tools { bottom: 12px; right: 12px; }
 }
 </style>

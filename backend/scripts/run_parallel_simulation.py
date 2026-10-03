@@ -103,6 +103,12 @@ else:
         print(f"已加载环境配置: {_backend_env}")
 
 
+# Freeze the saved model settings for this whole simulation process. Existing
+# environment snapshots from SimulationRunner take precedence over later edits.
+from app.provider_settings import model_environment
+os.environ.update(model_environment())
+
+
 class MaxTokensWarningFilter(logging.Filter):
     """过滤掉 camel-ai 关于 max_tokens 的警告（我们故意不设置 max_tokens，让模型自行决定）"""
     
@@ -172,6 +178,9 @@ except ImportError as e:
     print(f"错误: 缺少依赖 {e}")
     print("请先安装: pip install oasis-ai camel-ai")
     sys.exit(1)
+
+from app.utils.oasis_camel_compat import apply_oasis_camel_compat
+apply_oasis_camel_compat()
 
 
 # Twitter可用动作（不包含INTERVIEW，INTERVIEW只能通过ManualAction手动触发）
@@ -1204,6 +1213,9 @@ async def run_twitter_simulation(
         
         if initial_actions:
             await result.env.step(initial_actions)
+            # Seed posts are already logged as round 0; consume their DB rows
+            # so the first LLM round does not count them a second time.
+            _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
     # 记录 round 0 结束
@@ -1403,6 +1415,9 @@ async def run_reddit_simulation(
         
         if initial_actions:
             await result.env.step(initial_actions)
+            # Seed posts are already logged as round 0; consume their DB rows
+            # so the first LLM round does not count them a second time.
+            _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
     # 记录 round 0 结束

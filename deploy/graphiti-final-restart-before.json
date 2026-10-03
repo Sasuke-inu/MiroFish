@@ -1,0 +1,505 @@
+{
+  "edge_count": 20,
+  "edges": [
+    {
+      "attributes": {
+        "details": "負責在活動中介紹遊戲"
+      },
+      "created_at": "2026-10-02T02:14:50.283263Z",
+      "episodes": [
+        "35de76ee-c11e-4ce0-a003-3609cdc729e5"
+      ],
+      "expired_at": null,
+      "fact": "小青是桌遊社的成員，負責在活動中介紹遊戲。",
+      "fact_type": "MEMBER_OF",
+      "invalid_at": null,
+      "name": "MEMBER_OF",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "桌遊社",
+      "target_node_uuid": "22ef17a2-6bbe-4f65-91ab-77c92f98e1c8",
+      "uuid": "f51595f5-5392-4e27-ac51-781bc0a381ba",
+      "valid_at": null
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:17:10.207061Z",
+      "episodes": [
+        "6d82ca1f-7d64-4b80-b87e-93e8f1903bd3"
+      ],
+      "expired_at": null,
+      "fact": "小藍引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排在白天、事先约定音量与结束时间，并设置安静桌游区。",
+      "fact_type": "RESPONDS_TO",
+      "invalid_at": null,
+      "name": "RESPONDS_TO",
+      "source_node_name": "小藍",
+      "source_node_uuid": "cd55c909-c82a-42c8-9b82-5b285311c3ed",
+      "target_node_name": "小橙",
+      "target_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "uuid": "e3094a4c-b395-44b1-a358-f15047d42841",
+      "valid_at": "2026-10-02T02:16:36.178232Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:17:10.207078Z",
+      "episodes": [
+        "6d82ca1f-7d64-4b80-b87e-93e8f1903bd3"
+      ],
+      "expired_at": null,
+      "fact": "小青引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排白天时段、报名时注明活动时间与人数，并分设一般游戏区和安静游戏区。",
+      "fact_type": "RESPONDS_TO",
+      "invalid_at": null,
+      "name": "RESPONDS_TO",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "小橙",
+      "target_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "uuid": "dd0253fe-d8c5-444e-839b-26ebf78d7e6d",
+      "valid_at": "2026-10-02T02:16:40.926019Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:30:59.072840Z",
+      "episodes": [
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": null,
+      "fact": "小青在 reddit 評論小橙的桌遊活動公告，建議確認週六時段、場地容量與報名方式，並安排一般遊戲區與安靜遊戲區及完整活動流程。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "Reddit",
+      "target_node_uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934",
+      "uuid": "daf75170-29e2-4ffd-9c08-4abf47b70ac0",
+      "valid_at": "2026-10-02T02:29:31.089720Z"
+    },
+    {
+      "attributes": {
+        "details": "小藍居住在橙子小屋附近"
+      },
+      "created_at": "2026-10-02T02:14:50.283272Z",
+      "episodes": [
+        "35de76ee-c11e-4ce0-a003-3609cdc729e5"
+      ],
+      "expired_at": null,
+      "fact": "小藍是居住在橙子小屋附近的居民。",
+      "fact_type": "LIVES_NEAR",
+      "invalid_at": null,
+      "name": "LIVES_NEAR",
+      "source_node_name": "小藍",
+      "source_node_uuid": "cd55c909-c82a-42c8-9b82-5b285311c3ed",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "bea0780b-1467-4c73-ac3c-761b6642611e",
+      "valid_at": "2026-10-02T02:14:28.199824Z"
+    },
+    {
+      "attributes": {
+        "details": "小紫建議橙子小屋在週六白天舉辦桌遊活動，事先公告活動音量與結束時間，並保留較安靜的空間；她也期待藉此認識鄰居。"
+      },
+      "created_at": "2026-10-02T02:30:04.024861Z",
+      "episodes": [
+        "6b1ebb07-2589-4161-8989-0ea1e36ad995"
+      ],
+      "expired_at": null,
+      "fact": "小紫建議橙子小屋在週六白天舉辦桌遊活動，事先公告活動音量與結束時間，並保留較安靜的空間；她也期待藉此認識鄰居。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小紫",
+      "source_node_uuid": "5c146a79-0af7-4e86-88c0-5256bab112a7",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "afd434fb-64dd-434c-913a-8eb520d33ef6",
+      "valid_at": "2026-10-02T02:29:30.114252Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:18:03.357230Z",
+      "episodes": [
+        "61cce13b-a41b-43b9-8678-87b1d5743c2e"
+      ],
+      "expired_at": null,
+      "fact": "小青在 Reddit 评论活动流程，建议确认活动时段、预计人数和报名方式，按人数安排桌游与座位，并安排五分钟说明目标与基本规则、分桌游玩、中场交流和最后收拾；小青会协助现场流程与规则说明。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "Reddit",
+      "target_node_uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934",
+      "uuid": "8ac394cf-ad14-4bb7-932f-6595052dfbd1",
+      "valid_at": "2026-10-02T02:16:41.910205Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:17:10.207085Z",
+      "episodes": [
+        "6d82ca1f-7d64-4b80-b87e-93e8f1903bd3"
+      ],
+      "expired_at": null,
+      "fact": "小青在 Twitter 针对小橙发布的橙子小屋免费桌游活动帖子提出建议，包括注明活动时间与人数、分设一般游戏区和安静游戏区，并说明音量与收场时间。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "小青",
+      "target_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "uuid": "816ef064-ab9f-4ba4-97ca-9a7f1fae0d30",
+      "valid_at": "2026-10-02T02:16:40.926019Z"
+    },
+    {
+      "attributes": {
+        "details": "建议安排在白天、约定音量与结束时间，并设置安静桌游区"
+      },
+      "created_at": "2026-10-02T02:17:10.207071Z",
+      "episodes": [
+        "6d82ca1f-7d64-4b80-b87e-93e8f1903bd3"
+      ],
+      "expired_at": null,
+      "fact": "小藍针对橙子小屋的免费桌游活动提出建议，包括安排在白天、约定音量与结束时间，以及设置安静桌游区。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小藍",
+      "source_node_uuid": "cd55c909-c82a-42c8-9b82-5b285311c3ed",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "815f96aa-fb35-42b8-a695-25b15ab63363",
+      "valid_at": "2026-10-02T02:16:36.178232Z"
+    },
+    {
+      "attributes": {
+        "details": "小橙在 Twitter 發布橙子小屋預計於週六舉辦免費桌遊活動的公告，並徵求安排建議。"
+      },
+      "created_at": "2026-10-02T02:30:04.024811Z",
+      "episodes": [
+        "6b1ebb07-2589-4161-8989-0ea1e36ad995"
+      ],
+      "expired_at": null,
+      "fact": "小橙在 Twitter 發布橙子小屋預計於週六舉辦免費桌遊活動的公告，並徵求安排建議。",
+      "fact_type": "ANNOUNCES_ON",
+      "invalid_at": null,
+      "name": "ANNOUNCES_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "Twitter",
+      "target_node_uuid": "de69e429-23ad-4b2b-86b3-866a4baa0164",
+      "uuid": "702f9322-e21c-42d2-bbbf-873cf5720f89",
+      "valid_at": "2026-10-02T02:29:22.584765Z"
+    },
+    {
+      "attributes": {
+        "details": "小紫居住在橙子小屋附近"
+      },
+      "created_at": "2026-10-02T02:14:50.283280Z",
+      "episodes": [
+        "35de76ee-c11e-4ce0-a003-3609cdc729e5"
+      ],
+      "expired_at": null,
+      "fact": "小紫是居住在橙子小屋附近的居民。",
+      "fact_type": "LIVES_NEAR",
+      "invalid_at": null,
+      "name": "LIVES_NEAR",
+      "source_node_name": "小紫",
+      "source_node_uuid": "5c146a79-0af7-4e86-88c0-5256bab112a7",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "6237f1cd-c6ce-4a55-b82b-60417238c919",
+      "valid_at": null
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:30:59.072867Z",
+      "episodes": [
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": null,
+      "fact": "小橙說明橙子小屋的活動將設一般遊戲區與較安靜的新手／策略遊戲區，入口會標示活動時段、音量提醒及17:00前收拾完成；若超過容量，將分批或開候補名單。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "4c5403ca-7cd1-44d9-8dab-1e4161f0fa46",
+      "valid_at": "2026-10-02T02:29:36.559742Z"
+    },
+    {
+      "attributes": {
+        "details": "小橙在 Reddit 发布了橙子小屋週六免費桌遊活動的公告"
+      },
+      "created_at": "2026-10-02T02:18:03.357174Z",
+      "episodes": [
+        "61cce13b-a41b-43b9-8678-87b1d5743c2e",
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": "2026-10-02T02:31:17.203186Z",
+      "fact": "小橙在 Reddit 发布了橙子小屋週六免費桌遊活動的公告。",
+      "fact_type": "ANNOUNCES_ON",
+      "invalid_at": "2026-10-02T02:29:22.584765Z",
+      "name": "ANNOUNCES_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "Reddit",
+      "target_node_uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934",
+      "uuid": "4a018904-02e5-4052-abb9-56bfc72342dc",
+      "valid_at": "2026-10-02T02:16:27.609281Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:30:59.072855Z",
+      "episodes": [
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": null,
+      "fact": "小橙在 reddit 說明已規劃週六下午 14:00–17:00於橙子小屋舉辦桌遊活動，並請鄰居留言報名及註明人數。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "Reddit",
+      "target_node_uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934",
+      "uuid": "3f64f919-5db6-46fa-9c47-089a76c4a9b1",
+      "valid_at": "2026-10-02T02:29:36.559742Z"
+    },
+    {
+      "attributes": {
+        "details": "小橙是社區咖啡店「橙子小屋」的店主，負責提供活動場地。"
+      },
+      "created_at": "2026-10-02T02:14:50.283219Z",
+      "episodes": [
+        "35de76ee-c11e-4ce0-a003-3609cdc729e5"
+      ],
+      "expired_at": null,
+      "fact": "小橙是社區咖啡店「橙子小屋」的店主，負責提供活動場地。",
+      "fact_type": "OWNS_OR_OPERATES",
+      "invalid_at": null,
+      "name": "OWNS_OR_OPERATES",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "38332351-604b-4140-9215-66a3cae6cc5f",
+      "valid_at": null
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:18:03.357220Z",
+      "episodes": [
+        "61cce13b-a41b-43b9-8678-87b1d5743c2e"
+      ],
+      "expired_at": null,
+      "fact": "小橙在 Reddit 评论活动安排，提出确认週六活动时段与预计人数、将桌椅集中在店内较里侧、预留通道、设置较安静区域、提醒参加者控制音量并在门口放置活动告示。",
+      "fact_type": "COMMENTS_ON",
+      "invalid_at": null,
+      "name": "COMMENTS_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "Reddit",
+      "target_node_uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934",
+      "uuid": "28bc4d5e-2204-4b57-815a-f7502defe77f",
+      "valid_at": "2026-10-02T02:16:35.974005Z"
+    },
+    {
+      "attributes": {
+        "details": "小青表示可以在橙子小屋協助整理新手場規則並帶桌，讓第一次參加的鄰居加入活動。"
+      },
+      "created_at": "2026-10-02T02:30:59.072849Z",
+      "episodes": [
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": null,
+      "fact": "小青表示可以在橙子小屋協助整理新手場規則並帶桌，讓第一次參加的鄰居加入活動。",
+      "fact_type": "PARTICIPATES_IN",
+      "invalid_at": null,
+      "name": "PARTICIPATES_IN",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "23ee8cf3-e03d-4679-ac0e-e4422e8376b1",
+      "valid_at": "2026-10-02T02:29:31.089720Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:17:10.207015Z",
+      "episodes": [
+        "6d82ca1f-7d64-4b80-b87e-93e8f1903bd3"
+      ],
+      "expired_at": "2026-10-02T02:31:17.203225Z",
+      "fact": "小橙在 Twitter 发布了关于橙子小屋预计于周六举办免费桌游活动的帖子，并邀请大家提出安排建议。",
+      "fact_type": "ANNOUNCES_ON",
+      "invalid_at": "2026-10-02T02:16:27.609281Z",
+      "name": "ANNOUNCES_ON",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "小青",
+      "target_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "uuid": "08d136d4-ad0e-48ba-a88e-fdc68c20fd7f",
+      "valid_at": "2026-10-02T02:16:27.530480Z"
+    },
+    {
+      "attributes": {},
+      "created_at": "2026-10-02T02:30:59.072861Z",
+      "episodes": [
+        "75fa7030-c33a-4534-954f-27b0f9cd502e"
+      ],
+      "expired_at": null,
+      "fact": "小橙規劃於2026年10月3日週六14:00至17:00在橙子小屋舉辦免費桌遊活動，桌椅集中於店內較裡側並保留主要通道。",
+      "fact_type": "ORGANIZES_ACTIVITY_AT",
+      "invalid_at": null,
+      "name": "ORGANIZES_ACTIVITY_AT",
+      "source_node_name": "小橙",
+      "source_node_uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "03ae862e-0285-4cb2-a54e-af5dc8f03137",
+      "valid_at": "2026-10-02T02:29:36.559742Z"
+    },
+    {
+      "attributes": {
+        "details": "小青会协助橙子小屋免费桌游活动的现场流程与规则说明"
+      },
+      "created_at": "2026-10-02T02:18:03.357237Z",
+      "episodes": [
+        "61cce13b-a41b-43b9-8678-87b1d5743c2e"
+      ],
+      "expired_at": null,
+      "fact": "小青会协助橙子小屋免费桌游活动的现场流程与规则说明。",
+      "fact_type": "PARTICIPATES_IN",
+      "invalid_at": null,
+      "name": "PARTICIPATES_IN",
+      "source_node_name": "小青",
+      "source_node_uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef",
+      "target_node_name": "橙子小屋",
+      "target_node_uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53",
+      "uuid": "007610a1-c9df-4e03-8b14-73eaa45dbd07",
+      "valid_at": "2026-10-02T02:16:41.910205Z"
+    }
+  ],
+  "graph_id": "mirofish_bfc9a46fd3874ef1",
+  "node_count": 8,
+  "nodes": [
+    {
+      "attributes": {
+        "business_role": "負責提供場地",
+        "full_name": "小橙"
+      },
+      "created_at": "2026-10-02T02:14:35.814320Z",
+      "labels": [
+        "Entity",
+        "CafeOwner"
+      ],
+      "name": "小橙",
+      "summary": "小橙是社區咖啡店「橙子小屋」的店主，負責提供活動場地。\n小橙在 Twitter 发布了关于橙子小屋预计于周六举办免费桌游活动的帖子，并邀请大家提出安排建议。\n小藍引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排在白天、事先约定音量与结束时间，并设置安静桌游区。\n小青引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排白天时段、报名时注明活动时间与人数，并分设一般游戏区和安静游戏区。\n小橙在 Reddit 发布了橙子小屋週六免費桌遊活動的公告。\n小橙在 Reddit 评论活动安排，提出确认週六活动时段与预计人数、将桌椅集中在店内较里侧、预留通道、设置较安静区域、提醒参加者控制音量并在门口放置活动告示。\n小橙在 Twitter 發布橙子小屋預計於週六舉辦免費桌遊活動的公告，並徵求安排建議。\n小橙在 reddit 說明已規劃週六下午 14:00–17:00於橙子小屋舉辦桌遊活動，並請鄰居留言報名及註明人數。\n小橙規劃於2026年10月3日週六14:00至17:00在橙子小屋舉辦免費桌遊活動，桌椅集中於店內較裡側並保留主要通道。\n小橙說明橙子小屋的活動將設一般遊戲區與較安靜的新手／策略遊戲區，入口會標示活動時段、音量提醒及17:00前收拾完成；若超過容量，將分批或開候補名單。",
+      "uuid": "e1818caf-1744-454c-a7c5-4c6d9c81f135"
+    },
+    {
+      "attributes": {
+        "interaction_features": "发布帖子、评论、引用、点赞",
+        "platform_name": "Twitter"
+      },
+      "created_at": "2026-10-02T02:29:51.269741Z",
+      "labels": [
+        "Entity",
+        "SocialMediaPlatform"
+      ],
+      "name": "Twitter",
+      "summary": "小橙在 Twitter 發布橙子小屋預計於週六舉辦免費桌遊活動的公告，並徵求安排建議。",
+      "uuid": "de69e429-23ad-4b2b-86b3-866a4baa0164"
+    },
+    {
+      "attributes": {
+        "community_preference": "希望現場保持安靜",
+        "full_name": "小藍",
+        "residence_area": "附近"
+      },
+      "created_at": "2026-10-02T02:14:35.814348Z",
+      "labels": [
+        "Entity",
+        "LocalResident"
+      ],
+      "name": "小藍",
+      "summary": "小藍是居住在橙子小屋附近的居民。\n小藍引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排在白天、事先约定音量与结束时间，并设置安静桌游区。\n小藍针对橙子小屋的免费桌游活动提出建议，包括安排在白天、约定音量与结束时间，以及设置安静桌游区。",
+      "uuid": "cd55c909-c82a-42c8-9b82-5b285311c3ed"
+    },
+    {
+      "attributes": {
+        "interaction_features": "發帖、引用、評論",
+        "platform_name": "Reddit"
+      },
+      "created_at": "2026-10-02T02:17:45.879310Z",
+      "labels": [
+        "Entity",
+        "SocialMediaPlatform"
+      ],
+      "name": "Reddit",
+      "summary": "小橙在 Reddit 发布了橙子小屋週六免費桌遊活動的公告。\n小橙在 Reddit 评论活动安排，提出确认週六活动时段与预计人数、将桌椅集中在店内较里侧、预留通道、设置较安静区域、提醒参加者控制音量并在门口放置活动告示。\n小青在 Reddit 评论活动流程，建议确认活动时段、预计人数和报名方式，按人数安排桌游与座位，并安排五分钟说明目标与基本规则、分桌游玩、中场交流和最后收拾；小青会协助现场流程与规则说明。\n小青在 reddit 評論小橙的桌遊活動公告，建議確認週六時段、場地容量與報名方式，並安排一般遊戲區與安靜遊戲區及完整活動流程。\n小橙在 reddit 說明已規劃週六下午 14:00–17:00於橙子小屋舉辦桌遊活動，並請鄰居留言報名及註明人數。",
+      "uuid": "bacdb5f0-1945-43ef-ab59-6b6810308934"
+    },
+    {
+      "attributes": {
+        "location": "社區",
+        "org_name": "橙子小屋",
+        "service_scope": "免費的桌遊活動"
+      },
+      "created_at": "2026-10-02T02:14:35.814238Z",
+      "labels": [
+        "Entity",
+        "CommunityCafe"
+      ],
+      "name": "橙子小屋",
+      "summary": "小橙是社區咖啡店「橙子小屋」的店主，負責提供活動場地。\n小藍是居住在橙子小屋附近的居民。\n小紫是居住在橙子小屋附近的居民。\n小藍针对橙子小屋的免费桌游活动提出建议，包括安排在白天、约定音量与结束时间，以及设置安静桌游区。\n小青会协助橙子小屋免费桌游活动的现场流程与规则说明。\n小紫建議橙子小屋在週六白天舉辦桌遊活動，事先公告活動音量與結束時間，並保留較安靜的空間；她也期待藉此認識鄰居。\n小青表示可以在橙子小屋協助整理新手場規則並帶桌，讓第一次參加的鄰居加入活動。\n小橙規劃於2026年10月3日週六14:00至17:00在橙子小屋舉辦免費桌遊活動，桌椅集中於店內較裡側並保留主要通道。\n小橙說明橙子小屋的活動將設一般遊戲區與較安靜的新手／策略遊戲區，入口會標示活動時段、音量提醒及17:00前收拾完成；若超過容量，將分批或開候補名單。",
+      "uuid": "8b398a3b-d1d8-4f3f-aca5-6be04c359e53"
+    },
+    {
+      "attributes": {
+        "community_preference": "多認識鄰居",
+        "full_name": "小紫",
+        "residence_area": "附近"
+      },
+      "created_at": "2026-10-02T02:14:35.814354Z",
+      "labels": [
+        "Entity",
+        "LocalResident"
+      ],
+      "name": "小紫",
+      "summary": "小紫是居住在橙子小屋附近的居民。\n小紫建議橙子小屋在週六白天舉辦桌遊活動，事先公告活動音量與結束時間，並保留較安靜的空間；她也期待藉此認識鄰居。",
+      "uuid": "5c146a79-0af7-4e86-88c0-5256bab112a7"
+    },
+    {
+      "attributes": {
+        "club_role": "協助現場流程與規則說明",
+        "full_name": "小青"
+      },
+      "created_at": "2026-10-02T02:14:35.814342Z",
+      "labels": [
+        "Entity",
+        "BoardGameClubMember"
+      ],
+      "name": "小青",
+      "summary": "小青是桌遊社的成員，負責在活動中介紹遊戲。\n小橙在 Twitter 发布了关于橙子小屋预计于周六举办免费桌游活动的帖子，并邀请大家提出安排建议。\n小青引用并回应了小橙关于橙子小屋免费桌游活动的帖子，建议安排白天时段、报名时注明活动时间与人数，并分设一般游戏区和安静游戏区。\n小青在 Twitter 针对小橙发布的橙子小屋免费桌游活动帖子提出建议，包括注明活动时间与人数、分设一般游戏区和安静游戏区，并说明音量与收场时间。\n小青在 Twitter 针对小橙发布的橙子小屋免费桌游活动帖子提出建议，包括注明活动时间与人数、分设一般游戏区和安静游戏区，并说明音量与收场时间。\n小青在 Reddit 评论活动流程，建议确认活动时段、预计人数和报名方式，按人数安排桌游与座位，并安排五分钟说明目标与基本规则、分桌游玩、中场交流和最后收拾；小青会协助现场流程与规则说明。\n小青会协助橙子小屋免费桌游活动的现场流程与规则说明。\n小青在 reddit 評論小橙的桌遊活動公告，建議確認週六時段、場地容量與報名方式，並安排一般遊戲區與安靜遊戲區及完整活動流程。\n小青表示可以在橙子小屋協助整理新手場規則並帶桌，讓第一次參加的鄰居加入活動。",
+      "uuid": "44b84fe6-4264-453f-aacd-d28197bd44ef"
+    },
+    {
+      "attributes": {
+        "activity_focus": "桌遊活動",
+        "org_name": "桌遊社"
+      },
+      "created_at": "2026-10-02T02:14:35.814334Z",
+      "labels": [
+        "Entity",
+        "BoardGameClub"
+      ],
+      "name": "桌遊社",
+      "summary": "小青是桌遊社的成員，負責在活動中介紹遊戲。",
+      "uuid": "22ef17a2-6bbe-4f65-91ab-77c92f98e1c8"
+    }
+  ]
+}

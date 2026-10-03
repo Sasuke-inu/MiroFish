@@ -9,6 +9,7 @@ OASIS Agent Profile生成器
 """
 
 import json
+from ..utils.json_object import unwrap_properties
 import random
 import time
 from typing import Dict, Any, List, Optional
@@ -248,16 +249,20 @@ class OasisProfileGenerator:
         zep_api_key: Optional[str] = None,
         graph_id: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model_name = model_name or Config.LLM_MODEL_NAME
+        from ..provider_settings import get_model_settings
+        settings = get_model_settings()
+        self.api_key = api_key or settings['api_key']
+        self.base_url = base_url or settings['base_url']
+        self.model_name = model_name or settings['model']
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
         
+        from openai import DefaultHttpxClient
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
         
         # Zep客户端用于检索丰富上下文
@@ -265,7 +270,7 @@ class OasisProfileGenerator:
         self.zep_client = None
         self.graph_id = graph_id
         
-        if self.zep_api_key:
+        if self.zep_api_key or Config.GRAPH_PROVIDER == 'graphiti':
             try:
                 self.zep_client = get_zep_client(self.zep_api_key)
             except Exception as e:
@@ -531,7 +536,9 @@ class OasisProfileGenerator:
     
     def _is_individual_entity(self, entity_type: str) -> bool:
         """判断是否是个人类型实体"""
-        return entity_type.lower() in self.INDIVIDUAL_ENTITY_TYPES
+        return (entity_type.lower() in self.INDIVIDUAL_ENTITY_TYPES or
+                entity_type.lower().endswith(('person', 'owner', 'member', 'resident',
+                                               'employee', 'worker', 'participant', 'customer')))
     
     def _is_group_entity(self, entity_type: str) -> bool:
         """判断是否是群体/机构类型实体"""
@@ -592,13 +599,11 @@ class OasisProfileGenerator:
                 
                 # 尝试解析JSON
                 try:
-                    result = json.loads(content)
+                    result = unwrap_properties(json.loads(content), {'bio', 'persona', 'age', 'profession', 'mbti'})
                     
                     # 验证必需字段
-                    if "bio" not in result or not result["bio"]:
-                        result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
-                    if "persona" not in result or not result["persona"]:
-                        result["persona"] = entity_summary or f"{entity_name}是一个{entity_type}。"
+                    if not result.get('bio') or not result.get('persona'):
+                        raise ValueError('Profile response must include non-empty bio and persona fields')
                     
                     return result
                     
@@ -716,7 +721,15 @@ class OasisProfileGenerator:
     def _get_system_prompt(self, is_individual: bool) -> str:
         """获取系统提示词"""
         base_prompt = "你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。"
-        return f"{base_prompt}\n\n{get_language_instruction()}"
+        return (f"{base_prompt}\n\n{get_language_instruction()}\n"
+                'Return exactly one JSON object with these English keys: '
+                'bio, persona, age, gender, mbti, country, profession, interested_topics. '
+                'Do not rename or translate keys, add wrappers, or substitute another profile schema. '
+                'bio and persona must contain non-empty text, not a schema definition. '
+                'Use this exact structure: {"bio":"...","persona":"...","age":30,'
+                '"gender":"other","mbti":"ISTJ","country":"...",'
+                '"profession":"...","interested_topics":["..."]}. '
+                'Keep factual information consistent with the supplied source; simulated details are fictional.')
     
     def _build_individual_persona_prompt(
         self,

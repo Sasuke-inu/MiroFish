@@ -11,6 +11,7 @@
 """
 
 import json
+from ..utils.json_object import unwrap_properties
 import math
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field, asdict
@@ -229,16 +230,20 @@ class SimulationConfigGenerator:
         base_url: Optional[str] = None,
         model_name: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model_name = model_name or Config.LLM_MODEL_NAME
+        from ..provider_settings import get_model_settings
+        settings = get_model_settings()
+        self.api_key = api_key or settings['api_key']
+        self.base_url = base_url or settings['base_url']
+        self.model_name = model_name or settings['model']
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
         
+        from openai import DefaultHttpxClient
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
     
     def generate_config(
@@ -435,6 +440,9 @@ class SimulationConfigGenerator:
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
         """带重试的LLM调用，包含JSON修复逻辑"""
         import re
+        system_prompt += ('\nReturn exactly the JSON structure shown in the user request. '
+                          'Keep all English JSON property names unchanged. Do not translate keys, '
+                          'add wrappers, or replace the requested structure with another schema.')
         
         max_attempts = 3
         last_error = None
@@ -463,7 +471,11 @@ class SimulationConfigGenerator:
                 
                 # 尝试解析JSON
                 try:
-                    return json.loads(content)
+                    return unwrap_properties(json.loads(content), {
+                        'total_simulation_hours', 'minutes_per_round', 'agents_per_hour_min',
+                        'hot_topics', 'initial_posts', 'narrative_direction',
+                        'agents', 'agent_configs', 'twitter_config', 'reddit_config',
+                    })
                 except json.JSONDecodeError as e:
                     logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(e)[:80]}")
                     

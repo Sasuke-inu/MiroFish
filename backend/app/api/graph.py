@@ -484,14 +484,13 @@ def _build_graph_impl():
         
         # 检查配置
         errors = []
-        if not Config.ZEP_API_KEY:
-            errors.append(t('api.zepApiKeyMissing'))
+        errors.extend(Config.graph_configuration_errors())
         if errors:
             logger.error(f"配置错误: {errors}")
             return jsonify({
                 "success": False,
                 "error": t('api.configError', details="; ".join(errors))
-            }), 500
+            }), 503
         
         # 解析请求
         data = request.get_json() or {}
@@ -882,10 +881,10 @@ def get_graph_data(graph_id: str):
     获取图谱数据（节点和边）
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.graph_configuration_errors():
             return jsonify({
                 "success": False,
-                "error": t('api.zepApiKeyMissing')
+                "error": '; '.join(Config.graph_configuration_errors())
             }), 500
         
         builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
@@ -910,10 +909,10 @@ def delete_graph(graph_id: str):
     删除Zep图谱
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.graph_configuration_errors():
             return jsonify({
                 "success": False,
-                "error": t('api.zepApiKeyMissing')
+                "error": '; '.join(Config.graph_configuration_errors())
             }), 500
         
         projects = ProjectManager.find_projects_by_graph_id(graph_id)

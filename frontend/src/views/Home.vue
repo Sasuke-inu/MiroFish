@@ -1,223 +1,119 @@
 <template>
   <div class="home-container">
-    <!-- 顶部导航栏 -->
-    <nav class="navbar">
-      <div class="nav-brand">MIROFISH</div>
-      <div class="nav-links">
+    <nav class="studio-navbar" :aria-label="$t('studio.navigation')">
+      <RouterLink to="/" class="studio-brand"><span class="brand-mark" aria-hidden="true">≈</span><span>MIROFISH<small>{{ $t('studio.brandSubtitle') }}</small></span></RouterLink>
+      <div class="studio-nav-links">
+        <button @click="scrollToBottom" class="history-link">{{ $t('studio.history') }}</button>
         <LanguageSwitcher />
-        <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
-          {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
-        </a>
+        <PreferenceControls />
+        <a href="https://github.com/666ghj/MiroFish" target="_blank" rel="noopener noreferrer" class="source-link">GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </nav>
-
-    <div class="main-content">
-      <!-- 上半部分：Hero 区域 -->
-      <section class="hero-section">
-        <div class="hero-left">
-          <div class="tag-row">
-            <span class="orange-tag">{{ $t('home.tagline') }}</span>
-            <span class="version-text">{{ $t('home.version') }}</span>
-          </div>
-          
-          <h1 class="main-title">
-            {{ $t('home.heroTitle1') }}<br>
-            <span class="gradient-text">{{ $t('home.heroTitle2') }}</span>
-          </h1>
-          
-          <div class="hero-desc">
-            <p>
-              <i18n-t keypath="home.heroDesc" tag="span">
-                <template #brand><span class="highlight-bold">{{ $t('home.heroDescBrand') }}</span></template>
-                <template #agentScale><span class="highlight-orange">{{ $t('home.heroDescAgentScale') }}</span></template>
-                <template #optimalSolution><span class="highlight-code">{{ $t('home.heroDescOptimalSolution') }}</span></template>
-              </i18n-t>
-            </p>
-            <p class="slogan-text">
-              {{ $t('home.slogan') }}<span class="blinking-cursor">_</span>
-            </p>
-          </div>
-           
-          <div class="decoration-square"></div>
-        </div>
-        
-        <div class="hero-right">
-          <!-- Logo 区域 -->
-          <div class="logo-container">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="MiroFish Logo" class="hero-logo" />
-          </div>
-          
-          <button class="scroll-down-btn" @click="scrollToBottom">
-            ↓
-          </button>
-        </div>
-      </section>
-
-      <!-- 下半部分：双栏布局 -->
-      <section class="dashboard-section">
-        <!-- 左栏：状态与步骤 -->
-        <div class="left-panel">
-          <div class="panel-header">
-            <span class="status-dot">■</span> {{ $t('home.systemStatus') }}
-          </div>
-          
-          <h2 class="section-title">{{ $t('home.systemReady') }}</h2>
-          <p class="section-desc">
-            {{ $t('home.systemReadyDesc') }}
-          </p>
-          
-          <!-- 数据指标卡片 -->
-          <div class="metrics-row">
-            <div class="metric-card">
-              <div class="metric-value">{{ $t('home.metricLowCost') }}</div>
-              <div class="metric-label">{{ $t('home.metricLowCostDesc') }}</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value">{{ $t('home.metricHighAvail') }}</div>
-              <div class="metric-label">{{ $t('home.metricHighAvailDesc') }}</div>
-            </div>
-          </div>
-
-          <!-- 项目模拟步骤介绍 (新增区域) -->
-          <div class="steps-container">
-            <div class="steps-header">
-               <span class="diamond-icon">◇</span> {{ $t('home.workflowSequence') }}
-            </div>
-            <div class="workflow-list">
-              <div class="workflow-item">
-                <span class="step-num">01</span>
-                <div class="step-info">
-                  <div class="step-title">{{ $t('home.step01Title') }}</div>
-                  <div class="step-desc">{{ $t('home.step01Desc') }}</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">02</span>
-                <div class="step-info">
-                  <div class="step-title">{{ $t('home.step02Title') }}</div>
-                  <div class="step-desc">{{ $t('home.step02Desc') }}</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">03</span>
-                <div class="step-info">
-                  <div class="step-title">{{ $t('home.step03Title') }}</div>
-                  <div class="step-desc">{{ $t('home.step03Desc') }}</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">04</span>
-                <div class="step-info">
-                  <div class="step-title">{{ $t('home.step04Title') }}</div>
-                  <div class="step-desc">{{ $t('home.step04Desc') }}</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">05</span>
-                <div class="step-info">
-                  <div class="step-title">{{ $t('home.step05Title') }}</div>
-                  <div class="step-desc">{{ $t('home.step05Desc') }}</div>
-                </div>
+    <main class="studio-home-main" id="workspace-content" tabindex="-1">
+      <header class="studio-intro">
+        <h1>{{ $t('studio.refined.headline') }}</h1>
+        <p>{{ $t('studio.refined.intro') }}</p>
+      </header>
+      <div class="studio-home-grid">
+        <section class="new-project-card" aria-labelledby="new-project-heading">
+          <h2 id="new-project-heading" class="visually-hidden">{{ $t('studio.newProject') }}</h2>
+          <div class="project-inputs">
+            <div class="form-section prompt-section">
+              <h3 class="form-section-heading"><span aria-hidden="true">1</span><label for="simulation-goal">{{ $t('studio.refined.question') }}</label></h3>
+              <textarea id="simulation-goal" v-model="formData.simulationRequirement" class="goal-input" :placeholder="$t('studio.goalPlaceholder')" rows="3" :disabled="loading"></textarea>
+              <div v-if="!formData.simulationRequirement.trim()" class="goal-examples">
+                <button v-for="(example, index) in $tm('quality.examples')" :key="index" type="button" :disabled="loading" @click="useExample(index)">{{ example.label }}<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 12 12 4M4 4h8v8" /></svg></button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- 右栏：交互控制台 -->
-        <div class="right-panel">
-          <div class="console-box">
-            <!-- 上传区域 -->
-            <div class="console-section">
-              <div class="console-header">
-                <span class="console-label">{{ $t('home.realitySeed') }}</span>
-                <span class="console-meta">{{ $t('home.supportedFormats') }}</span>
-              </div>
-              
-              <div 
-                class="upload-zone"
-                :class="{ 'drag-over': isDragOver, 'has-files': files.length > 0 }"
-                @dragover.prevent="handleDragOver"
-                @dragleave.prevent="handleDragLeave"
-                @drop.prevent="handleDrop"
-                @click="triggerFileInput"
-              >
-                <input
-                  ref="fileInput"
-                  type="file"
-                  multiple
-                  accept=".pdf,.md,.txt"
-                  @change="handleFileSelect"
-                  style="display: none"
-                  :disabled="loading"
-                />
-                
-                <div v-if="files.length === 0" class="upload-placeholder">
-                  <div class="upload-icon">↑</div>
-                  <div class="upload-title">{{ $t('home.dragToUpload') }}</div>
-                  <div class="upload-hint">{{ $t('home.orBrowse') }}</div>
-                </div>
-                
-                <div v-else class="file-list">
+            <div class="form-section">
+              <h3 class="form-section-heading"><span aria-hidden="true">2</span>{{ $t('studio.uploadTitle') }}</h3>
+              <WebSources :collection="sourceCollection" :disabled="loading" />
+              <div class="upload-zone" :class="{ 'drag-over': isDragOver, 'has-files': files.length > 0 }" @dragover.prevent="handleDragOver" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop">
+                <input ref="fileInput" id="source-files" type="file" multiple accept=".pdf,.md,.markdown,.txt" @change="handleFileSelect" class="visually-hidden" :disabled="loading" :aria-label="$t('studio.uploadTitle')" />
+                <button type="button" class="upload-select" @click="triggerFileInput" :disabled="loading">
+                  <svg class="upload-symbol" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 13V4h8l4 4v6M16 4v5h4M4 14v6h16v-3M8 14l4-4 4 4M12 10v7" /></svg>
+                  <span class="upload-title">{{ files.length ? $t('studio.addFiles') : $t('studio.refined.upload') }}</span>
+                  <span class="upload-hint">PDF · MD · TXT</span>
+                </button>
+                <div v-if="files.length" class="file-list" aria-live="polite">
                   <div v-for="(file, index) in files" :key="index" class="file-item">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name">{{ file.name }}</span>
-                    <button @click.stop="removeFile(index)" class="remove-btn">×</button>
+                    <span class="file-extension">{{ file.name.split('.').pop().toUpperCase() }}</span>
+                    <span class="file-meta"><span class="file-name">{{ file.name }}</span><small>{{ formatSize(file.size) }}</small></span>
+                    <button type="button" @click.stop="removeFile(index)" class="remove-btn" :disabled="loading" :aria-label="$t('studio.removeFile', { name: file.name })">×</button>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <!-- 分割线 -->
-            <div class="console-divider">
-              <span>{{ $t('home.inputParams') }}</span>
-            </div>
-
-            <!-- 输入区域 -->
-            <div class="console-section">
-              <div class="console-header">
-                <span class="console-label">{{ $t('home.simulationPrompt') }}</span>
-              </div>
-              <div class="input-wrapper">
-                <textarea
-                  v-model="formData.simulationRequirement"
-                  class="code-input"
-                  :placeholder="$t('home.promptPlaceholder')"
-                  rows="6"
-                  :disabled="loading"
-                ></textarea>
-                <div class="model-badge">{{ $t('home.engineBadge') }}</div>
-              </div>
-            </div>
-
-            <!-- 启动按钮 -->
-            <div class="console-section btn-section">
-              <button 
-                class="start-engine-btn"
-                @click="startSimulation"
-                :disabled="!canSubmit || loading"
-              >
-                <span v-if="!loading">{{ $t('home.startEngine') }}</span>
-                <span v-else>{{ $t('home.initializing') }}</span>
-                <span class="btn-arrow">→</span>
-              </button>
+              <p v-if="fileFeedback" class="file-feedback" role="status">{{ fileFeedback }}</p>
+              <p v-if="files.length" class="file-summary" role="status">{{ $t('quality.filesReady', { count: files.length, size: formatSize(totalSize) }) }}</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- 历史项目数据库 -->
-      <HistoryDatabase />
-    </div>
+          <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+          <div class="project-submit-row">
+            <p aria-live="polite">{{ submitHelp }}</p>
+            <div class="submit-actions">
+              <button v-if="sourceCollection.errorCode && availableFiles.length" type="button" class="continue-sources-btn" :disabled="loading || !formData.simulationRequirement.trim()" @click="startSimulation(true)">{{ $t('sources.simple.continue', { count: availableFiles.length }) }}</button>
+              <button type="button" class="start-engine-btn" @click="startSimulation()" :disabled="!canSubmit || loading"><span>{{ startLabel }}</span><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 10h14m-6-6 6 6-6 6" /></svg></button>
+            </div>
+          </div>
+        </section>
+        <aside class="journey-panel">
+          <ExplorationJourney />
+          <details class="workflow-details">
+            <summary>{{ $t('studio.refined.fullWorkflow') }}</summary>
+            <WorkflowExplorer />
+          </details>
+        </aside>
+      </div>
+      <details class="workspace-details">
+        <summary><span>{{ $t('studio.refined.connections') }}</span><span class="readiness-summary"><span class="service-dot" :class="{ connected: systemStatus?.ready }" aria-hidden="true"></span>{{ readinessTitle }}</span></summary>
+        <section class="service-card" aria-labelledby="service-heading">
+          <h2 id="service-heading">{{ $t('studio.serviceStatus') }}</h2>
+          <p>{{ readinessDescription }}</p>
+          <div class="service-row"><span>{{ $t('studio.modelConnection') }}</span><strong :class="{ connected: systemStatus?.llm_configured }">{{ connection(systemStatus?.llm_configured) }}</strong></div>
+          <div class="service-row"><span>{{ $t(systemStatus?.graph_provider === 'graphiti' ? 'studio.localGraphConnection' : 'studio.graphConnection') }}</span><strong :class="{ connected: systemStatus?.graph_configured }">{{ connection(systemStatus?.graph_configured) }}</strong></div>
+          <button v-if="statusError" type="button" class="service-retry" :disabled="statusBusy" @click="refreshStatus">{{ $t('studio.refresh') }}</button>
+        </section>
+      </details>
+      <section id="project-history" class="studio-history"><HistoryDatabase /></section>
+      <footer class="studio-footer"><span>MIROFISH / {{ $t('studio.brandSubtitle') }}</span><span>{{ $t('studio.footer') }}</span></footer>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, inject, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import PreferenceControls from '../components/PreferenceControls.vue'
+import WebSources from '../components/WebSources.vue'
+import WorkflowExplorer from '../components/WorkflowExplorer.vue'
+import ExplorationJourney from '../components/ExplorationJourney.vue'
+import { setPendingUpload, clearPendingUpload } from '../store/pendingUpload'
+import { useSourceCollection } from '../composables/useSourceCollection'
 
 const router = useRouter()
+const { t, tm } = useI18n()
+const systemStatus = inject('systemStatus', ref(null))
+const statusError = inject('systemStatusError', ref(false))
+const statusBusy = inject('systemStatusBusy', ref(false))
+const refreshStatus = inject('refreshSystemStatus', () => {})
+const connection = configured => t(statusError.value ? 'settings.unreachable' : !systemStatus.value ? 'studio.checking' : configured ? 'studio.connected' : 'studio.needsSetup')
+const readinessTitle = computed(() => {
+  if (statusError.value) return t('settings.unreachable')
+  if (!systemStatus.value) return t('studio.checkingTitle')
+  if (systemStatus.value.ready) return t('home.systemReady')
+  return systemStatus.value.llm_configured ? t('studio.analysisReady') : t('studio.modelPending')
+})
+const readinessDescription = computed(() => {
+  if (statusError.value) return t('studio.serviceError')
+  if (!systemStatus.value) return t('studio.checkingDesc')
+  if (systemStatus.value.ready) return t('home.systemReadyDesc')
+  return systemStatus.value.llm_configured
+    ? t('studio.analysisReadyDesc')
+    : t('studio.modelPendingDesc')
+})
 
 // 表单数据
 const formData = ref({
@@ -229,15 +125,35 @@ const files = ref([])
 
 // 状态
 const loading = ref(false)
+const sourceCollection = useSourceCollection()
+let mounted = true
+onUnmounted(() => { mounted = false })
 const error = ref('')
+const fileFeedback = ref('')
 const isDragOver = ref(false)
+const totalSize = computed(() => files.value.reduce((sum, file) => sum + file.size, 0))
+const formatSize = size => size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / (1024 * 1024)).toFixed(1)} MB`
+const availableFiles = computed(() => [...files.value, ...sourceCollection.getFiles()])
+const submitHelp = computed(() => {
+  if (sourceCollection.busy) return t(`sources.simple.${sourceCollection.phase || 'checking'}`)
+  if (!files.value.length && !sourceCollection.urls.length) return t('sources.simple.needSources')
+  if (!formData.value.simulationRequirement.trim()) return t('quality.needGoal')
+  return t(sourceCollection.urls.length ? 'sources.simple.startHelp' : 'studio.startHelp')
+})
+const startLabel = computed(() => t(loading.value ? sourceCollection.busy ? 'sources.simple.preparing' : 'home.initializing'
+  : sourceCollection.uncertain ? 'sources.simple.checkResult'
+  : ['upstream', 'timeout', 'too_large', 'empty', 'page_error', 'storage', 'plan_expired'].includes(sourceCollection.errorCode) && sourceCollection.pendingUrls.length ? 'sources.simple.retry' : 'studio.start'))
+const useExample = index => {
+  formData.value.simulationRequirement = tm('quality.examples')[index].prompt
+  document.getElementById('simulation-goal')?.focus()
+}
 
 // 文件输入引用
 const fileInput = ref(null)
 
 // 计算属性:是否可以提交
 const canSubmit = computed(() => {
-  return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
+  return !sourceCollection.busy && formData.value.simulationRequirement.trim() !== '' && (files.value.length > 0 || sourceCollection.urls.length > 0)
 })
 
 // 触发文件选择
@@ -251,6 +167,8 @@ const triggerFileInput = () => {
 const handleFileSelect = (event) => {
   const selectedFiles = Array.from(event.target.files)
   addFiles(selectedFiles)
+  // Allow selecting the same file again after removing it.
+  event.target.value = ''
 }
 
 // 处理拖拽相关
@@ -274,680 +192,153 @@ const handleDrop = (e) => {
 
 // 添加文件
 const addFiles = (newFiles) => {
-  const validFiles = newFiles.filter(file => {
-    const ext = file.name.split('.').pop().toLowerCase()
-    return ['pdf', 'md', 'txt'].includes(ext)
-  })
-  files.value.push(...validFiles)
+  if (loading.value) return
+  const messages = new Set()
+  for (const file of newFiles) {
+    const ext = file.name.match(/^.+\.([^.]+)$/)?.[1].toLowerCase()
+    if (!['pdf', 'md', 'markdown', 'txt'].includes(ext)) { messages.add(t('quality.unsupportedFile')); continue }
+    if (!file.size) { messages.add(t('quality.emptyFile')); continue }
+    if (files.value.some(item => item.name === file.name && item.size === file.size && item.lastModified === file.lastModified)) { messages.add(t('quality.duplicateFile')); continue }
+    // Leave room for the form fields within the server's 50 MiB request limit.
+    if (totalSize.value + file.size > 49 * 1024 * 1024) { messages.add(t('quality.largeFiles')); continue }
+    files.value.push(file)
+  }
+  fileFeedback.value = [...messages].join(' ')
 }
 
 // 移除文件
 const removeFile = (index) => {
   files.value.splice(index, 1)
+  fileFeedback.value = ''
 }
 
 // 滚动到底部
 const scrollToBottom = () => {
-  window.scrollTo({
-    top: document.body.scrollHeight,
-    behavior: 'smooth'
-  })
+  document.getElementById('history-heading')?.focus({ preventScroll: true })
+  document.getElementById('project-history')?.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
 }
 
-// 开始模拟 - 立即跳转，API调用在Process页面进行
-const startSimulation = () => {
+// One explicit action prepares sources, then enters the existing analysis flow.
+const startSimulation = async (useAvailable = false) => {
   if (!canSubmit.value || loading.value) return
-  
-  // 存储待上传的数据
-  import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
-    setPendingUpload(files.value, formData.value.simulationRequirement)
-    
-    // 立即跳转到Process页面（使用特殊标识表示新建项目）
-    router.push({
+  loading.value = true
+  error.value = ''
+  try {
+    if (!useAvailable && !await sourceCollection.prepare()) {
+      await nextTick()
+      if (mounted && router.currentRoute.value.name === 'Home') document.querySelector('.sources-error')?.focus()
+      return
+    }
+    // Settings keeps this draft mounted. Finishing in the background must not
+    // interrupt the user's current page or trigger an analysis behind it.
+    if (!mounted || router.currentRoute.value.name !== 'Home') return
+    const prepared = availableFiles.value
+    if (!prepared.length) return
+    if (prepared.reduce((sum, file) => sum + file.size, 0) > 49 * 1024 * 1024) {
+      error.value = t('quality.largeFiles')
+      return
+    }
+    setPendingUpload(prepared, formData.value.simulationRequirement)
+    const navigationFailure = await router.push({
       name: 'Process',
       params: { projectId: 'new' }
     })
-  })
+    if (navigationFailure) { clearPendingUpload(); error.value = t('quality.startFailed') }
+  } catch {
+    clearPendingUpload()
+    error.value = t('quality.startFailed')
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <style scoped>
-/* 全局变量与重置 */
-:root {
-  --black: #000000;
-  --white: #FFFFFF;
-  --orange: #FF4500;
-  --gray-light: #F5F5F5;
-  --gray-text: #666666;
-  --border: #E5E5E5;
-  /* 
-    使用 Space Grotesk 作为主要标题字体，JetBrains Mono 作为代码/标签字体
-    确保已在 index.html 引入这些 Google Fonts 
-  */
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
-  --font-cn: 'Noto Sans SC', system-ui, sans-serif;
-}
-
-.home-container {
-  min-height: 100vh;
-  background: var(--white);
-  font-family: var(--font-sans);
-  color: var(--black);
-}
-
-/* 顶部导航 */
-.navbar {
-  height: 60px;
-  background: var(--black);
-  color: var(--white);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 40px;
-}
-
-.nav-brand {
-  font-family: var(--font-mono);
-  font-weight: 800;
-  letter-spacing: 1px;
-  font-size: 1.2rem;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.github-link {
-  color: var(--white);
-  text-decoration: none;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: opacity 0.2s;
-}
-
-.github-link:hover {
-  opacity: 0.8;
-}
-
-.arrow {
-  font-family: sans-serif;
-}
-
-/* 主要内容区 */
-.main-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 60px 40px;
-}
-
-/* Hero 区域 */
-.hero-section {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 80px;
-  position: relative;
-}
-
-.hero-left {
-  flex: 1;
-  padding-right: 60px;
-}
-
-.tag-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 25px;
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-}
-
-.orange-tag {
-  background: var(--orange);
-  color: var(--white);
-  padding: 4px 10px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  font-size: 0.75rem;
-}
-
-.version-text {
-  color: #999;
-  font-weight: 500;
-  letter-spacing: 0.5px;
-}
-
-.main-title {
-  font-size: 4.5rem;
-  line-height: 1.2;
-  font-weight: 500;
-  margin: 0 0 40px 0;
-  letter-spacing: -2px;
-  color: var(--black);
-}
-
-.gradient-text {
-  background: linear-gradient(90deg, #000000 0%, #444444 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  display: inline-block;
-}
-
-.hero-desc {
-  font-size: 1.05rem;
-  line-height: 1.8;
-  color: var(--gray-text);
-  max-width: 640px;
-  margin-bottom: 50px;
-  font-weight: 400;
-  text-align: justify;
-}
-
-.hero-desc p {
-  margin-bottom: 1.5rem;
-}
-
-.highlight-bold {
-  color: var(--black);
-  font-weight: 700;
-}
-
-.highlight-orange {
-  color: var(--orange);
-  font-weight: 700;
-  font-family: var(--font-mono);
-}
-
-.highlight-code {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  color: var(--black);
-  font-weight: 600;
-}
-
-.slogan-text {
-  font-size: 1.2rem;
-  font-weight: 520;
-  color: var(--black);
-  letter-spacing: 1px;
-  border-left: 3px solid var(--orange);
-  padding-left: 15px;
-  margin-top: 20px;
-}
-
-.blinking-cursor {
-  color: var(--orange);
-  animation: blink 1s step-end infinite;
-  font-weight: 700;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.decoration-square {
-  width: 16px;
-  height: 16px;
-  background: var(--orange);
-}
-
-.hero-right {
-  flex: 0.8;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-}
-
-.logo-container {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-  padding-right: 40px;
-}
-
-.hero-logo {
-  max-width: 500px; /* 调整logo大小 */
-  width: 100%;
-}
-
-.scroll-down-btn {
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--border);
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--orange);
-  font-size: 1.2rem;
-  transition: all 0.2s;
-}
-
-.scroll-down-btn:hover {
-  border-color: var(--orange);
-}
-
-/* Dashboard 双栏布局 */
-.dashboard-section {
-  display: flex;
-  gap: 60px;
-  border-top: 1px solid var(--border);
-  padding-top: 60px;
-  align-items: flex-start;
-}
-
-.dashboard-section .left-panel,
-.dashboard-section .right-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 左侧面板 */
-.left-panel {
-  flex: 0.8;
-}
-
-.panel-header {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: #999;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.status-dot {
-  color: var(--orange);
-  font-size: 0.8rem;
-}
-
-.section-title {
-  font-size: 2rem;
-  font-weight: 520;
-  margin: 0 0 15px 0;
-}
-
-.section-desc {
-  color: var(--gray-text);
-  margin-bottom: 25px;
-  line-height: 1.6;
-}
-
-.metrics-row {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 15px;
-}
-
-.metric-card {
-  border: 1px solid var(--border);
-  padding: 20px 30px;
-  min-width: 150px;
-}
-
-.metric-value {
-  font-family: var(--font-mono);
-  font-size: 1.8rem;
-  font-weight: 520;
-  margin-bottom: 5px;
-}
-
-.metric-label {
-  font-size: 0.85rem;
-  color: #999;
-}
-
-/* 项目模拟步骤介绍 */
-.steps-container {
-  border: 1px solid var(--border);
-  padding: 30px;
-  position: relative;
-}
-
-.steps-header {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  color: #999;
-  margin-bottom: 25px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diamond-icon {
-  font-size: 1.2rem;
-  line-height: 1;
-}
-
-.workflow-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.workflow-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-.step-num {
-  font-family: var(--font-mono);
-  font-weight: 700;
-  color: var(--black);
-  opacity: 0.3;
-}
-
-.step-info {
-  flex: 1;
-}
-
-.step-title {
-  font-weight: 520;
-  font-size: 1rem;
-  margin-bottom: 4px;
-}
-
-.step-desc {
-  font-size: 0.85rem;
-  color: var(--gray-text);
-}
-
-/* 右侧交互控制台 */
-.right-panel {
-  flex: 1.2;
-}
-
-.console-box {
-  border: 1px solid #CCC; /* 外部实线 */
-  padding: 8px; /* 内边距形成双重边框感 */
-}
-
-.console-section {
-  padding: 20px;
-}
-
-.console-section.btn-section {
-  padding-top: 0;
-}
-
-.console-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: #666;
-}
-
-.upload-zone {
-  border: 1px dashed #CCC;
-  height: 200px;
-  overflow-y: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s;
-  background: #FAFAFA;
-}
-
-.upload-zone.has-files {
-  align-items: flex-start;
-}
-
-.upload-zone:hover {
-  background: #F0F0F0;
-  border-color: #999;
-}
-
-.upload-placeholder {
-  text-align: center;
-}
-
-.upload-icon {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #DDD;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 15px;
-  color: #999;
-}
-
-.upload-title {
-  font-weight: 500;
-  font-size: 0.9rem;
-  margin-bottom: 5px;
-}
-
-.upload-hint {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: #999;
-}
-
-.file-list {
-  width: 100%;
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  background: var(--white);
-  padding: 8px 12px;
-  border: 1px solid #EEE;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-}
-
-.file-name {
-  flex: 1;
-  margin: 0 10px;
-}
-
-.remove-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  color: #999;
-}
-
-.console-divider {
-  display: flex;
-  align-items: center;
-  margin: 10px 0;
-}
-
-.console-divider::before,
-.console-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #EEE;
-}
-
-.console-divider span {
-  padding: 0 15px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: #BBB;
-  letter-spacing: 1px;
-}
-
-.input-wrapper {
-  position: relative;
-  border: 1px solid #DDD;
-  background: #FAFAFA;
-}
-
-.code-input {
-  width: 100%;
-  border: none;
-  background: transparent;
-  padding: 20px;
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
-  line-height: 1.6;
-  resize: vertical;
-  outline: none;
-  min-height: 150px;
-}
-
-.model-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 15px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: #AAA;
-}
-
-.start-engine-btn {
-  width: 100%;
-  background: var(--black);
-  color: var(--white);
-  border: none;
-  padding: 20px;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 1.1rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  letter-spacing: 1px;
-  position: relative;
-  overflow: hidden;
-}
-
-/* 可点击状态（非禁用） */
-.start-engine-btn:not(:disabled) {
-  background: var(--black);
-  border: 1px solid var(--black);
-  animation: pulse-border 2s infinite;
-}
-
-.start-engine-btn:hover:not(:disabled) {
-  background: var(--orange);
-  border-color: var(--orange);
-  transform: translateY(-2px);
-}
-
-.start-engine-btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.start-engine-btn:disabled {
-  background: #E5E5E5;
-  color: #999;
-  cursor: not-allowed;
-  transform: none;
-  border: 1px solid #E5E5E5;
-}
-
-/* 引导动画：微妙的边框脉冲 */
-@keyframes pulse-border {
-  0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
-  70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
-}
-
-/* 响应式适配 */
-@media (max-width: 1024px) {
-  .dashboard-section {
-    flex-direction: column;
-  }
-  
-  .hero-section {
-    flex-direction: column;
-  }
-  
-  .hero-left {
-    padding-right: 0;
-    margin-bottom: 40px;
-  }
-  
-  .hero-logo {
-    max-width: 200px;
-    margin-bottom: 20px;
-  }
-}
-</style>
-
-<style>
-/* English locale adjustments (unscoped to target html[lang]) */
-html[lang="en"] .main-title {
-  font-size: 3.5rem;
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  letter-spacing: -1px;
-}
-
-html[lang="en"] .hero-desc {
-  text-align: left;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  letter-spacing: 0;
-}
-
-html[lang="en"] .slogan-text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  letter-spacing: 0;
-}
-
-html[lang="en"] .tag-row {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-html[lang="en"] .navbar .nav-links {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* Left pane: system status + workflow */
-html[lang="en"] .status-section {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-html[lang="en"] .status-section .status-ready {
-  font-size: 1.6rem;
-}
-
-html[lang="en"] .status-section .metric-value {
-  font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 1.4rem;
-}
-
-html[lang="en"] .workflow-list .step-title {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-html[lang="en"] .workflow-list .step-desc {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  font-size: 0.72rem !important;
-  line-height: 1.4 !important;
-}
-
-html[lang="en"] .workflow-list {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+.home-container { --workspace-gap: 28px; --group-gap: 20px; --control-gap: 8px; min-height: 100dvh; background: var(--studio-paper); color: var(--studio-ink); font-family: var(--studio-font); }
+.studio-navbar { display: flex; align-items: center; justify-content: space-between; padding: 14px max(24px, calc((100vw - 1120px) / 2)); gap: 24px; background: var(--studio-surface); border-bottom: 1px solid var(--studio-line); }
+.studio-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--studio-ink); font-size: 18px; font-weight: 800; letter-spacing: 1.4px; }
+.studio-brand small { display: block; margin-top: 2px; color: var(--studio-muted); font-size: 11px; font-weight: 400; letter-spacing: .4px; }
+.brand-mark { display: grid; place-items: center; width: 36px; height: 36px; background: var(--studio-button); color: var(--theme-on-filled); border-radius: 10px; font-size: 29px; letter-spacing: 0; }
+.studio-nav-links { display: flex; align-items: center; gap: 16px; }
+.history-link, .source-link { min-height: 44px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; color: var(--studio-muted); text-decoration: none; }
+.history-link { border: 0; background: none; padding: 8px 0; }
+.history-link:hover, .source-link:hover { color: var(--studio-accent); }
+.studio-home-main { max-width: 1168px; margin: 0 auto; padding: 28px 24px 20px; }
+.studio-intro { margin-bottom: 24px; }
+.studio-intro h1 { margin: 0; font-size: clamp(26px, 2.8vw, 34px); line-height: 1.35; letter-spacing: -.025em; font-weight: 700; text-wrap: balance; }
+.studio-intro p { margin: 8px 0 0; max-width: 65ch; font-size: 14px; line-height: 1.8; color: var(--studio-muted); }
+.studio-home-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: var(--workspace-gap); align-items: start; }
+.new-project-card { min-width: 0; padding: 24px; border: 1px solid var(--studio-line); border-radius: 16px; background: var(--studio-surface); }
+.project-inputs { display: grid; gap: var(--group-gap); }
+.form-section { min-width: 0; }
+.form-section-heading { display: flex; align-items: center; gap: var(--control-gap); margin: 0 0 10px; font-size: 15px; font-weight: 650; line-height: 1.5; }
+.form-section-heading > span { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 7px; background: var(--studio-paper); color: var(--studio-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.goal-input { display: block; width: 100%; min-height: 104px; resize: vertical; border: 1px solid var(--theme-line-strong); border-radius: 9px; padding: 11px 13px; background: var(--studio-surface); color: var(--studio-ink); font: 15px/1.7 var(--studio-font); }
+.goal-input::placeholder { color: var(--studio-muted); }
+.goal-examples { display: flex; flex-wrap: wrap; gap: var(--control-gap); margin-top: var(--control-gap); }
+.goal-examples button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--studio-line); border-radius: 7px; color: var(--studio-muted); background: transparent; font-size: 12px; text-align: left; }
+.goal-examples button:hover { color: var(--studio-accent); border-color: var(--studio-accent); }
+.goal-examples svg { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; stroke-width: 1.4; }
+.upload-zone { margin-top: 8px; border: 1px dashed var(--theme-line-strong); border-radius: 10px; }
+.upload-zone.drag-over, .upload-zone:focus-within { border-color: var(--studio-accent); background: var(--studio-soft); }
+.upload-select { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 12px; border: 0; border-radius: 10px; background: none; color: var(--studio-ink); text-align: left; }
+.upload-select:hover { background: var(--theme-surface-soft); }
+.upload-symbol { flex: 0 0 24px; width: 24px; height: 24px; stroke: var(--studio-accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.upload-title { font-size: 13px; font-weight: 600; }
+.upload-hint { margin-left: auto; color: var(--studio-muted); font-size: 11px; white-space: nowrap; }
+.file-list { display: grid; gap: var(--control-gap); padding: 0 12px 12px; }
+.file-item { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--studio-line); padding-top: 6px; font-size: 13px; }
+.file-extension { color: var(--studio-muted); font-size: 10px; }
+.file-meta { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.file-meta small { display: block; color: var(--studio-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.remove-btn { flex-shrink: 0; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: none; color: var(--studio-muted); font-size: 22px; }
+.remove-btn:hover { background: var(--studio-soft); color: var(--studio-accent); }
+.file-feedback, .file-summary, .form-error { margin: 8px 0 0; font-size: 13px; line-height: 1.7; }
+.file-feedback { color: var(--studio-accent); }
+.file-summary { color: var(--studio-green); }
+.form-error { color: var(--studio-error); }
+.project-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--studio-line); margin-top: 20px; padding-top: 16px; }
+.project-submit-row > p { flex: 1; margin: 0; font-size: 12px; line-height: 1.7; color: var(--studio-muted); }
+.submit-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 100%; }
+.start-engine-btn { display: inline-flex; justify-content: center; align-items: center; gap: 20px; min-height: 48px; min-width: 145px; padding: 12px 18px; border: 0; border-radius: 9px; background: var(--studio-button); color: var(--theme-on-filled); font-size: 14px; font-weight: 650; }
+.start-engine-btn svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; stroke-width: 1.5; }
+.start-engine-btn:disabled { background: var(--theme-surface-soft); color: var(--studio-muted); }
+.continue-sources-btn { min-height: 48px; padding: 10px 12px; border: 1px solid var(--studio-line); border-radius: 9px; color: var(--studio-ink); background: var(--studio-surface); font-size: 13px; }
+.journey-panel { min-width: 0; padding: 20px 0 0; }
+.workflow-details { margin-top: 20px; border-top: 1px solid var(--studio-line); }
+.workflow-details > summary { min-height: 48px; padding: 13px 0; font-size: 13px; color: var(--studio-ink); cursor: pointer; }
+.workflow-details :deep(.workflow-explorer) { border: 0; padding: 8px 0 0; background: transparent; }
+.workspace-details { margin-top: 20px; border-bottom: 1px solid var(--studio-line); }
+.workspace-details > summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; min-height: 52px; padding: 12px 0; cursor: pointer; font-size: 13px; color: var(--studio-muted); list-style: none; }
+.workspace-details > summary > span:first-child::before { content: '+'; display: inline-block; width: 22px; color: var(--studio-accent); }
+.workspace-details[open] > summary > span:first-child::before { content: '−'; }
+.readiness-summary { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
+.service-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--studio-muted); }
+.service-dot.connected { background: var(--studio-green); }
+.service-card { max-width: 640px; padding: 8px 0 20px; }
+.service-card h2 { margin: 0 0 8px; font-size: 16px; }
+.service-card > p { margin-bottom: 12px; font-size: 13px; line-height: 1.8; color: var(--studio-muted); }
+.service-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-top: 1px solid var(--studio-line); padding: 10px 0; font-size: 13px; }
+.service-row strong { font-size: 12px; font-weight: 600; color: var(--studio-accent); }
+.service-row strong.connected { color: var(--studio-green); }
+.service-retry { margin-top: 8px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--studio-line); border-radius: 7px; background: var(--studio-surface); color: var(--studio-ink); }
+.studio-history { scroll-margin-top: 20px; }
+.studio-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; border-top: 1px solid var(--studio-line); margin-top: 28px; padding-top: 18px; color: var(--studio-muted); font-size: 11px; line-height: 1.8; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@media (max-width: 880px) { .studio-home-grid { grid-template-columns: 1fr; } .journey-panel { padding-top: 0; } .new-project-card { padding: 20px; } }
+@media (max-width: 600px) {
+  .studio-navbar { padding: 12px 16px; gap: 12px; flex-wrap: wrap; }
+  .studio-brand { font-size: 16px; }
+  .studio-nav-links { width: 100%; justify-content: space-between; gap: 8px; }
+  .source-link { display: none; }
+  .studio-home-main { padding: 20px 16px 16px; }
+  .studio-intro { margin-bottom: 18px; }
+  .studio-intro p { font-size: 13px; }
+  .new-project-card { padding: 18px 16px; }
+  .goal-input { font-size: 16px; }
+  .project-submit-row { align-items: stretch; flex-direction: column; gap: 10px; }
+  .submit-actions { flex-direction: column; }
+  .upload-select { flex-wrap: wrap; }
+  .upload-hint { white-space: normal; }
 }
 </style>

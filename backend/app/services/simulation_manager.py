@@ -13,6 +13,7 @@ from datetime import datetime
 from enum import Enum
 
 from ..config import Config
+from ..provider_settings import with_model_snapshot
 from ..utils.logger import get_logger
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
@@ -241,6 +242,7 @@ class SimulationManager:
         
         return state
     
+    @with_model_snapshot
     def prepare_simulation(
         self,
         simulation_id: str,

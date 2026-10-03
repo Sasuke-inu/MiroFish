@@ -1,0 +1,47 @@
+{
+  "verified_at": "2026-10-03T10:42:03.9798459+10:00",
+  "backend_tests": 255,
+  "frontend_tests": 136,
+  "backend_tests_network": "none",
+  "production_build_passed": true,
+  "dev_url": "http://localhost:3000/",
+  "production_url": "http://localhost:3100/",
+  "deployed_services": [
+    "backend",
+    "frontend"
+  ],
+  "preserved_services": [
+    "graphiti",
+    "neo4j",
+    "9Router",
+    "Firecrawl"
+  ],
+  "checks": {
+    "git_diff_check": true,
+    "live_source_timestamp": true,
+    "live_source_provenance": true,
+    "cloud_credits": 0
+  },
+  "containers": [
+    {
+      "service": "backend",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "frontend",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "graphiti",
+      "state": "running",
+      "health": "healthy"
+    },
+    {
+      "service": "neo4j",
+      "state": "running",
+      "health": "healthy"
+    }
+  ]
+}

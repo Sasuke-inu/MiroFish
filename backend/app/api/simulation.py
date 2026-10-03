@@ -87,10 +87,10 @@ def get_graph_entities(graph_id: str):
         enrich: 是否获取相关边信息（默认true）
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.graph_configuration_errors():
             return jsonify({
                 "success": False,
-                "error": t('api.zepApiKeyMissing')
+                "error": '; '.join(Config.graph_configuration_errors())
             }), 500
         
         entity_types_str = request.args.get('entity_types', '')
@@ -124,10 +124,10 @@ def get_graph_entities(graph_id: str):
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """获取单个实体的详细信息"""
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.graph_configuration_errors():
             return jsonify({
                 "success": False,
-                "error": t('api.zepApiKeyMissing')
+                "error": '; '.join(Config.graph_configuration_errors())
             }), 500
         
         reader = ZepEntityReader()
@@ -157,10 +157,10 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 def get_entities_by_type(graph_id: str, entity_type: str):
     """获取指定类型的所有实体"""
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.graph_configuration_errors():
             return jsonify({
                 "success": False,
-                "error": t('api.zepApiKeyMissing')
+                "error": '; '.join(Config.graph_configuration_errors())
             }), 500
         
         enrich = request.args.get('enrich', 'true').lower() == 'true'
@@ -916,7 +916,8 @@ def get_simulation_history():
     用于首页历史项目展示，返回包含项目名称、描述等丰富信息的模拟列表
     
     Query参数：
-        limit: 返回数量限制（默认20）
+        limit: 每页数量（默认20，最多100）
+        offset: 跳过的记录数量（默认0）
     
     返回：
         {
@@ -944,10 +945,17 @@ def get_simulation_history():
         }
     """
     try:
-        limit = request.args.get('limit', 20, type=int)
+        limit = min(max(request.args.get('limit', 20, type=int), 1), 100)
+        offset = max(request.args.get('offset', 0, type=int), 0)
         
         manager = SimulationManager()
-        simulations = manager.list_simulations()[:limit]
+        all_simulations = sorted(
+            manager.list_simulations(),
+            key=lambda sim: (sim.created_at or '', sim.simulation_id),
+            reverse=True,
+        )
+        total = len(all_simulations)
+        simulations = all_simulations[offset:offset + limit]
         
         # 增强模拟数据，只从 Simulation 文件读取
         enriched_simulations = []
@@ -982,12 +990,12 @@ def get_simulation_history():
                 sim_dict["runner_status"] = "idle"
                 sim_dict["total_rounds"] = recommended_rounds
             
-            # 获取关联项目的文件列表（最多3个）
+            # 保留完整文件名列表，首页摘要和回放详情各自决定呈现密度。
             project = ProjectManager.get_project(sim.project_id)
             if project and hasattr(project, 'files') and project.files:
                 sim_dict["files"] = [
                     {"filename": f.get("filename", "未知文件")} 
-                    for f in project.files[:3]
+                    for f in project.files
                 ]
             else:
                 sim_dict["files"] = []
@@ -1010,7 +1018,14 @@ def get_simulation_history():
         return jsonify({
             "success": True,
             "data": enriched_simulations,
-            "count": len(enriched_simulations)
+            "count": len(enriched_simulations),
+            "pagination": {
+                "limit": limit,
+                "offset": offset,
+                "total": total,
+                "has_more": offset + len(enriched_simulations) < total,
+                "next_offset": offset + len(enriched_simulations),
+            },
         })
         
     except Exception as e:

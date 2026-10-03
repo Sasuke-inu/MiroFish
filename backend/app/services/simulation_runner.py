@@ -21,6 +21,7 @@ from queue import Queue
 from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.locale import get_locale, set_locale
+from ..utils.interview_history import order_interview_history
 from ..utils.zep import (
     ZEP_HTTP_REQUEST_TIMEOUT_SECONDS,
     ZEP_INGESTION_WAIT_TIMEOUT_SECONDS,
@@ -531,6 +532,8 @@ class SimulationRunner:
             # 设置子进程环境变量，确保 Windows 上使用 UTF-8 编码
             # 这可以修复第三方库（如 OASIS）读取文件时未指定编码的问题
             env = os.environ.copy()
+            from ..provider_settings import model_environment
+            env.update(model_environment())
             env['PYTHONUTF8'] = '1'  # Python 3.7+ 支持，让所有 open() 默认使用 UTF-8
             env['PYTHONIOENCODING'] = 'utf-8'  # 确保 stdout/stderr 使用 UTF-8
             
@@ -650,6 +653,19 @@ class SimulationRunner:
                     reddit_position = cls._read_action_log(
                         reddit_actions_log, reddit_position, state, "reddit"
                     )
+
+                # The producer deliberately stays alive for interviews after
+                # emitting all platform end markers. Drain its accepted graph
+                # episodes now; waiting for process exit would block reports
+                # forever and force users to close the interview environment.
+                if cls._check_all_platforms_completed(state):
+                    with cls._finalization_lock(simulation_id):
+                        if state.runner_status in {
+                            RunnerStatus.STARTING,
+                            RunnerStatus.RUNNING,
+                            RunnerStatus.PAUSED,
+                        } and simulation_id not in cls._manual_stop_requests:
+                            cls._finish_run(state, RunnerStatus.COMPLETED)
                 
                 # 更新状态
                 cls._save_run_state(state)
@@ -679,6 +695,7 @@ class SimulationRunner:
                 if state.runner_status not in {
                     RunnerStatus.STOPPED,
                     RunnerStatus.FAILED,
+                    RunnerStatus.COMPLETED,
                 }:
                     manual_stop = simulation_id in cls._manual_stop_requests
                     desired_status = (
@@ -704,44 +721,7 @@ class SimulationRunner:
                             f"进程退出码: {exit_code}, 错误: {error_info}"
                         )
 
-                    state.twitter_running = False
-                    state.reddit_running = False
-
-                    if cls._graph_memory_enabled.get(simulation_id, False):
-                        # STOPPING is a non-terminal ingestion barrier. The UI
-                        # and report API must not observe COMPLETED until every
-                        # accepted episode is processed by Zep Cloud.
-                        state.runner_status = RunnerStatus.STOPPING
-                        cls._save_run_state(state)
-                        cls._sync_simulation_status(
-                            simulation_id,
-                            RunnerStatus.STOPPING,
-                        )
-                        try:
-                            ZepGraphMemoryManager.stop_updater(simulation_id)
-                            cls._graph_memory_enabled.pop(simulation_id, None)
-                            logger.info(
-                                "已停止图谱记忆更新: simulation_id=%s",
-                                simulation_id,
-                            )
-                        except Exception as error:
-                            logger.error(f"停止图谱记忆更新器失败: {error}")
-                            desired_status = RunnerStatus.FAILED
-                            error_message = f"Zep图谱写入未完整完成: {error}"
-
-                    state.runner_status = desired_status
-                    state.error = error_message
-                    state.completed_at = datetime.now().isoformat()
-                    cls._save_run_state(state)
-                    cls._sync_simulation_status(
-                        simulation_id,
-                        desired_status,
-                        error_message,
-                    )
-                    if desired_status == RunnerStatus.COMPLETED:
-                        logger.info(f"模拟完成: {simulation_id}")
-                    else:
-                        logger.error(f"模拟失败: {simulation_id}, error={state.error}")
+                    cls._finish_run(state, desired_status, error_message)
                 cls._manual_stop_requests.discard(simulation_id)
             
             # 清理进程资源
@@ -763,6 +743,31 @@ class SimulationRunner:
                     pass
                 cls._stderr_files.pop(simulation_id, None)
     
+    @classmethod
+    def _finish_run(cls, state, desired_status, error_message=None):
+        """Publish a terminal result under the simulation finalization lock."""
+        simulation_id = state.simulation_id
+        state.twitter_running = False
+        state.reddit_running = False
+        if cls._graph_memory_enabled.get(simulation_id, False):
+            state.runner_status = RunnerStatus.STOPPING
+            cls._save_run_state(state)
+            cls._sync_simulation_status(simulation_id, RunnerStatus.STOPPING)
+            try:
+                ZepGraphMemoryManager.stop_updater(simulation_id)
+                cls._graph_memory_enabled.pop(simulation_id, None)
+                logger.info("图谱记忆写入完成: simulation_id=%s", simulation_id)
+            except Exception as error:
+                logger.error(f"停止图谱记忆更新器失败: {error}")
+                desired_status = RunnerStatus.FAILED
+                error_message = f"图谱写入未完整完成: {error}"
+        state.runner_status = desired_status
+        state.error = error_message
+        state.completed_at = datetime.now().isoformat()
+        cls._save_run_state(state)
+        cls._sync_simulation_status(simulation_id, desired_status, error_message)
+        logger.info("模拟完成状态: %s, status=%s", simulation_id, desired_status.value)
+
     @classmethod
     def _read_action_log(
         cls, 
@@ -818,12 +823,11 @@ class SimulationRunner:
                                     # 如果运行了两个平台，需要两个都完成
                                     all_completed = cls._check_all_platforms_completed(state)
                                     if all_completed:
-                                        # Platform completion is only an input
-                                        # signal. The monitor publishes the
-                                        # terminal status after the process has
-                                        # exited and Zep ingestion has drained.
+                                        # The monitor publishes the terminal
+                                        # status after ingestion has drained,
+                                        # while retaining the interview process.
                                         logger.info(
-                                            f"所有平台已结束，等待进程与图谱写入完成: "
+                                            f"所有平台已结束，等待图谱写入完成: "
                                             f"{state.simulation_id}"
                                         )
                                 
@@ -985,6 +989,7 @@ class SimulationRunner:
                     RunnerStatus.RUNNING,
                     RunnerStatus.PAUSED,
                     RunnerStatus.STOPPING,
+                    RunnerStatus.COMPLETED,
                 ]
                 and not retrying_finalization
             ):
@@ -2024,7 +2029,7 @@ class SimulationRunner:
             results.extend(platform_results)
         
         # 按时间降序排序
-        results.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        results = order_interview_history(results, sim_dir)
         
         # 如果查询了多个平台，限制总数
         if len(platforms) > 1 and len(results) > limit:

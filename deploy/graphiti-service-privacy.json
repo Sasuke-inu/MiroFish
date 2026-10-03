@@ -1,0 +1,8 @@
+{
+  "environment_opt_outs": true,
+  "huggingface_telemetry_thread_started": false,
+  "unstructured_installed": false,
+  "camel_langfuse_enabled": false,
+  "graphiti_telemetry_enabled": false,
+  "graphiti_posthog_initialized": false
+}

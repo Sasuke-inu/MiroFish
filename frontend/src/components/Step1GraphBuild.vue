@@ -28,20 +28,20 @@
           </div>
 
           <!-- Detail Overlay -->
-          <div v-if="selectedOntologyItem" class="ontology-detail-overlay">
+          <div v-if="selectedOntologyItem" class="ontology-detail-overlay" role="region" :aria-label="selectedOntologyItem.name" @keydown.esc.stop="closeOntologyDetail">
             <div class="detail-header">
                <div class="detail-title-group">
-                  <span class="detail-type-badge">{{ selectedOntologyItem.itemType === 'entity' ? 'ENTITY' : 'RELATION' }}</span>
+                  <span class="detail-type-badge">{{ selectedOntologyItem.itemType === 'entity' ? $t('studio.entity') : $t('studio.relation') }}</span>
                   <span class="detail-name">{{ selectedOntologyItem.name }}</span>
                </div>
-               <button class="close-btn" @click="selectedOntologyItem = null">×</button>
+               <button ref="ontologyCloseButton" type="button" class="close-btn" :aria-label="$t('common.close')" @click="closeOntologyDetail">×</button>
             </div>
             <div class="detail-body">
                <div class="detail-desc">{{ selectedOntologyItem.description }}</div>
                
                <!-- Attributes -->
                <div class="detail-section" v-if="selectedOntologyItem.attributes?.length">
-                  <span class="section-label">ATTRIBUTES</span>
+                  <span class="section-label">{{ $t('studio.attributes') }}</span>
                   <div class="attr-list">
                      <div v-for="attr in selectedOntologyItem.attributes" :key="attr.name" class="attr-item">
                         <span class="attr-name">{{ attr.name }}</span>
@@ -53,7 +53,7 @@
 
                <!-- Examples (Entity) -->
                <div class="detail-section" v-if="selectedOntologyItem.examples?.length">
-                  <span class="section-label">EXAMPLES</span>
+                  <span class="section-label">{{ $t('studio.examples') }}</span>
                   <div class="example-list">
                      <span v-for="ex in selectedOntologyItem.examples" :key="ex" class="example-tag">{{ ex }}</span>
                   </div>
@@ -61,7 +61,7 @@
 
                <!-- Source/Target (Relation) -->
                <div class="detail-section" v-if="selectedOntologyItem.source_targets?.length">
-                  <span class="section-label">CONNECTIONS</span>
+                  <span class="section-label">{{ $t('studio.connections') }}</span>
                   <div class="conn-list">
                      <div v-for="(conn, idx) in selectedOntologyItem.source_targets" :key="idx" class="conn-item">
                         <span class="conn-node">{{ conn.source }}</span>
@@ -75,12 +75,16 @@
 
           <!-- Generated Entity Tags -->
           <div v-if="projectData?.ontology?.entity_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERATED ENTITY TYPES</span>
+            <span class="tag-label">{{ $t('studio.entityTypes') }}</span>
             <div class="tags-list">
               <span 
                 v-for="entity in projectData.ontology.entity_types" 
                 :key="entity.name" 
                 class="entity-tag clickable"
+                role="button"
+                tabindex="0"
+                @keydown.enter="selectOntologyItem(entity, 'entity')"
+                @keydown.space.prevent="selectOntologyItem(entity, 'entity')"
                 @click="selectOntologyItem(entity, 'entity')"
               >
                 {{ entity.name }}
@@ -90,12 +94,16 @@
 
           <!-- Generated Relation Tags -->
           <div v-if="projectData?.ontology?.edge_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERATED RELATION TYPES</span>
+            <span class="tag-label">{{ $t('studio.relationTypes') }}</span>
             <div class="tags-list">
               <span 
                 v-for="rel in projectData.ontology.edge_types" 
                 :key="rel.name" 
                 class="entity-tag clickable"
+                role="button"
+                tabindex="0"
+                @keydown.enter="selectOntologyItem(rel, 'relation')"
+                @keydown.space.prevent="selectOntologyItem(rel, 'relation')"
                 @click="selectOntologyItem(rel, 'relation')"
               >
                 {{ rel.name }}
@@ -114,6 +122,7 @@
           </div>
           <div class="step-status">
             <span v-if="currentPhase > 1" class="badge success">{{ $t('step1.ontologyCompleted') }}</span>
+            <span v-else-if="awaitingGraphSetup" class="badge pending">等待服務設定</span>
             <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
             <span v-else class="badge pending">{{ $t('step1.ontologyPending') }}</span>
           </div>
@@ -151,16 +160,18 @@
             <span class="step-title">{{ $t('step1.buildComplete') }}</span>
           </div>
           <div class="step-status">
-            <span v-if="currentPhase >= 2" class="badge accent">{{ $t('step1.inProgress') }}</span>
+            <span v-if="currentPhase >= 2" class="badge success">{{ $t('step1.ontologyCompleted') }}</span>
           </div>
         </div>
         
         <div class="card-content">
           <p class="api-note">POST /api/simulation/create</p>
-          <p class="description">{{ $t('step1.buildCompleteDesc') }}</p>
+          <p v-if="currentPhase < 2" class="description">完成圖譜後，即可進入模擬環境設定。</p>
+          <p v-else class="description">{{ $t('step1.buildCompleteDesc') }}</p>
+          <p v-if="createError" class="workflow-error" role="alert">{{ createError }}</p>
           <button 
             class="action-btn" 
-            :disabled="currentPhase < 2 || creatingSimulation"
+            :disabled="currentPhase < 2 || creatingSimulation || !projectData?.graph_id"
             @click="handleEnterEnvSetup"
           >
             <span v-if="creatingSimulation" class="spinner-sm"></span>
@@ -173,7 +184,7 @@
     <!-- Bottom Info / Logs -->
     <div class="system-logs">
       <div class="log-header">
-        <span class="log-title">SYSTEM DASHBOARD</span>
+        <span class="log-title">{{ $t('studio.consoleOutput') }}</span>
         <span class="log-id">{{ projectData?.project_id || 'NO_PROJECT' }}</span>
       </div>
       <div class="log-content" ref="logContent">
@@ -197,6 +208,7 @@ const { t } = useI18n()
 
 const props = defineProps({
   currentPhase: { type: Number, default: 0 },
+  awaitingGraphSetup: Boolean,
   projectData: Object,
   ontologyProgress: Object,
   buildProgress: Object,
@@ -207,11 +219,16 @@ const props = defineProps({
 defineEmits(['next-step'])
 
 const selectedOntologyItem = ref(null)
+const ontologyCloseButton = ref(null)
+const createError = ref('')
+let ontologyTrigger = null
 const logContent = ref(null)
 const creatingSimulation = ref(false)
 
 // 进入环境搭建 - 创建 simulation 并跳转
 const handleEnterEnvSetup = async () => {
+  if (creatingSimulation.value) return
+  createError.value = ''
   if (!props.projectData?.project_id || !props.projectData?.graph_id) {
     console.error('缺少项目或图谱信息')
     return
@@ -235,18 +252,25 @@ const handleEnterEnvSetup = async () => {
       })
     } else {
       console.error('创建模拟失败:', res.error)
-      alert(t('step1.createSimulationFailed', { error: res.error || t('common.unknownError') }))
+      createError.value = t('step1.createSimulationFailed', { error: res.error || t('common.unknownError') })
     }
   } catch (err) {
     console.error('创建模拟异常:', err)
-    alert(t('step1.createSimulationException', { error: err.message }))
+    createError.value = t('step1.createSimulationException', { error: err.message })
   } finally {
     creatingSimulation.value = false
   }
 }
 
 const selectOntologyItem = (item, type) => {
+  ontologyTrigger = document.activeElement
   selectedOntologyItem.value = { ...item, itemType: type }
+  nextTick(() => ontologyCloseButton.value?.focus())
+}
+
+const closeOntologyDetail = () => {
+  selectedOntologyItem.value = null
+  nextTick(() => ontologyTrigger?.focus())
 }
 
 const graphStats = computed(() => {
@@ -273,9 +297,24 @@ watch(() => props.systemLogs.length, () => {
 </script>
 
 <style scoped>
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .workbench-panel {
   height: 100%;
-  background-color: #FAFAFA;
+  background-color: var(--theme-surface-soft, #FAFAFA);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -292,17 +331,17 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .step-card {
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-  border: 1px solid #EAEAEA;
+  border: 1px solid var(--theme-line, #EAEAEA);
   transition: all 0.3s ease;
   position: relative; /* For absolute overlay */
 }
 
 .step-card.active {
-  border-color: #FF5722;
+  border-color: var(--theme-accent-line, #FF5722);
   box-shadow: 0 4px 12px rgba(255, 87, 34, 0.08);
 }
 
@@ -323,12 +362,12 @@ watch(() => props.systemLogs.length, () => {
   font-family: 'JetBrains Mono', monospace;
   font-size: 20px;
   font-weight: 700;
-  color: #E0E0E0;
+  color: var(--theme-faint, #E0E0E0);
 }
 
 .step-card.active .step-num,
 .step-card.completed .step-num {
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .step-title {
@@ -345,21 +384,21 @@ watch(() => props.systemLogs.length, () => {
   text-transform: uppercase;
 }
 
-.badge.success { background: #E8F5E9; color: #2E7D32; }
-.badge.processing { background: #FF5722; color: #FFF; }
-.badge.accent { background: #FF5722; color: #FFF; }
-.badge.pending { background: #F5F5F5; color: #999; }
+.badge.success { background: var(--theme-success-surface, #E8F5E9); color: var(--theme-success-ink, #2E7D32); }
+.badge.processing { background: #FF5722; color: var(--theme-on-filled, #FFF); }
+.badge.accent { background: #FF5722; color: var(--theme-on-filled, #FFF); }
+.badge.pending { background: var(--theme-surface-soft, #F5F5F5); color: var(--theme-muted, #999); }
 
 .api-note {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: #999;
+  color: var(--theme-muted, #999);
   margin-bottom: 8px;
 }
 
 .description {
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
   line-height: 1.5;
   margin-bottom: 16px;
 }
@@ -378,7 +417,7 @@ watch(() => props.systemLogs.length, () => {
 .tag-label {
   display: block;
   font-size: 10px;
-  color: #AAA;
+  color: var(--theme-faint, #AAA);
   margin-bottom: 8px;
   font-weight: 600;
 }
@@ -390,12 +429,12 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .entity-tag {
-  background: #F5F5F5;
-  border: 1px solid #EEE;
+  background: var(--theme-surface-soft, #F5F5F5);
+  border: 1px solid var(--theme-line, #EEE);
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 11px;
-  color: #333;
+  color: var(--theme-ink, #333);
   font-family: 'JetBrains Mono', monospace;
   transition: all 0.2s;
 }
@@ -405,8 +444,8 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .entity-tag.clickable:hover {
-    background: #E0E0E0;
-    border-color: #CCC;
+    background: var(--theme-surface-raised, #E0E0E0);
+    border-color: var(--theme-line, #CCC);
 }
 
 /* Ontology Detail Overlay */
@@ -416,10 +455,10 @@ watch(() => props.systemLogs.length, () => {
     left: 20px;
     right: 20px;
     bottom: 20px;
-    background: rgba(255, 255, 255, 0.98);
+    background: var(--theme-overlay, rgba(255, 255, 255, 0.98));
     backdrop-filter: blur(4px);
     z-index: 10;
-    border: 1px solid #EAEAEA;
+    border: 1px solid var(--theme-line, #EAEAEA);
     box-shadow: 0 4px 20px rgba(0,0,0,0.05);
     border-radius: 6px;
     display: flex;
@@ -435,8 +474,8 @@ watch(() => props.systemLogs.length, () => {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    border-bottom: 1px solid #EAEAEA;
-    background: #FAFAFA;
+    border-bottom: 1px solid var(--theme-line, #EAEAEA);
+    background: var(--theme-surface-soft, #FAFAFA);
 }
 
 .detail-title-group {
@@ -448,8 +487,8 @@ watch(() => props.systemLogs.length, () => {
 .detail-type-badge {
     font-size: 9px;
     font-weight: 700;
-    color: #FFF;
-    background: #000;
+    color: var(--theme-on-filled, #FFF);
+    background: var(--theme-surface-filled, #000);
     padding: 2px 6px;
     border-radius: 2px;
     text-transform: uppercase;
@@ -465,13 +504,13 @@ watch(() => props.systemLogs.length, () => {
     background: none;
     border: none;
     font-size: 18px;
-    color: #999;
+    color: var(--theme-muted, #999);
     cursor: pointer;
     line-height: 1;
 }
 
 .close-btn:hover {
-    color: #333;
+    color: var(--theme-ink, #333);
 }
 
 .detail-body {
@@ -482,11 +521,11 @@ watch(() => props.systemLogs.length, () => {
 
 .detail-desc {
     font-size: 12px;
-    color: #444;
+    color: var(--theme-ink, #444);
     line-height: 1.5;
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px dashed #EAEAEA;
+    border-bottom: 1px dashed var(--theme-line, #EAEAEA);
 }
 
 .detail-section {
@@ -497,7 +536,7 @@ watch(() => props.systemLogs.length, () => {
     display: block;
     font-size: 10px;
     font-weight: 600;
-    color: #AAA;
+    color: var(--theme-faint, #AAA);
     margin-bottom: 8px;
 }
 
@@ -514,23 +553,23 @@ watch(() => props.systemLogs.length, () => {
     gap: 6px;
     align-items: baseline;
     padding: 4px;
-    background: #F9F9F9;
+    background: var(--theme-surface-soft, #F9F9F9);
     border-radius: 4px;
 }
 
 .attr-name {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 600;
-    color: #000;
+    color: var(--theme-ink, #000);
 }
 
 .attr-type {
-    color: #999;
+    color: var(--theme-muted, #999);
     font-size: 10px;
 }
 
 .attr-desc {
-    color: #555;
+    color: var(--theme-ink, #555);
     flex: 1;
     min-width: 150px;
 }
@@ -543,11 +582,11 @@ watch(() => props.systemLogs.length, () => {
 
 .example-tag {
     font-size: 11px;
-    background: #FFF;
-    border: 1px solid #E0E0E0;
+    background: var(--theme-surface, #FFF);
+    border: 1px solid var(--theme-line, #E0E0E0);
     padding: 3px 8px;
     border-radius: 12px;
-    color: #555;
+    color: var(--theme-ink, #555);
 }
 
 .conn-item {
@@ -556,18 +595,18 @@ watch(() => props.systemLogs.length, () => {
     gap: 8px;
     font-size: 11px;
     padding: 6px;
-    background: #F5F5F5;
+    background: var(--theme-surface-soft, #F5F5F5);
     border-radius: 4px;
     font-family: 'JetBrains Mono', monospace;
 }
 
 .conn-node {
     font-weight: 600;
-    color: #333;
+    color: var(--theme-ink, #333);
 }
 
 .conn-arrow {
-    color: #BBB;
+    color: var(--theme-faint, #BBB);
 }
 
 /* Step 02 Stats */
@@ -575,7 +614,7 @@ watch(() => props.systemLogs.length, () => {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
-  background: #F9F9F9;
+  background: var(--theme-surface-soft, #F9F9F9);
   padding: 16px;
   border-radius: 6px;
 }
@@ -588,13 +627,13 @@ watch(() => props.systemLogs.length, () => {
   display: block;
   font-size: 20px;
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
   font-family: 'JetBrains Mono', monospace;
 }
 
 .stat-label {
   font-size: 9px;
-  color: #999;
+  color: var(--theme-muted, #999);
   text-transform: uppercase;
   margin-top: 4px;
   display: block;
@@ -603,8 +642,8 @@ watch(() => props.systemLogs.length, () => {
 /* Step 03 Button */
 .action-btn {
   width: 100%;
-  background: #000;
-  color: #FFF;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-on-filled, #FFF);
   border: none;
   padding: 14px;
   border-radius: 4px;
@@ -619,7 +658,7 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .action-btn:disabled {
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
   cursor: not-allowed;
 }
 
@@ -628,15 +667,15 @@ watch(() => props.systemLogs.length, () => {
   align-items: center;
   gap: 10px;
   font-size: 12px;
-  color: #FF5722;
+  color: var(--theme-accent-ink, #FF5722);
   margin-bottom: 12px;
 }
 
 .spinner-sm {
   width: 14px;
   height: 14px;
-  border: 2px solid #FFCCBC;
-  border-top-color: #FF5722;
+  border: 2px solid var(--theme-accent-line);
+  border-top-color: var(--theme-accent-line, #FF5722);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -645,22 +684,22 @@ watch(() => props.systemLogs.length, () => {
 
 /* System Logs */
 .system-logs {
-  background: #000;
-  color: #DDD;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-faint, #DDD);
   padding: 16px;
   font-family: 'JetBrains Mono', monospace;
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--theme-ink, #222);
   flex-shrink: 0;
 }
 
 .log-header {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--theme-ink, #333);
   padding-bottom: 8px;
   margin-bottom: 8px;
   font-size: 10px;
-  color: #888;
+  color: var(--theme-muted, #888);
 }
 
 .log-content {
@@ -677,7 +716,7 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .log-content::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--theme-surface-filled, #333);
   border-radius: 2px;
 }
 
@@ -689,12 +728,12 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .log-time {
-  color: #666;
+  color: var(--theme-muted, #666);
   min-width: 75px;
 }
 
 .log-msg {
-  color: #CCC;
+  color: var(--theme-faint, #CCC);
   word-break: break-all;
 }
 </style>

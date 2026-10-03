@@ -1,0 +1,22 @@
+{
+  "verified_at": "2026-10-02T02:52:02.004Z",
+  "project_id": "proj_bca45eb91f02",
+  "simulation_id": "sim_7bb2afd7b007",
+  "report_id": "report_8040406ad6d3",
+  "real_graph_details": true,
+  "completed_simulation_reopened_without_rerun": true,
+  "completed_report_sections": 4,
+  "report_retrieval_calls": 12,
+  "real_role_chat": true,
+  "real_survey_responses": 4,
+  "report_chat_after_deployment": true,
+  "recent_console_errors": [],
+  "screenshots": [
+    "graphiti-real-graph.png",
+    "graphiti-real-simulation.png",
+    "graphiti-real-report.png",
+    "graphiti-real-survey.png",
+    "graphiti-real-chat.png"
+  ],
+  "temporary_viewport_override": false
+}

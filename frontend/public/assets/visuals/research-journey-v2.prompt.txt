@@ -1,0 +1,12 @@
+Generated with the built-in imagegen tool on 2026-10-03. New image; transparent background.
+Original: research-journey-v2.png. Production derivative: research-journey-v2.webp (880 px wide, WebP quality 84, alpha retained).
+
+Use case: stylized-concept
+Asset type: a compact in-product explanatory illustration for the MiroFish research workspace, not a marketing hero.
+Primary request: a refined tactile miniature showing research becoming understandable human perspectives. A small stack of warm stone paper sheets and one folded webpage at the left, five modest sculptural person tokens linked by very fine charcoal threads in the center, and one upright open report with three unlabelled short rows and a small amber bookmark at the right. These three groups form one clear, calm left-to-right composition with generous separation and no surrounding decorations.
+Style/medium: carefully art-directed 3D editorial still life, matte ceramic and dense paper, slightly elevated three-quarter view, readable even when rendered only 420 px wide.
+Color palette: warm limestone #d5cec1 and #e4ded2, charcoal #282b25, restrained amber #e8b869, muted olive #515548. Enough midtone outlines and rim light to remain legible on both charcoal and warm stone backgrounds.
+Composition/framing: horizontal wide composition, all subjects fully inside frame, compact low height, transparent negative space, no pedestal or background plane. Main person tokens have differing heights, no realistic faces.
+Lighting/mood: soft studio directional light, subtle local contact shadows only, calm and precise.
+Text: none. All labels will be accessible HTML in the product.
+Constraints: genuinely transparent background; no white or blue background, no gradients or glow, no charts implying real data, no arrows, no screens, no extra floating shapes, no robots, no lettering, no watermark. This is an illustration of the process, not actual simulation results.

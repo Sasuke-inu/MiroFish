@@ -21,3 +21,18 @@ frontend/dist
 frontend/.vite
 
 backend/uploads
+backend/logs
+backend/models
+backend/.cache
+deploy/*.log
+deploy/*audit*.json
+deploy/oasis-upstream.whl
+deploy/mirofish-ready.png
+deploy/ui-*.png
+deploy/ui-scripts-before.json
+deploy/graphiti-*.png
+deploy/graphiti-*.json
+deploy/graphiti-test-report.md
+frontend/tests
+deploy/theme-settings-*
+deploy/firecrawl-*

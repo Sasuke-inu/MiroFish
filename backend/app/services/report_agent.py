@@ -910,7 +910,7 @@ class ReportAgent:
         self.simulation_requirement = simulation_requirement
         
         self.llm = llm_client or LLMClient()
-        self.zep_tools = zep_tools or ZepToolsService()
+        self.zep_tools = zep_tools or ZepToolsService(llm_client=self.llm)
         
         # 工具定义
         self.tools = self._define_tools()
@@ -959,6 +959,20 @@ class ReportAgent:
             }
         }
     
+    def _native_tools(self):
+        """Register the same application tools with compatible model APIs."""
+        schemas = {
+            'insight_forge': ({'query': {'type': 'string'}, 'report_context': {'type': 'string'}}, ['query']),
+            'panorama_search': ({'query': {'type': 'string'}, 'include_expired': {'type': 'boolean'}}, ['query']),
+            'quick_search': ({'query': {'type': 'string'}, 'limit': {'type': 'integer', 'minimum': 1, 'maximum': 50}}, ['query']),
+            'interview_agents': ({'interview_topic': {'type': 'string'}, 'max_agents': {'type': 'integer', 'minimum': 1, 'maximum': 10}}, ['interview_topic']),
+        }
+        return [{'type': 'function', 'function': {
+            'name': name, 'description': definition['description'],
+            'parameters': {'type': 'object', 'properties': schemas[name][0],
+                           'required': schemas[name][1], 'additionalProperties': False},
+        }} for name, definition in self.tools.items()]
+
     def _execute_tool(self, tool_name: str, parameters: Dict[str, Any], report_context: str = "") -> str:
         """
         执行工具调用
@@ -1344,7 +1358,9 @@ class ReportAgent:
             response = self.llm.chat(
                 messages=messages,
                 temperature=0.5,
-                max_tokens=4096
+                max_tokens=4096,
+                tools=self._native_tools(),
+                tool_choice='required' if tool_calls_count < min_tool_calls else 'auto',
             )
 
             # 检查 LLM 返回是否为 None（API 异常或内容为空）
@@ -1871,7 +1887,9 @@ class ReportAgent:
         for iteration in range(max_iterations):
             response = self.llm.chat(
                 messages=messages,
-                temperature=0.5
+                temperature=0.5,
+                tools=self._native_tools(),
+                tool_choice='auto',
             )
             
             # 解析工具调用

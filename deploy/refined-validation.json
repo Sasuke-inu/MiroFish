@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-03",
+  "frontend": {
+    "failed": 0,
+    "passed": 146
+  },
+  "backend": {
+    "warning": "Existing Graphiti Pydantic class config deprecation",
+    "passed": 261,
+    "isolated_network": "none",
+    "failed": 0
+  },
+  "detector": {
+    "layout": 0,
+    "general": 0
+  },
+  "browser": {
+    "modal_escape_focus_restore": true,
+    "history_keyboard_focus": true,
+    "expected_invalid_source_errors": 1,
+    "settings_draft_retained": true,
+    "themes": [
+      "dark",
+      "light"
+    ],
+    "languages": [
+      "zh-TW",
+      "en",
+      "zh"
+    ],
+    "empty_history": true,
+    "horizontal_overflow": false,
+    "unexpected_errors": 0,
+    "css_widths": [
+      1423,
+      434,
+      320
+    ]
+  },
+  "history_live": {
+    "pages": 2,
+    "unique_records": 4,
+    "page_size": 2
+  },
+  "services": [
+    {
+      "Service": "backend",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "frontend",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "graphiti",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "neo4j",
+      "State": "running",
+      "Health": "healthy"
+    }
+  ],
+  "image": {
+    "mode": "builtin_imagegen",
+    "asset": "frontend/public/assets/visuals/research-journey-v2.webp",
+    "bytes": 40632
+  },
+  "limits": [
+    "No new paid model run",
+    "No post-change heuristic rescore"
+  ]
+}

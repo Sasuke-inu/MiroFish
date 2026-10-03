@@ -47,6 +47,12 @@ else:
         load_dotenv(_backend_env)
 
 
+# Freeze the saved model settings for this whole simulation process. Existing
+# environment snapshots from SimulationRunner take precedence over later edits.
+from app.provider_settings import model_environment
+os.environ.update(model_environment())
+
+
 import re
 
 
@@ -129,6 +135,9 @@ except ImportError as e:
     print(f"错误: 缺少依赖 {e}")
     print("请先安装: pip install oasis-ai camel-ai")
     sys.exit(1)
+
+from app.utils.oasis_camel_compat import apply_oasis_camel_compat
+apply_oasis_camel_compat()
 
 
 # IPC相关常量

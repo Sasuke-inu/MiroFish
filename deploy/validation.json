@@ -1,0 +1,54 @@
+{
+  "limits": [
+    "Zep Cloud not configured",
+    "Full graph-to-report workflow not live tested",
+    "Desktop browser screenshot capture unavailable"
+  ],
+  "persistedOntology": {
+    "relationshipTypes": 9,
+    "project": "proj_75860bfb4790",
+    "entityTypes": 10
+  },
+  "dockerUsageAnalyticsEnabled": false,
+  "system": {
+    "graph_configured": false,
+    "llm_configured": true,
+    "missing": [
+      "ZEP_API_KEY"
+    ],
+    "ready": false
+  },
+  "verifiedAt": "2026-10-01T20:28:59.5065000+10:00",
+  "dependencies": {
+    "auditedPythonPackages": 103,
+    "frontendKnownVulnerabilities": 0,
+    "pythonPackagesWithKnownVulnerabilities": 0,
+    "installedPythonPackages": 104
+  },
+  "realOasisSmoke": {
+    "twitter": {
+      "modelActions": 2,
+      "totalActions": 3,
+      "agentIds": [
+        0,
+        1
+      ],
+      "completed": true
+    },
+    "reddit": {
+      "modelActions": 2,
+      "totalActions": 3,
+      "agentIds": [
+        0,
+        1
+      ],
+      "completed": true
+    }
+  },
+  "tests": {
+    "passed": 165,
+    "networkDisabled": true,
+    "subtestsPassed": 42
+  },
+  "url": "http://localhost:3100"
+}

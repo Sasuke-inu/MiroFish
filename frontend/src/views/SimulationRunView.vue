@@ -1,9 +1,9 @@
 <template>
-  <div class="main-view">
+  <div class="main-view" :data-layout="viewMode">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH</div>
+        <div class="brand" role="button" tabindex="0" @click="router.push('/')" @keydown.enter="router.push('/')" @keydown.space.prevent="router.push('/')">MIROFISH</div>
       </div>
       
       <div class="header-center">
@@ -12,7 +12,7 @@
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
             class="switch-btn"
-            :class="{ active: viewMode === mode }"
+            :class="{ active: viewMode === mode }" :aria-pressed="viewMode === mode"
             @click="viewMode = mode"
           >
             {{ { graph: $t('main.layoutGraph'), split: $t('main.layoutSplit'), workbench: $t('main.layoutWorkbench') }[mode] }}
@@ -22,23 +22,27 @@
 
       <div class="header-right">
         <LanguageSwitcher />
+        <PreferenceControls />
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num">Step 3/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[2] }}</span>
         </div>
         <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
+        <span class="status-indicator" :class="statusClass" role="status">
           <span class="dot"></span>
           {{ statusText }}
         </span>
       </div>
     </header>
+    <WorkflowProgress :current="3" />
+
+    <p v-if="loadError" class="workflow-error" role="alert">{{ loadError }}</p>
 
     <!-- Main Content Area -->
-    <main class="content-area">
+    <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
+      <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
         <GraphPanel 
           :graphData="graphData"
           :loading="graphLoading"
@@ -50,7 +54,7 @@
       </div>
 
       <!-- Right Panel: Step3 开始模拟 -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
+      <div class="panel-wrapper right" v-show="viewMode !== 'graph'" :inert="viewMode === 'graph'" :aria-hidden="viewMode === 'graph'" :style="rightPanelStyle">
         <Step3Simulation
           :simulationId="currentSimulationId"
           :maxRounds="maxRounds"
@@ -76,6 +80,8 @@ import Step3Simulation from '../components/Step3Simulation.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import PreferenceControls from '../components/PreferenceControls.vue'
+import WorkflowProgress from '../components/WorkflowProgress.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -99,6 +105,7 @@ const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
+const loadError = ref('')
 const currentStatus = ref('processing') // processing | completed | error
 
 // --- Computed Layout Styles ---
@@ -120,9 +127,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  return 'Running'
+  if (currentStatus.value === 'error') return t('common.error')
+  if (currentStatus.value === 'completed') return t('common.completed')
+  return t('common.running')
 })
 
 const isSimulating = computed(() => currentStatus.value === 'processing')
@@ -205,6 +212,7 @@ const handleNextStep = () => {
 
 // --- Data Logic ---
 const loadSimulationData = async () => {
+  loadError.value = ''
   try {
     addLog(t('log.loadingSimData', { id: currentSimulationId.value }))
     
@@ -238,10 +246,14 @@ const loadSimulationData = async () => {
         }
       }
     } else {
-      addLog(t('log.loadSimDataFailed', { error: simRes.error || t('common.unknownError') }))
+      loadError.value = t('log.loadSimDataFailed', { error: simRes.error || t('common.unknownError') })
+      currentStatus.value = 'error'
+      addLog(loadError.value)
     }
   } catch (err) {
-    addLog(t('log.loadException', { error: err.message }))
+    loadError.value = t('log.loadException', { error: err.message })
+    currentStatus.value = 'error'
+    addLog(loadError.value)
   }
 }
 
@@ -316,11 +328,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .main-view {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   overflow: hidden;
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
 }
@@ -328,12 +355,12 @@ onUnmounted(() => {
 /* Header */
 .app-header {
   height: 60px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   z-index: 100;
   position: relative;
 }
@@ -354,7 +381,7 @@ onUnmounted(() => {
 
 .view-switcher {
   display: flex;
-  background: #F5F5F5;
+  background: var(--theme-surface-soft, #F5F5F5);
   padding: 4px;
   border-radius: 6px;
   gap: 4px;
@@ -366,15 +393,15 @@ onUnmounted(() => {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--theme-muted, #666);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .switch-btn.active {
-  background: #FFF;
-  color: #000;
+  background: var(--theme-surface, #FFF);
+  color: var(--theme-ink, #000);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
@@ -394,18 +421,18 @@ onUnmounted(() => {
 .step-num {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 
 .step-name {
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .step-divider {
   width: 1px;
   height: 14px;
-  background-color: #E0E0E0;
+  background-color: var(--theme-surface-raised, #E0E0E0);
 }
 
 .status-indicator {
@@ -413,7 +440,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
   font-weight: 500;
 }
 
@@ -421,7 +448,7 @@ onUnmounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
 }
 
 .status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
@@ -446,7 +473,6 @@ onUnmounted(() => {
 }
 
 .panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+  border-right: 1px solid var(--theme-line, #EAEAEA);
 }
 </style>
-

@@ -1,0 +1,125 @@
+name: mirofish-local
+services:
+  backend:
+    image: mirofish-backend:local
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      target: backend
+    env_file: .env
+    environment:
+      FLASK_DEBUG: "false"
+      DO_NOT_TRACK: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      ANONYMIZED_TELEMETRY: "False"
+      OTEL_SDK_DISABLED: "true"
+      SCARF_NO_ANALYTICS: "true"
+      LANGFUSE_ENABLED: "false"
+      LANGFUSE_TRACING_ENABLED: "false"
+      GRAPHITI_TELEMETRY_ENABLED: "false"
+      FIRECRAWL_ENABLED: "${FIRECRAWL_ENABLED:-true}"
+      FIRECRAWL_BASE_URL: "${FIRECRAWL_BASE_URL:-http://host.docker.internal:3002}"
+      FIRECRAWL_MAX_PAGES_PER_JOB: "${FIRECRAWL_MAX_PAGES_PER_JOB:-3}"
+      FIRECRAWL_DAILY_PAGE_LIMIT: "${FIRECRAWL_DAILY_PAGE_LIMIT:-10}"
+      FIRECRAWL_BUDGET_TIMEZONE: "${FIRECRAWL_BUDGET_TIMEZONE:-Australia/Sydney}"
+      HF_HOME: /app/backend/.cache/huggingface
+      TIKTOKEN_CACHE_DIR: /app/backend/.cache/tiktoken
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      graphiti:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5001:5001"
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/logs:/app/backend/logs
+      - models:/app/backend/models
+      - cache:/app/backend/.cache
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+  graphiti:
+    image: mirofish-backend:local
+    command: ["python", "serve_graphiti.py"]
+    env_file: .env
+    environment:
+      GRAPHITI_STATE_PATH: /app/backend/graphiti-state/journal.sqlite
+      GRAPHITI_TELEMETRY_ENABLED: "false"
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      DO_NOT_TRACK: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      ANONYMIZED_TELEMETRY: "False"
+      OTEL_SDK_DISABLED: "true"
+      LANGFUSE_ENABLED: "false"
+      LANGFUSE_TRACING_ENABLED: "false"
+      HF_HOME: /app/backend/.cache/huggingface
+      TIKTOKEN_CACHE_DIR: /app/backend/.cache/tiktoken
+      EMBEDDING_CPU_THREADS: "4"
+      SEMAPHORE_LIMIT: "2"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - graphiti-state:/app/backend/graphiti-state
+      - cache:/app/backend/.cache
+      - ./backend/uploads/settings:/app/backend/uploads/settings:ro
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5010/health', timeout=10)"]
+      interval: 15s
+      timeout: 12s
+      retries: 8
+      start_period: 300s
+  neo4j:
+    image: neo4j:5.26-community@sha256:5eb12ad77fa46ab73e23df9ea1f43f5c0f2a79523435577648e046be042b9b93
+    environment:
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:?NEO4J_PASSWORD must be set}"
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+      NEO4J_dbms_usage__report_enabled: "false"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+  frontend:
+    image: mirofish-frontend:local
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      target: frontend
+    ports:
+      - "127.0.0.1:3100:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+volumes:
+  models:
+  cache:
+  graphiti-state:
+  neo4j-data:
+  neo4j-logs:

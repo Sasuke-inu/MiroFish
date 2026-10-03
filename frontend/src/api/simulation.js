@@ -182,7 +182,8 @@ export const interviewAgents = (data) => {
  * 获取历史模拟列表（带项目详情）
  * 用于首页历史项目展示
  * @param {number} limit - 返回数量限制
+ * @param {number} offset - 跳过的记录数量
  */
-export const getSimulationHistory = (limit = 20) => {
-  return service.get('/api/simulation/history', { params: { limit } })
+export const getSimulationHistory = (limit = 20, offset = 0) => {
+  return service.get('/api/simulation/history', { params: { limit, offset } })
 }

@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1260" viewBox="0 0 1440 1260" role="img" aria-labelledby="title desc">
+  <title id="title">MiroFish 介面與操作地圖</title>
+  <desc id="desc">可編輯的介面設計說明。桌面首頁以左側資料與目標表單為主，右側提供服務狀態與五步流程說明；窄螢幕依序呈現內容。設定頁提供淺色、深色與跟隨系統。炭黑按鈕標示主要行動，琥珀色強調選取狀態與視覺重點，文字說明協助理解狀態。本圖不是可操作的模擬介面。</desc>
+  <defs>
+    <pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#b4b1a3"/></pattern>
+    <style>
+      text { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; fill: #282b25; }
+      .muted { fill: #515548; } .small { font-size: 14px; } .body { font-size: 17px; } .label { font-size: 15px; font-weight: 600; } .heading { font-size: 22px; font-weight: 700; }
+      .accent { fill: #805014; } .white { fill: #e4ded2; } .line { stroke: #b4b1a3; stroke-width: 1; } .ink-line { fill: none; stroke: #282b25; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1440" height="1260" fill="#d5cec1"/>
+  <rect x="1120" y="0" width="320" height="184" fill="url(#dots)"/>
+  <path d="M64 55h30" stroke="#805014" stroke-width="4" stroke-linecap="round"/>
+  <text x="108" y="61" class="label accent" letter-spacing="2">MIROFISH / VISUAL NOTES 02</text>
+  <text x="64" y="113" font-size="38" font-weight="700">介面與操作地圖</text>
+  <text x="64" y="149" class="body muted">讓每一步都有方向：先準備資料，再寫下目標，最後開始分析。</text>
+  <rect x="1176" y="98" width="200" height="36" rx="18" fill="#e4ded2" stroke="#b4b1a3"/>
+  <text x="1276" y="121" text-anchor="middle" class="small muted">視覺說明 · 非操作畫面</text>
+
+  <!-- Desktop hierarchy, matching the live home page. -->
+  <text x="64" y="207" class="heading">01　桌面：主線清楚，說明在旁</text>
+  <text x="1042" y="207" class="heading">02　窄螢幕：依序閱讀</text>
+  <rect x="64" y="230" width="926" height="566" rx="18" fill="#e4ded2" stroke="#afb6a0"/>
+  <path d="M64 284h926" class="line"/>
+  <rect x="86" y="245" width="27" height="27" rx="8" fill="#282b25"/>
+  <path d="M92 256q4-4 8 0t7 0m-15 5q4-4 8 0t7 0" stroke="#e4ded2" fill="none" stroke-width="1.5"/>
+  <text x="123" y="265" class="label" letter-spacing="1">MIROFISH</text>
+  <text x="601" y="265" class="small muted">推演記錄</text>
+  <text x="692" y="265" class="small muted">繁體中文</text>
+  <text x="784" y="265" class="small muted">外觀</text>
+  <text x="838" y="265" class="small muted">設定</text>
+  <text x="899" y="265" class="small muted">GitHub</text>
+
+  <circle cx="96" cy="315" r="4" fill="#805014"/>
+  <text x="109" y="321" class="small muted">群體模擬工作室</text>
+  <text x="92" y="356" font-size="28" font-weight="700">先探索，再做決定。</text>
+  <text x="92" y="383" class="small muted">把參考資料與問題，轉化為可探索的群體模擬。</text>
+  <!-- A simplified conceptual illustration, not an embedded raster. -->
+  <g aria-label="文件與關係網的視覺比喻">
+    <rect x="747" y="306" width="42" height="58" rx="7" fill="#e1d0b6" stroke="#b9ac94" transform="rotate(-9 768 335)"/>
+    <path d="M756 321h23m-23 10h17m-17 10h20" stroke="#a18a61" stroke-width="2"/>
+    <path d="M803 337h27M840 337l36-28m-36 28 44 26m-8-54 8 54" stroke="#a5ad8f" stroke-width="2"/>
+    <circle cx="840" cy="337" r="12" fill="#805014"/><circle cx="876" cy="309" r="9" fill="#282b25"/><circle cx="884" cy="363" r="9" fill="#7a8666"/>
+    <text x="925" y="341" font-size="22" fill="#805014">✦</text>
+  </g>
+
+  <rect x="88" y="407" width="574" height="326" rx="12" fill="#e4ded2" stroke="#b4b1a3"/>
+  <path d="M100 407h550" stroke="#805014" stroke-width="3" stroke-linecap="round"/>
+  <text x="110" y="438" font-size="19" font-weight="700">你想了解什麼？</text>
+  <circle cx="124" cy="470" r="11" fill="#e1d0b6"/><text x="124" y="475" text-anchor="middle" class="small accent">1</text>
+  <text x="145" y="476" class="label">加入參考資料</text>
+  <text x="525" y="476" class="small muted">PDF · MD · TXT</text>
+  <rect x="111" y="488" width="528" height="61" rx="8" fill="#e0dacd" stroke="#bdc1aa" stroke-dasharray="5 4"/>
+  <path d="M253 518v10h18v-10m-13-2 4-4 4 4m-4-4v11" class="ink-line"/>
+  <text x="286" y="525" class="small">拖曳檔案或點選加入</text>
+  <rect x="111" y="559" width="528" height="29" rx="6" fill="#d5cec1"/>
+  <text x="124" y="579" class="small muted">網頁資料收集　／　先預覽，再加入參考資料</text>
+  <circle cx="124" cy="613" r="11" fill="#e1d0b6"/><text x="124" y="618" text-anchor="middle" class="small accent">2</text>
+  <text x="145" y="619" class="label">寫下探索目標</text>
+  <rect x="111" y="630" width="528" height="41" rx="7" fill="#d9d5c9" stroke="#b4b1a3"/>
+  <text x="125" y="656" class="small muted">用自己的話，描述想了解的情境與問題…</text>
+  <text x="111" y="704" class="small muted">就緒條件與錯誤原因，在行動旁說明</text>
+  <rect x="496" y="685" width="143" height="32" rx="7" fill="#282b25"/>
+  <text x="566" y="707" text-anchor="middle" class="label white">開始分析　→</text>
+
+  <rect x="683" y="407" width="282" height="117" rx="12" fill="#d9d5c9" stroke="#b4b1a3"/>
+  <text x="703" y="436" class="label">目前可用功能</text>
+  <circle cx="943" cy="431" r="5" fill="#5c684c"/>
+  <text x="703" y="467" class="small muted">模型連線</text><text x="888" y="467" class="small" fill="#355b40">連線狀態</text>
+  <path d="M703 479h240" class="line"/>
+  <text x="703" y="505" class="small muted">本機圖譜</text><text x="888" y="505" class="small" fill="#355b40">連線狀態</text>
+  <rect x="683" y="539" width="282" height="194" rx="12" fill="#d9d5c9" stroke="#b4b1a3"/>
+  <text x="703" y="568" class="label">從資料到洞察</text>
+  <path d="M718 592v110" stroke="#bfc5ae" stroke-width="2"/>
+  <g class="small">
+    <circle cx="718" cy="595" r="6" fill="#805014"/><text x="737" y="600">建立圖譜</text>
+    <circle cx="718" cy="620" r="5" fill="#929b80"/><text x="737" y="625">設定環境</text>
+    <circle cx="718" cy="645" r="5" fill="#929b80"/><text x="737" y="650">執行模擬</text>
+    <circle cx="718" cy="670" r="5" fill="#929b80"/><text x="737" y="675">產生報告</text>
+    <circle cx="718" cy="695" r="5" fill="#929b80"/><text x="737" y="700">深入互動</text>
+  </g>
+  <text x="882" y="700" class="small muted">流程說明</text>
+  <path d="M89 752h876" class="line"/>
+  <text x="92" y="778" class="label">推演記錄</text><text x="224" y="778" class="small muted">接續既有專案，檢視圖譜、模擬與報告</text>
+
+  <!-- Numbered annotations align with the task, support and continuity areas. -->
+  <circle cx="74" cy="438" r="15" fill="#282b25"/><text x="74" y="443" text-anchor="middle" class="small white">A</text>
+  <circle cx="669" cy="436" r="15" fill="#282b25"/><text x="669" y="441" text-anchor="middle" class="small white">B</text>
+  <circle cx="74" cy="775" r="15" fill="#282b25"/><text x="74" y="780" text-anchor="middle" class="small white">C</text>
+
+  <!-- Mobile uses the actual content order: form, sidebar, then history. -->
+  <rect x="1065" y="230" width="285" height="566" rx="29" fill="#282b25"/>
+  <rect x="1074" y="239" width="267" height="548" rx="22" fill="#d5cec1"/>
+  <rect x="1180" y="246" width="54" height="5" rx="3" fill="#a2a793"/>
+  <text x="1091" y="282" class="label">MIROFISH</text><text x="1279" y="282" class="small muted">設定</text>
+  <path d="M1091 299h232" class="line"/>
+  <text x="1091" y="333" font-size="21" font-weight="700">先探索，再做決定。</text>
+  <text x="1091" y="358" class="small muted">說明與插畫隨空間調整</text>
+  <rect x="1091" y="379" width="233" height="199" rx="10" fill="#e4ded2" stroke="#b4b1a3"/>
+  <path d="M1101 379h212" stroke="#805014" stroke-width="3" stroke-linecap="round"/>
+  <text x="1107" y="408" class="label">加入參考資料</text>
+  <rect x="1107" y="420" width="201" height="36" rx="6" fill="#e0dacd" stroke="#bdc1aa" stroke-dasharray="4 3"/>
+  <text x="1207" y="444" class="small muted" text-anchor="middle">檔案與網頁資料</text>
+  <text x="1107" y="483" class="label">寫下探索目標</text>
+  <rect x="1107" y="494" width="201" height="28" rx="5" fill="#d9d5c9" stroke="#b4b1a3"/>
+  <rect x="1107" y="535" width="201" height="28" rx="6" fill="#282b25"/>
+  <text x="1207" y="555" class="small white" text-anchor="middle">開始分析　→</text>
+  <rect x="1091" y="592" width="233" height="51" rx="9" fill="#e4ded2" stroke="#b4b1a3"/>
+  <text x="1107" y="623" class="label">目前可用功能</text><circle cx="1304" cy="618" r="5" fill="#5c684c"/>
+  <rect x="1091" y="655" width="233" height="54" rx="9" fill="#e4ded2" stroke="#b4b1a3"/>
+  <text x="1107" y="687" class="label">從資料到洞察</text>
+  <text x="1091" y="749" class="label">推演記錄</text><path d="M1237 744h87" class="line"/>
+  <rect x="1176" y="771" width="62" height="4" rx="2" fill="#a2a793"/>
+
+  <!-- Reading guide is separate from the mock screens. -->
+  <g class="body">
+    <text x="64" y="840" font-weight="700">A　主要任務</text><text x="64" y="870" class="muted small">上傳 → 描述 → 開始；同一區塊完成。</text>
+    <text x="416" y="840" font-weight="700">B　輔助資訊</text><text x="416" y="870" class="muted small">服務狀態與流程說明，陪伴操作。</text>
+    <text x="755" y="840" font-weight="700">C　持續探索</text><text x="755" y="870" class="muted small">從歷史紀錄回到既有成果。</text>
+    <text x="1065" y="840" font-weight="700">內容不消失</text><text x="1065" y="870" class="muted small">窄螢幕重新排列，保留操作。</text>
+  </g>
+  <path d="M64 909h1312" stroke="#afb6a0"/>
+
+  <text x="64" y="953" class="heading">03　同一套介面，兩種閱讀光線</text>
+  <text x="64" y="983" class="small muted">設定 → 外觀：淺色、深色或跟隨系統；保留相同內容與操作順序。</text>
+  <rect x="64" y="1008" width="332" height="140" rx="12" fill="#e4ded2" stroke="#b4b1a3"/>
+  <rect x="81" y="1025" width="69" height="106" rx="6" fill="#d4dfcf"/>
+  <text x="94" y="1051" class="small">外觀</text><path d="M95 1067h40m-40 15h31m-31 15h35" stroke="#a7ad97" stroke-width="3" stroke-linecap="round"/>
+  <text x="167" y="1050" class="label">淺色工作室</text>
+  <rect x="167" y="1068" width="209" height="15" rx="4" fill="#d9d5c9"/><rect x="167" y="1093" width="121" height="14" rx="4" fill="#d9d5c9"/>
+  <rect x="302" y="1090" width="74" height="25" rx="5" fill="#282b25"/><text x="339" y="1108" text-anchor="middle" font-size="12" class="white">主要行動</text>
+  <rect x="414" y="1008" width="332" height="140" rx="12" fill="#1b1d19" stroke="#4a5041"/>
+  <rect x="431" y="1025" width="69" height="106" rx="6" fill="#30352b"/>
+  <text x="444" y="1051" class="small" fill="#f0eadc" style="fill:#f0eadc">外觀</text><path d="M445 1067h40m-40 15h31m-31 15h35" stroke="#838b72" stroke-width="3" stroke-linecap="round"/>
+  <text x="517" y="1050" class="label" style="fill:#f0eadc">深色工作室</text>
+  <rect x="517" y="1068" width="209" height="15" rx="4" fill="#30352b"/><rect x="517" y="1093" width="121" height="14" rx="4" fill="#30352b"/>
+  <rect x="652" y="1090" width="74" height="25" rx="5" fill="#4e593f"/><text x="689" y="1108" text-anchor="middle" font-size="12" class="white">主要行動</text>
+
+  <text x="798" y="1040" class="label">視覺層級</text>
+  <circle cx="807" cy="1072" r="9" fill="#282b25"/><text x="828" y="1078" class="small">深藍：標題與主要行動</text>
+  <circle cx="807" cy="1106" r="9" fill="#805014"/><text x="828" y="1112" class="small">琥珀色：選取狀態與視覺重點</text>
+  <circle cx="807" cy="1140" r="9" fill="#515548"/><text x="828" y="1146" class="small">輔助文字：理解條件與結果</text>
+  <rect x="1150" y="1010" width="226" height="139" rx="12" fill="#cbc6b9"/>
+  <text x="1169" y="1040" class="label">設定包含</text>
+  <text x="1169" y="1070" class="small muted">外觀 · 語言</text>
+  <text x="1169" y="1098" class="small muted">服務連線 · 網頁收集</text>
+  <text x="1169" y="1126" class="small muted">返回時接續原本工作</text>
+
+  <path d="M64 1190h1312" class="line"/>
+  <text x="64" y="1223" class="small muted">MIROFISH / 群體模擬工作室</text>
+  <text x="1376" y="1223" class="small muted" text-anchor="end">區塊示意，非精確畫面截圖。所有文字與圖形皆可編輯。</text>
+</svg>

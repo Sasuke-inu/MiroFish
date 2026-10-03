@@ -79,6 +79,67 @@ def test_platform_completion_does_not_publish_terminal_success_before_barrier(
     assert state.runner_status == RunnerStatus.RUNNING
 
 
+@pytest.mark.parametrize("ingestion_fails", [False, True])
+def test_finished_platforms_drain_without_closing_interview_process(
+    monkeypatch, tmp_path, ingestion_fails
+):
+    simulation_id = "sim-interview-barrier"
+    for platform in ("twitter", "reddit"):
+        directory = tmp_path / simulation_id / platform
+        directory.mkdir(parents=True)
+        (directory / "actions.jsonl").write_text(
+            '{"event_type":"simulation_end","total_rounds":1,"total_actions":0}\n',
+            encoding="utf-8",
+        )
+    state = SimulationRunState(
+        simulation_id=simulation_id, runner_status=RunnerStatus.RUNNING,
+        twitter_running=True, reddit_running=True,
+    )
+    saved, drains = [], []
+
+    class InterviewProcess:
+        returncode = 0
+
+        def poll(self):
+            # The environment remains alive until the monitor has published
+            # the result. In production it continues accepting IPC interviews.
+            if state.runner_status in (RunnerStatus.COMPLETED, RunnerStatus.FAILED):
+                return 0
+            return None
+
+    process = InterviewProcess()
+
+    def drain(_cls, sim_id):
+        assert sim_id == simulation_id
+        assert process.poll() is None
+        assert state.runner_status == RunnerStatus.STOPPING
+        assert state.twitter_completed and state.reddit_completed
+        drains.append(sim_id)
+        if ingestion_fails:
+            raise RuntimeError("episode failed")
+
+    monkeypatch.setattr(SimulationRunner, "RUN_STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(SimulationRunner, "get_run_state", classmethod(lambda _cls, _id: state))
+    monkeypatch.setattr(SimulationRunner, "_save_run_state", classmethod(lambda _cls, item: saved.append(item.runner_status)))
+    monkeypatch.setattr(SimulationRunner, "_sync_simulation_status", classmethod(lambda _cls, *_args: None))
+    monkeypatch.setattr(runner_module.ZepGraphMemoryManager, "stop_updater", classmethod(drain))
+    monkeypatch.setattr(runner_module.time, "sleep", lambda _seconds: None)
+    SimulationRunner._processes[simulation_id] = process
+    SimulationRunner._graph_memory_enabled[simulation_id] = True
+    try:
+        SimulationRunner._monitor_simulation(simulation_id)
+        expected = RunnerStatus.FAILED if ingestion_fails else RunnerStatus.COMPLETED
+        assert state.runner_status == expected
+        assert saved.index(RunnerStatus.STOPPING) < saved.index(expected)
+        assert drains == [simulation_id]
+        assert (simulation_id in SimulationRunner._graph_memory_enabled) == ingestion_fails
+        assert "episode failed" in state.error if ingestion_fails else state.error is None
+    finally:
+        SimulationRunner._processes.pop(simulation_id, None)
+        SimulationRunner._graph_memory_enabled.pop(simulation_id, None)
+        SimulationRunner._manual_stop_requests.discard(simulation_id)
+
+
 def test_manual_stop_timeout_leaves_monitor_owned_state_stopping(monkeypatch):
     state = SimulationRunState(
         simulation_id="sim-timeout",

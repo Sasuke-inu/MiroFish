@@ -9,7 +9,7 @@
             <svg class="platform-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
             </svg>
-            <span class="platform-name">Info Plaza</span>
+            <span class="platform-name">{{ $t('studio.plaza') }}</span>
             <span v-if="runStatus.twitter_completed" class="status-badge">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -18,15 +18,15 @@
           </div>
           <div class="platform-stats">
             <span class="stat">
-              <span class="stat-label">ROUND</span>
+              <span class="stat-label">{{ $t('studio.round') }}</span>
               <span class="stat-value mono">{{ runStatus.twitter_current_round || 0 }}<span class="stat-total">/{{ runStatus.total_rounds || maxRounds || '-' }}</span></span>
             </span>
             <span class="stat">
-              <span class="stat-label">TIME</span>
+              <span class="stat-label">{{ $t('studio.time') }}</span>
               <span class="stat-value mono">{{ twitterElapsedTime }}</span>
             </span>
             <span class="stat">
-              <span class="stat-label">ACTS</span>
+              <span class="stat-label">{{ $t('studio.actions') }}</span>
               <span class="stat-value mono">{{ runStatus.twitter_actions_count || 0 }}</span>
             </span>
           </div>
@@ -50,7 +50,7 @@
             <svg class="platform-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
             </svg>
-            <span class="platform-name">Topic Community</span>
+            <span class="platform-name">{{ $t('studio.community') }}</span>
             <span v-if="runStatus.reddit_completed" class="status-badge">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -59,15 +59,15 @@
           </div>
           <div class="platform-stats">
             <span class="stat">
-              <span class="stat-label">ROUND</span>
+              <span class="stat-label">{{ $t('studio.round') }}</span>
               <span class="stat-value mono">{{ runStatus.reddit_current_round || 0 }}<span class="stat-total">/{{ runStatus.total_rounds || maxRounds || '-' }}</span></span>
             </span>
             <span class="stat">
-              <span class="stat-label">TIME</span>
+              <span class="stat-label">{{ $t('studio.time') }}</span>
               <span class="stat-value mono">{{ redditElapsedTime }}</span>
             </span>
             <span class="stat">
-              <span class="stat-label">ACTS</span>
+              <span class="stat-label">{{ $t('studio.actions') }}</span>
               <span class="stat-value mono">{{ runStatus.reddit_actions_count || 0 }}</span>
             </span>
           </div>
@@ -91,6 +91,9 @@
       </div>
 
       <div class="action-controls">
+        <button v-if="phase === 1" class="action-btn" @click="handleStopSimulation" :disabled="isStopping">
+          {{ isStopping ? $t('common.processing') : $t('studio.stopSimulation') }}
+        </button>
         <button 
           class="action-btn primary"
           :disabled="phase !== 2 || isGeneratingReport"
@@ -102,6 +105,8 @@
         </button>
       </div>
     </div>
+
+    <p v-if="startError || actionError" class="workflow-error" role="alert">{{ startError || actionError }}</p>
 
     <!-- Main Content: Dual Timeline -->
     <div class="main-content-area" ref="scrollContainer">
@@ -263,8 +268,8 @@
         </TransitionGroup>
 
         <div v-if="allActions.length === 0" class="waiting-state">
-          <div class="pulse-ring"></div>
-          <span>Waiting for agent actions...</span>
+          <div v-if="phase < 2 && !startError" class="pulse-ring" aria-hidden="true"></div>
+          <span>{{ $t(startError ? 'common.failed' : phase === 2 ? 'common.noData' : 'common.loading') }}</span>
         </div>
       </div>
     </div>
@@ -321,6 +326,7 @@ const phase = ref(0) // 0: 未开始, 1: 运行中, 2: 已完成
 const isStarting = ref(false)
 const isStopping = ref(false)
 const startError = ref(null)
+const actionError = ref('')
 const runStatus = ref({})
 const allActions = ref([]) // 所有动作（增量累积）
 const actionIds = ref(new Set()) // 用于去重的动作ID集合
@@ -439,7 +445,8 @@ const doStartSimulation = async () => {
 
 // 停止模拟
 const handleStopSimulation = async () => {
-  if (!props.simulationId) return
+  if (!props.simulationId || isStopping.value) return
+  actionError.value = ''
   
   isStopping.value = true
   addLog(t('log.stoppingSim'))
@@ -453,10 +460,12 @@ const handleStopSimulation = async () => {
       stopPolling()
       emit('update-status', 'completed')
     } else {
-      addLog(t('log.stopFailed', { error: res.error || t('common.unknownError') }))
+      actionError.value = t('log.stopFailed', { error: res.error || t('common.unknownError') })
+      addLog(actionError.value)
     }
   } catch (err) {
-    addLog(t('log.stopException', { error: err.message }))
+    actionError.value = t('log.stopException', { error: err.message })
+    addLog(actionError.value)
   } finally {
     isStopping.value = false
   }
@@ -518,7 +527,8 @@ const fetchRunStatus = async () => {
       // runner_status is authoritative because the backend only publishes a
       // terminal state after the Zep ingestion barrier has completed.
       if (isFailed) {
-        addLog(t('log.simFailed') + (data.error ? `: ${data.error}` : ''))
+        actionError.value = t('log.simFailed') + (data.error ? `: ${data.error}` : '')
+        addLog(actionError.value)
         phase.value = 2
         stopPolling()
         emit('update-status', 'error')
@@ -653,6 +663,7 @@ const handleNextStep = async () => {
     return
   }
   
+  actionError.value = ''
   isGeneratingReport.value = true
   addLog(t('log.startingReportGen'))
   
@@ -669,11 +680,13 @@ const handleNextStep = async () => {
       // 跳转到报告页面
       router.push({ name: 'Report', params: { reportId } })
     } else {
-      addLog(t('log.reportGenFailed', { error: res.error || t('common.unknownError') }))
+      actionError.value = t('log.reportGenFailed', { error: res.error || t('common.unknownError') })
+      addLog(actionError.value)
       isGeneratingReport.value = false
     }
   } catch (err) {
-    addLog(t('log.reportGenException', { error: err.message }))
+    actionError.value = t('log.reportGenException', { error: err.message })
+    addLog(actionError.value)
     isGeneratingReport.value = false
   }
 }
@@ -688,10 +701,34 @@ watch(() => props.systemLogs?.length, () => {
   })
 })
 
+const initializeSimulation = async () => {
+  try {
+    const existing = await getRunStatus(props.simulationId)
+    if (!existing.success) throw new Error(existing.error || t('common.unknownError'))
+    if (existing.data?.runner_status && existing.data.runner_status !== 'idle') {
+      // Opening or refreshing a monitor must preserve the current run, its
+      // completed graph and the interview environment.
+      phase.value = 1
+      runStatus.value = existing.data
+      emit('update-status', 'processing')
+      startStatusPolling()
+      startDetailPolling()
+      await fetchRunStatusDetail()
+      await fetchRunStatus()
+      return
+    }
+    await doStartSimulation()
+  } catch (err) {
+    startError.value = err.message
+    emit('update-status', 'error')
+    addLog(t('log.startException', { error: err.message }))
+  }
+}
+
 onMounted(() => {
   addLog(t('log.step3Init'))
   if (props.simulationId) {
-    doStartSimulation()
+    initializeSimulation()
   }
 })
 
@@ -701,23 +738,38 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .simulation-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #FFFFFF;
+  background: var(--theme-surface, #FFFFFF);
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
   overflow: hidden;
 }
 
 /* --- Control Bar --- */
 .control-bar {
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   padding: 12px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   z-index: 10;
   height: 64px;
 }
@@ -734,8 +786,8 @@ onUnmounted(() => {
   gap: 4px;
   padding: 6px 12px;
   border-radius: 4px;
-  background: #FAFAFA;
-  border: 1px solid #EAEAEA;
+  background: var(--theme-surface-soft, #FAFAFA);
+  border: 1px solid var(--theme-line, #EAEAEA);
   opacity: 0.7;
   transition: all 0.3s;
   min-width: 140px;
@@ -745,14 +797,14 @@ onUnmounted(() => {
 
 .platform-status.active {
   opacity: 1;
-  border-color: #333;
-  background: #FFF;
+  border-color: var(--theme-ink, #333);
+  background: var(--theme-surface, #FFF);
 }
 
 .platform-status.completed {
   opacity: 1;
-  border-color: #1A936F;
-  background: #F2FAF6;
+  border-color: var(--theme-success-line, #1A936F);
+  background: var(--theme-success-surface, #F2FAF6);
 }
 
 /* Actions Tooltip */
@@ -763,8 +815,8 @@ onUnmounted(() => {
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 10px 14px;
-  background: #000;
-  color: #FFF;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-on-filled, #FFF);
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   opacity: 0;
@@ -783,7 +835,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-bottom: 6px solid #000;
+  border-bottom: 6px solid var(--theme-ink, #000);
 }
 
 .platform-status:hover .actions-tooltip {
@@ -794,7 +846,7 @@ onUnmounted(() => {
 .tooltip-title {
   font-size: 10px;
   font-weight: 600;
-  color: #999;
+  color: var(--theme-muted, #999);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 8px;
@@ -812,7 +864,7 @@ onUnmounted(() => {
   padding: 3px 8px;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
-  color: #FFF;
+  color: var(--theme-on-filled, #FFF);
   letter-spacing: 0.03em;
 }
 
@@ -826,13 +878,13 @@ onUnmounted(() => {
 .platform-name {
   font-size: 11px;
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
-.platform-status.twitter .platform-icon { color: #000; }
-.platform-status.reddit .platform-icon { color: #000; }
+.platform-status.twitter .platform-icon { color: var(--theme-ink, #000); }
+.platform-status.reddit .platform-icon { color: var(--theme-ink, #000); }
 
 .platform-stats {
   display: flex;
@@ -847,7 +899,7 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 8px;
-  color: #999;
+  color: var(--theme-muted, #999);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -856,18 +908,18 @@ onUnmounted(() => {
 .stat-value {
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: var(--theme-ink, #333);
 }
 
 .stat-total, .stat-unit {
   font-size: 9px;
-  color: #999;
+  color: var(--theme-muted, #999);
   font-weight: 400;
 }
 
 .status-badge {
   margin-left: auto;
-  color: #1A936F;
+  color: var(--theme-success-ink, #1A936F);
   display: flex;
   align-items: center;
 }
@@ -889,12 +941,12 @@ onUnmounted(() => {
 }
 
 .action-btn.primary {
-  background: #000;
-  color: #FFF;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-on-filled, #FFF);
 }
 
 .action-btn.primary:hover:not(:disabled) {
-  background: #333;
+  background: var(--theme-surface-filled, #333);
 }
 
 .action-btn:disabled {
@@ -907,17 +959,17 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   position: relative;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
 }
 
 /* Timeline Header */
 .timeline-header {
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--theme-overlay, rgba(255, 255, 255, 0.9));
   backdrop-filter: blur(8px);
   padding: 12px 24px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   z-index: 5;
   display: flex;
   justify-content: center;
@@ -928,15 +980,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   font-size: 11px;
-  color: #666;
-  background: #F5F5F5;
+  color: var(--theme-muted, #666);
+  background: var(--theme-surface-soft, #F5F5F5);
   padding: 4px 12px;
   border-radius: 20px;
 }
 
 .total-count {
   font-weight: 600;
-  color: #333;
+  color: var(--theme-ink, #333);
 }
 
 .platform-breakdown {
@@ -951,9 +1003,9 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-.breakdown-divider { color: #DDD; }
-.breakdown-item.twitter { color: #000; }
-.breakdown-item.reddit { color: #000; }
+.breakdown-divider { color: var(--theme-faint, #DDD); }
+.breakdown-item.twitter { color: var(--theme-ink, #000); }
+.breakdown-item.reddit { color: var(--theme-ink, #000); }
 
 /* --- Timeline Feed --- */
 .timeline-feed {
@@ -970,7 +1022,7 @@ onUnmounted(() => {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #EAEAEA; /* Cleaner line */
+  background: var(--theme-surface-soft, #EAEAEA); /* Cleaner line */
   transform: translateX(-50%);
 }
 
@@ -988,8 +1040,8 @@ onUnmounted(() => {
   top: 24px;
   width: 10px;
   height: 10px;
-  background: #FFF;
-  border: 1px solid #CCC;
+  background: var(--theme-surface, #FFF);
+  border: 1px solid var(--theme-line, #CCC);
   border-radius: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -1001,22 +1053,22 @@ onUnmounted(() => {
 .marker-dot {
   width: 4px;
   height: 4px;
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
   border-radius: 50%;
 }
 
-.timeline-item.twitter .marker-dot { background: #000; }
-.timeline-item.reddit .marker-dot { background: #000; }
-.timeline-item.twitter .timeline-marker { border-color: #000; }
-.timeline-item.reddit .timeline-marker { border-color: #000; }
+.timeline-item.twitter .marker-dot { background: var(--theme-surface-filled, #000); }
+.timeline-item.reddit .marker-dot { background: var(--theme-surface-filled, #000); }
+.timeline-item.twitter .timeline-marker { border-color: var(--theme-ink, #000); }
+.timeline-item.reddit .timeline-marker { border-color: var(--theme-ink, #000); }
 
 /* Card Layout */
 .timeline-card {
   width: calc(100% - 48px);
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   border-radius: 2px;
   padding: 16px 20px;
-  border: 1px solid #EAEAEA;
+  border: 1px solid var(--theme-line, #EAEAEA);
   box-shadow: 0 2px 10px rgba(0,0,0,0.02);
   position: relative;
   transition: all 0.2s;
@@ -1024,7 +1076,7 @@ onUnmounted(() => {
 
 .timeline-card:hover {
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border-color: #DDD;
+  border-color: var(--theme-line, #DDD);
 }
 
 /* Left side (Twitter) */
@@ -1054,7 +1106,7 @@ onUnmounted(() => {
   align-items: flex-start;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #F5F5F5;
+  border-bottom: 1px solid var(--theme-line, #F5F5F5);
 }
 
 .agent-info {
@@ -1066,8 +1118,8 @@ onUnmounted(() => {
 .avatar-placeholder {
   width: 24px;
   height: 24px;
-  background: #000;
-  color: #FFF;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-on-filled, #FFF);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1080,7 +1132,7 @@ onUnmounted(() => {
 .agent-name {
   font-size: 13px;
   font-weight: 600;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .header-meta {
@@ -1090,7 +1142,7 @@ onUnmounted(() => {
 }
 
 .platform-indicator {
-  color: #999;
+  color: var(--theme-muted, #999);
   display: flex;
   align-items: center;
 }
@@ -1106,33 +1158,33 @@ onUnmounted(() => {
 }
 
 /* Monochromatic Badges */
-.badge-post { background: #F0F0F0; color: #333; border-color: #E0E0E0; }
-.badge-comment { background: #F0F0F0; color: #666; border-color: #E0E0E0; }
-.badge-action { background: #FFF; color: #666; border: 1px solid #E0E0E0; }
-.badge-meta { background: #FAFAFA; color: #999; border: 1px dashed #DDD; }
+.badge-post { background: var(--theme-surface-soft, #F0F0F0); color: var(--theme-ink, #333); border-color: var(--theme-line, #E0E0E0); }
+.badge-comment { background: var(--theme-surface-soft, #F0F0F0); color: var(--theme-muted, #666); border-color: var(--theme-line, #E0E0E0); }
+.badge-action { background: var(--theme-surface, #FFF); color: var(--theme-muted, #666); border: 1px solid var(--theme-line, #E0E0E0); }
+.badge-meta { background: var(--theme-surface-soft, #FAFAFA); color: var(--theme-muted, #999); border: 1px dashed var(--theme-line, #DDD); }
 .badge-idle { opacity: 0.5; }
 
 .content-text {
   font-size: 13px;
   line-height: 1.6;
-  color: #333;
+  color: var(--theme-ink, #333);
   margin-bottom: 10px;
 }
 
 .content-text.main-text {
   font-size: 14px;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 /* Info Blocks (Quote, Repost, etc) */
 .quoted-block, .repost-content {
-  background: #F9F9F9;
-  border: 1px solid #EEE;
+  background: var(--theme-surface-soft, #F9F9F9);
+  border: 1px solid var(--theme-line, #EEE);
   padding: 10px 12px;
   border-radius: 2px;
   margin-top: 8px;
   font-size: 12px;
-  color: #555;
+  color: var(--theme-ink, #555);
 }
 
 .quote-header, .repost-info, .like-info, .search-info, .follow-info, .vote-info, .idle-info, .comment-context {
@@ -1141,19 +1193,19 @@ onUnmounted(() => {
   gap: 6px;
   margin-bottom: 6px;
   font-size: 11px;
-  color: #666;
+  color: var(--theme-muted, #666);
 }
 
 .icon-small {
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 .icon-small.filled {
-  color: #999; /* Keep icons neutral unless highlighted */
+  color: var(--theme-muted, #999); /* Keep icons neutral unless highlighted */
 }
 
 .search-query {
   font-family: 'JetBrains Mono', monospace;
-  background: #F0F0F0;
+  background: var(--theme-surface-soft, #F0F0F0);
   padding: 0 4px;
   border-radius: 2px;
 }
@@ -1163,7 +1215,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   font-size: 10px;
-  color: #BBB;
+  color: var(--theme-faint, #BBB);
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -1177,7 +1229,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: #CCC;
+  color: var(--theme-faint, #CCC);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1187,13 +1239,13 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid #EAEAEA;
+  border: 1px solid var(--theme-line, #EAEAEA);
   animation: ripple 2s infinite;
 }
 
 @keyframes ripple {
-  0% { transform: scale(0.8); opacity: 1; border-color: #CCC; }
-  100% { transform: scale(2.5); opacity: 0; border-color: #EAEAEA; }
+  0% { transform: scale(0.8); opacity: 1; border-color: var(--theme-line, #CCC); }
+  100% { transform: scale(2.5); opacity: 0; border-color: var(--theme-line, #EAEAEA); }
 }
 
 /* Animation */
@@ -1213,22 +1265,22 @@ onUnmounted(() => {
 
 /* Logs */
 .system-logs {
-  background: #000;
-  color: #DDD;
+  background: var(--theme-surface-filled, #000);
+  color: var(--theme-faint, #DDD);
   padding: 16px;
   font-family: 'JetBrains Mono', monospace;
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--theme-ink, #222);
   flex-shrink: 0;
 }
 
 .log-header {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--theme-ink, #333);
   padding-bottom: 8px;
   margin-bottom: 8px;
   font-size: 10px;
-  color: #666;
+  color: var(--theme-muted, #666);
 }
 
 .log-content {
@@ -1241,7 +1293,7 @@ onUnmounted(() => {
 }
 
 .log-content::-webkit-scrollbar { width: 4px; }
-.log-content::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.log-content::-webkit-scrollbar-thumb { background: var(--theme-surface-filled, #333); border-radius: 2px; }
 
 .log-line {
   font-size: 11px;
@@ -1250,8 +1302,8 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
-.log-time { color: #555; min-width: 75px; }
-.log-msg { color: #BBB; word-break: break-all; }
+.log-time { color: var(--theme-ink, #555); min-width: 75px; }
+.log-msg { color: var(--theme-faint, #BBB); word-break: break-all; }
 .mono { font-family: 'JetBrains Mono', monospace; }
 
 /* Loading spinner for button */
@@ -1260,7 +1312,7 @@ onUnmounted(() => {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #FFF;
+  border-top-color: var(--theme-line, #FFF);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 6px;

@@ -1,0 +1,43 @@
+{
+  "verified_at": "2026-10-03T10:34:36.5909306+10:00",
+  "project_id": "proj_66c80ea40521",
+  "url": "https://www.iana.org/help/example-domains",
+  "browser_start_clicks": 1,
+  "source_documents": 1,
+  "persisted_provenance": true,
+  "persisted_timestamp": true,
+  "extracted_characters": 1205,
+  "cached_pages": 1,
+  "cached_fetch_attempts": 0,
+  "same_plan_replayed": true,
+  "daily_used": 1,
+  "cloud_credits": 0,
+  "initial_graph": {
+    "edges": 9,
+    "nodes": 9,
+    "collector_metadata_leak_found": true,
+    "status": "completed"
+  },
+  "recheck": {
+    "source_mentions_firecrawl": false,
+    "graph_id": "mirofish_68716ac6c40d4148",
+    "project_id": "proj_6a84054295a5",
+    "collector_note_removed": true,
+    "status": "graph_completed",
+    "source_preserved": true,
+    "timestamp_preserved": true,
+    "nodes": 10,
+    "edges": 10,
+    "collector_entity_count": 0
+  },
+  "final_verified_at": "2026-10-03T10:43:59.7536186+10:00",
+  "final_daily_budget": {
+    "daily_limit": 10,
+    "day": "2026-10-03",
+    "remaining": 9,
+    "reserved": 0,
+    "resets_at": "2026-10-04T00:00:00+10:00",
+    "timezone": "Australia/Sydney",
+    "used": 1
+  }
+}

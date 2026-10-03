@@ -1,9 +1,9 @@
 <template>
-  <div class="main-view">
+  <div class="main-view" :data-layout="viewMode">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH</div>
+        <div class="brand" role="button" tabindex="0" @click="router.push('/')" @keydown.enter="router.push('/')" @keydown.space.prevent="router.push('/')">MIROFISH</div>
       </div>
       
       <div class="header-center">
@@ -12,7 +12,7 @@
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
             class="switch-btn"
-            :class="{ active: viewMode === mode }"
+            :class="{ active: viewMode === mode }" :aria-pressed="viewMode === mode"
             @click="viewMode = mode"
           >
             {{ { graph: $t('main.layoutGraph'), split: $t('main.layoutSplit'), workbench: $t('main.layoutWorkbench') }[mode] }}
@@ -22,38 +22,44 @@
 
       <div class="header-right">
         <LanguageSwitcher />
+        <PreferenceControls />
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num">Step {{ currentStep }}/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[currentStep - 1] }}</span>
         </div>
         <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
+        <span class="status-indicator" :class="statusClass" role="status">
           <span class="dot"></span>
           {{ statusText }}
         </span>
       </div>
     </header>
+    <WorkflowProgress :current="currentStep" />
+
+    <p v-if="error" class="workflow-error" role="alert">{{ error }}</p>
 
     <!-- Main Content Area -->
-    <main class="content-area">
+    <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
+      <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
         <GraphPanel 
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="currentPhase"
+          :awaitingGraphSetup="awaitingGraphSetup"
           @refresh="refreshGraph"
           @toggle-maximize="toggleMaximize('graph')"
         />
       </div>
 
       <!-- Right Panel: Step Components -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
+      <div class="panel-wrapper right" v-show="viewMode !== 'graph'" :inert="viewMode === 'graph'" :aria-hidden="viewMode === 'graph'" :style="rightPanelStyle">
         <!-- Step 1: 图谱构建 -->
         <Step1GraphBuild 
           v-if="currentStep === 1"
           :currentPhase="currentPhase"
+          :awaitingGraphSetup="awaitingGraphSetup"
           :projectData="projectData"
           :ontologyProgress="ontologyProgress"
           :buildProgress="buildProgress"
@@ -86,6 +92,9 @@ import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import PreferenceControls from '../components/PreferenceControls.vue'
+import WorkflowProgress from '../components/WorkflowProgress.vue'
+import service from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -109,6 +118,7 @@ const currentPhase = ref(-1) // -1: Upload, 0: Ontology, 1: Build, 2: Complete
 const ontologyProgress = ref(null)
 const buildProgress = ref(null)
 const systemLogs = ref([])
+const awaitingGraphSetup = ref(false)
 
 // Polling timers
 let pollTimer = null
@@ -135,11 +145,12 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (error.value) return t('common.error')
+  if (awaitingGraphSetup.value) return '等待圖譜服務設定'
+  if (currentPhase.value >= 2) return t('common.ready')
+  if (currentPhase.value === 1) return t('step1.graphRagBuild')
+  if (currentPhase.value === 0) return t('step1.ontologyGenerating')
+  return t('step2.initializing')
 })
 
 // --- Helpers ---
@@ -274,6 +285,15 @@ const updatePhaseByStatus = (status) => {
 
 const startBuildGraph = async () => {
   try {
+    const configuration = await service.get('/api/system/status')
+    if (!configuration.data.graph_configured) {
+      awaitingGraphSetup.value = true
+      currentPhase.value = 1
+      buildProgress.value = null
+      addLog('內容分析已完成並儲存。設定 Zep Cloud 圖譜服務後，重新整理本頁即可繼續。')
+      return
+    }
+    awaitingGraphSetup.value = false
     currentPhase.value = 1
     buildProgress.value = { progress: 0, message: 'Starting build...' }
     addLog('Initiating graph build...')
@@ -419,11 +439,26 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .main-view {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   overflow: hidden;
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
 }
@@ -431,12 +466,12 @@ onUnmounted(() => {
 /* Header */
 .app-header {
   height: 60px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   z-index: 100;
   position: relative;
 }
@@ -457,7 +492,7 @@ onUnmounted(() => {
 
 .view-switcher {
   display: flex;
-  background: #F5F5F5;
+  background: var(--theme-surface-soft, #F5F5F5);
   padding: 4px;
   border-radius: 6px;
   gap: 4px;
@@ -469,15 +504,15 @@ onUnmounted(() => {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--theme-muted, #666);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .switch-btn.active {
-  background: #FFF;
-  color: #000;
+  background: var(--theme-surface, #FFF);
+  color: var(--theme-ink, #000);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
@@ -486,7 +521,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
   font-weight: 500;
 }
 
@@ -506,25 +541,25 @@ onUnmounted(() => {
 .step-num {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 
 .step-name {
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .step-divider {
   width: 1px;
   height: 14px;
-  background-color: #E0E0E0;
+  background-color: var(--theme-surface-raised, #E0E0E0);
 }
 
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
 }
 
 .status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
@@ -549,6 +584,6 @@ onUnmounted(() => {
 }
 
 .panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+  border-right: 1px solid var(--theme-line, #EAEAEA);
 }
 </style>

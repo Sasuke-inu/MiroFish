@@ -10,7 +10,9 @@ from typing import Optional, Dict, Any, List
 from openai import OpenAI
 
 from ..config import Config
+from ..provider_settings import get_model_settings
 from .openai_chat_compat import create_chat_completion, extract_chat_completion_text
+from .json_object import unwrap_properties
 
 
 logger = logging.getLogger(__name__)
@@ -97,16 +99,19 @@ class LLMClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model = model or Config.LLM_MODEL_NAME
+        settings = get_model_settings()
+        self.api_key = api_key or settings['api_key']
+        self.base_url = base_url or settings['base_url']
+        self.model = model or settings['model']
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
         
+        from openai import DefaultHttpxClient
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
 
     def _create_completion(
@@ -116,6 +121,8 @@ class LLMClient:
         temperature: Optional[float],
         max_tokens: Optional[int],
         response_format: Optional[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Any] = None,
     ) -> Any:
         """Send one raw Chat Completions request through the compatibility layer."""
 
@@ -126,6 +133,8 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
         )
     
     def chat(
@@ -133,7 +142,9 @@ class LLMClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: Optional[int] = 4096,
-        response_format: Optional[Dict] = None
+        response_format: Optional[Dict] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_choice: Optional[Any] = None,
     ) -> str:
         """
         发送聊天请求
@@ -152,8 +163,20 @@ class LLMClient:
             temperature=temperature,
             max_tokens=max_tokens,
             response_format=response_format,
+            tools=tools,
+            tool_choice=tool_choice,
         )
         content = extract_chat_completion_text(response)
+        if tools:
+            calls = getattr(response.choices[0].message, 'tool_calls', None) or []
+            for call in calls:
+                try:
+                    parameters = json.loads(call.function.arguments)
+                except (TypeError, json.JSONDecodeError) as error:
+                    raise LLMResponseError('Model returned invalid tool arguments') from error
+                if not isinstance(parameters, dict):
+                    raise LLMResponseError('Model tool arguments must be a JSON object')
+                content += '\n<tool_call>' + json.dumps({'name': call.function.name, 'parameters': parameters}, ensure_ascii=False) + '</tool_call>'
         return _clean_chat_text(content)
     
     def chat_json(
@@ -287,4 +310,4 @@ class LLMClient:
                 finish_reason=finish_reason,
             )
 
-        return value
+        return unwrap_properties(value, {'title', 'summary', 'sections', 'entity_types', 'edge_types', 'reasoning'})

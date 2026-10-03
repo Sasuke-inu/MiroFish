@@ -1,0 +1,38 @@
+[
+  {
+    "asset": "index.html",
+    "status": 200,
+    "type": "text/html",
+    "bytes": "12876"
+  },
+  {
+    "asset": "exploration-studio.webp",
+    "status": 200,
+    "type": "image/webp",
+    "bytes": "47188"
+  },
+  {
+    "asset": "first-connection.webp",
+    "status": 200,
+    "type": "image/webp",
+    "bytes": "13540"
+  },
+  {
+    "asset": "workflow-map.svg",
+    "status": 200,
+    "type": "image/svg+xml",
+    "bytes": "8666"
+  },
+  {
+    "asset": "ui-blueprint.svg",
+    "status": 200,
+    "type": "image/svg+xml",
+    "bytes": "12807"
+  },
+  {
+    "asset": "prompts.json",
+    "status": 200,
+    "type": "application/json",
+    "bytes": "3847"
+  }
+]

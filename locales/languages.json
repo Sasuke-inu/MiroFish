@@ -1,6 +1,6 @@
 {
   "zh": {
-    "label": "中文",
+    "label": "简体中文",
     "llmInstruction": "请使用中文回答。"
   },
   "en": {
@@ -26,5 +26,9 @@
   "de": {
     "label": "Deutsch",
     "llmInstruction": "Bitte antworten Sie auf Deutsch."
+  },
+  "zh-TW": {
+    "label": "繁體中文",
+    "llmInstruction": "請使用繁體中文回答。"
   }
 }

@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-03T10:31:17.8059411+10:00",
+  "backend_test_result": "255 passed, 1 third-party deprecation warning",
+  "backend_test_log": "deploy/seamless-backend-tests.log",
+  "test_network": "none",
+  "containers": [
+    {
+      "Service": "backend",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "frontend",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "graphiti",
+      "State": "running",
+      "Health": "healthy"
+    },
+    {
+      "Service": "neo4j",
+      "State": "running",
+      "Health": "healthy"
+    }
+  ],
+  "simulation_count": 4,
+  "active_simulations": [],
+  "deployment_performed": false,
+  "backend_tests_checked_at": "2026-10-03T10:40:46.9747784+10:00",
+  "source_quality_tests": "42 passed; legacy cache/replay header cleanup preserves source body and provenance"
+}
