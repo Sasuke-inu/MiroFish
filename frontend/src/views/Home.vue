@@ -6,7 +6,6 @@
         <button @click="scrollToBottom" class="history-link">{{ $t('studio.history') }}</button>
         <LanguageSwitcher />
         <PreferenceControls />
-        <a href="https://github.com/666ghj/MiroFish" target="_blank" rel="noopener noreferrer" class="source-link">GitHub <span aria-hidden="true">↗</span></a>
       </div>
     </nav>
     <main class="studio-home-main" id="workspace-content" tabindex="-1">
@@ -254,29 +253,29 @@ const startSimulation = async (useAvailable = false) => {
 </script>
 
 <style scoped>
-.home-container { --workspace-gap: 28px; --group-gap: 20px; --control-gap: 8px; min-height: 100dvh; background: var(--studio-paper); color: var(--studio-ink); font-family: var(--studio-font); }
+.home-container { --workspace-gap: 40px; --group-gap: 24px; --control-gap: 8px; min-height: 100dvh; background: var(--studio-paper); color: var(--studio-ink); font-family: var(--studio-font); }
 .studio-navbar { display: flex; align-items: center; justify-content: space-between; padding: 14px max(24px, calc((100vw - 1120px) / 2)); gap: 24px; background: var(--studio-surface); border-bottom: 1px solid var(--studio-line); }
 .studio-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--studio-ink); font-size: 18px; font-weight: 800; letter-spacing: 1.4px; }
 .studio-brand small { display: block; margin-top: 2px; color: var(--studio-muted); font-size: 11px; font-weight: 400; letter-spacing: .4px; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; background: var(--studio-button); color: var(--theme-on-filled); border-radius: 10px; font-size: 29px; letter-spacing: 0; }
 .studio-nav-links { display: flex; align-items: center; gap: 16px; }
-.history-link, .source-link { min-height: 44px; display: inline-flex; align-items: center; font-size: 13px; font-weight: 500; color: var(--studio-muted); text-decoration: none; }
+.history-link { min-height: 44px; display: inline-flex; align-items: center; font-size: .875rem; font-weight: 500; color: var(--studio-muted); text-decoration: none; }
 .history-link { border: 0; background: none; padding: 8px 0; }
-.history-link:hover, .source-link:hover { color: var(--studio-accent); }
-.studio-home-main { max-width: 1168px; margin: 0 auto; padding: 28px 24px 20px; }
-.studio-intro { margin-bottom: 24px; }
-.studio-intro h1 { margin: 0; font-size: clamp(26px, 2.8vw, 34px); line-height: 1.35; letter-spacing: -.025em; font-weight: 700; text-wrap: balance; }
-.studio-intro p { margin: 8px 0 0; max-width: 65ch; font-size: 14px; line-height: 1.8; color: var(--studio-muted); }
-.studio-home-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: var(--workspace-gap); align-items: start; }
-.new-project-card { min-width: 0; padding: 24px; border: 1px solid var(--studio-line); border-radius: 16px; background: var(--studio-surface); }
+.history-link:hover { color: var(--studio-accent); }
+.studio-home-main { max-width: 1168px; margin: 0 auto; padding: 32px 24px 20px; }
+.studio-intro { margin-bottom: 28px; }
+.studio-intro h1 { margin: 0; font-size: clamp(2rem, 3.2vw, 2.5rem); line-height: 1.3; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }
+.studio-intro p { margin: 10px 0 0; max-width: 65ch; font-size: 1rem; line-height: 1.75; color: var(--studio-muted); }
+.studio-home-grid { display: grid; grid-template-columns: minmax(280px, 320px) minmax(0, 1fr); grid-template-areas: "journey form"; gap: var(--workspace-gap); align-items: start; }
+.new-project-card { grid-area: form; min-width: 0; padding: 24px; border: 1px solid var(--studio-line); border-radius: 16px; background: var(--studio-surface); }
 .project-inputs { display: grid; gap: var(--group-gap); }
 .form-section { min-width: 0; }
-.form-section-heading { display: flex; align-items: center; gap: var(--control-gap); margin: 0 0 10px; font-size: 15px; font-weight: 650; line-height: 1.5; }
+.form-section-heading { display: flex; align-items: center; gap: var(--control-gap); margin: 0 0 12px; font-size: 1rem; font-weight: 700; line-height: 1.5; }
 .form-section-heading > span { display: grid; place-items: center; width: 24px; height: 24px; flex-shrink: 0; border-radius: 7px; background: var(--studio-paper); color: var(--studio-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.goal-input { display: block; width: 100%; min-height: 104px; resize: vertical; border: 1px solid var(--theme-line-strong); border-radius: 9px; padding: 11px 13px; background: var(--studio-surface); color: var(--studio-ink); font: 15px/1.7 var(--studio-font); }
+.goal-input { display: block; width: 100%; min-height: 112px; resize: vertical; border: 1px solid var(--theme-line-strong); border-radius: 9px; padding: 11px 13px; background: var(--studio-surface); color: var(--studio-ink); font: 1rem/1.7 var(--studio-font); }
 .goal-input::placeholder { color: var(--studio-muted); }
 .goal-examples { display: flex; flex-wrap: wrap; gap: var(--control-gap); margin-top: var(--control-gap); }
-.goal-examples button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--studio-line); border-radius: 7px; color: var(--studio-muted); background: transparent; font-size: 12px; text-align: left; }
+.goal-examples button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--studio-line); border-radius: 7px; color: var(--studio-muted); background: transparent; font-size: .875rem; line-height: 1.65; text-align: left; }
 .goal-examples button:hover { color: var(--studio-accent); border-color: var(--studio-accent); }
 .goal-examples svg { width: 14px; height: 14px; flex-shrink: 0; stroke: currentColor; stroke-width: 1.4; }
 .upload-zone { margin-top: 8px; border: 1px dashed var(--theme-line-strong); border-radius: 10px; }
@@ -284,29 +283,29 @@ const startSimulation = async (useAvailable = false) => {
 .upload-select { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 12px; border: 0; border-radius: 10px; background: none; color: var(--studio-ink); text-align: left; }
 .upload-select:hover { background: var(--theme-surface-soft); }
 .upload-symbol { flex: 0 0 24px; width: 24px; height: 24px; stroke: var(--studio-accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.upload-title { font-size: 13px; font-weight: 600; }
-.upload-hint { margin-left: auto; color: var(--studio-muted); font-size: 11px; white-space: nowrap; }
+.upload-title { font-size: .875rem; line-height: 1.65; font-weight: 600; }
+.upload-hint { margin-left: auto; color: var(--studio-muted); font-size: .8125rem; line-height: 1.65; white-space: nowrap; }
 .file-list { display: grid; gap: var(--control-gap); padding: 0 12px 12px; }
-.file-item { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--studio-line); padding-top: 6px; font-size: 13px; }
-.file-extension { color: var(--studio-muted); font-size: 10px; }
+.file-item { display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--studio-line); padding-top: 6px; font-size: .875rem; }
+.file-extension { color: var(--studio-muted); font-size: .75rem; }
 .file-meta { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.file-meta small { display: block; color: var(--studio-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.file-meta small { display: block; color: var(--studio-muted); font-size: .8125rem; font-variant-numeric: tabular-nums; }
 .remove-btn { flex-shrink: 0; min-width: 44px; min-height: 44px; border: 0; border-radius: 6px; background: none; color: var(--studio-muted); font-size: 22px; }
 .remove-btn:hover { background: var(--studio-soft); color: var(--studio-accent); }
-.file-feedback, .file-summary, .form-error { margin: 8px 0 0; font-size: 13px; line-height: 1.7; }
+.file-feedback, .file-summary, .form-error { margin: 8px 0 0; font-size: .875rem; line-height: 1.7; }
 .file-feedback { color: var(--studio-accent); }
 .file-summary { color: var(--studio-green); }
 .form-error { color: var(--studio-error); }
 .project-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--studio-line); margin-top: 20px; padding-top: 16px; }
-.project-submit-row > p { flex: 1; margin: 0; font-size: 12px; line-height: 1.7; color: var(--studio-muted); }
+.project-submit-row > p { flex: 1; margin: 0; font-size: .875rem; line-height: 1.7; color: var(--studio-muted); }
 .submit-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; max-width: 100%; }
-.start-engine-btn { display: inline-flex; justify-content: center; align-items: center; gap: 20px; min-height: 48px; min-width: 145px; padding: 12px 18px; border: 0; border-radius: 9px; background: var(--studio-button); color: var(--theme-on-filled); font-size: 14px; font-weight: 650; }
+.start-engine-btn { display: inline-flex; justify-content: center; align-items: center; gap: 20px; min-height: 48px; min-width: 145px; padding: 12px 18px; border: 0; border-radius: 9px; background: var(--studio-button); color: var(--theme-on-filled); font-size: 1rem; line-height: 1.5; font-weight: 600; }
 .start-engine-btn svg { width: 18px; height: 18px; flex-shrink: 0; stroke: currentColor; stroke-width: 1.5; }
 .start-engine-btn:disabled { background: var(--theme-surface-soft); color: var(--studio-muted); }
-.continue-sources-btn { min-height: 48px; padding: 10px 12px; border: 1px solid var(--studio-line); border-radius: 9px; color: var(--studio-ink); background: var(--studio-surface); font-size: 13px; }
-.journey-panel { min-width: 0; padding: 20px 0 0; }
+.continue-sources-btn { min-height: 48px; padding: 10px 12px; border: 1px solid var(--studio-line); border-radius: 9px; color: var(--studio-ink); background: var(--studio-surface); font-size: .875rem; line-height: 1.65; }
+.journey-panel { grid-area: journey; min-width: 0; padding: 20px 0 0; }
 .workflow-details { margin-top: 20px; border-top: 1px solid var(--studio-line); }
-.workflow-details > summary { min-height: 48px; padding: 13px 0; font-size: 13px; color: var(--studio-ink); cursor: pointer; }
+.workflow-details > summary { min-height: 48px; padding: 13px 0; font-size: .875rem; line-height: 1.65; color: var(--studio-ink); cursor: pointer; }
 .workflow-details :deep(.workflow-explorer) { border: 0; padding: 8px 0 0; background: transparent; }
 .workspace-details { margin-top: 20px; border-bottom: 1px solid var(--studio-line); }
 .workspace-details > summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; min-height: 52px; padding: 12px 0; cursor: pointer; font-size: 13px; color: var(--studio-muted); list-style: none; }
@@ -325,17 +324,14 @@ const startSimulation = async (useAvailable = false) => {
 .studio-history { scroll-margin-top: 20px; }
 .studio-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; border-top: 1px solid var(--studio-line); margin-top: 28px; padding-top: 18px; color: var(--studio-muted); font-size: 11px; line-height: 1.8; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-@media (max-width: 880px) { .studio-home-grid { grid-template-columns: 1fr; } .journey-panel { padding-top: 0; } .new-project-card { padding: 20px; } }
+@media (max-width: 959px) { .studio-home-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: "form" "journey"; gap: 32px; } .journey-panel { padding-top: 0; max-width: 540px; width: 100%; } .new-project-card { padding: 20px; } }
 @media (max-width: 600px) {
   .studio-navbar { padding: 12px 16px; gap: 12px; flex-wrap: wrap; }
   .studio-brand { font-size: 16px; }
   .studio-nav-links { width: 100%; justify-content: space-between; gap: 8px; }
-  .source-link { display: none; }
   .studio-home-main { padding: 20px 16px 16px; }
   .studio-intro { margin-bottom: 18px; }
-  .studio-intro p { font-size: 13px; }
   .new-project-card { padding: 18px 16px; }
-  .goal-input { font-size: 16px; }
   .project-submit-row { align-items: stretch; flex-direction: column; gap: 10px; }
   .submit-actions { flex-direction: column; }
   .upload-select { flex-wrap: wrap; }

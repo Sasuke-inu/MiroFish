@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-03",
+  "baselineCommit": "d354592afda283f3aca572f93ac552ad287cbd1a",
+  "frontendTests": { "passed": 146, "failed": 0, "productionBuild": "passed" },
+  "designScans": { "typeBefore": 0, "typeAfter": 0, "generalAfter": 0 },
+  "browser": {
+    "environment": "Codex in-app browser, actual CSS viewport measurements",
+    "cases": [
+      { "width": 1251, "documentWidth": 1245, "theme": "light", "locale": "zh-TW", "journeyX": 62.82, "formX": 422.80 },
+      { "width": 1251, "documentWidth": 1245, "theme": "dark", "locale": "en", "journeyX": 62.82, "formX": 422.80 },
+      { "width": 320, "documentWidth": 313, "theme": "dark", "locale": "en", "state": "source validation error", "formBeforeJourney": true },
+      { "width": 434, "documentWidth": 428, "theme": "light", "locale": "zh-TW", "formBeforeJourney": true },
+      { "width": 854, "documentWidth": 848, "theme": "light", "locale": "zh", "formBeforeJourney": true },
+      { "width": 960, "documentWidth": 954, "theme": "light", "locale": "en", "journeyX": 23.99, "formX": 383.97 },
+      { "width": 1126, "documentWidth": 1120, "theme": "light", "locale": "zh-TW", "environment": "Docker production", "journeyX": 23.99, "formX": 383.97 }
+    ],
+    "allCases": { "githubSourceLinkRemoved": true, "stagesVertical": true, "artworkLoaded": true, "inputFontPx": 16, "urlFontPx": 16, "pageHorizontalOverflow": false },
+    "settingsDraftPreserved": true,
+    "sourceValidation": { "expectedStatus": 400, "errorFocused": true, "draftPreserved": true, "paidScrapeTriggered": false },
+    "workflowArrowKeys": "passed",
+    "historyHeadingFocus": "passed",
+    "historyEnterOpenEscapeClose": "passed",
+    "productionSettingsOpenAndReturn": "passed",
+    "viewportOverrideReset": true,
+    "temporaryTabClosed": true,
+    "onlyObservedConsoleError": "Expected HTTP 400 for private source URL"
+  },
+  "docker": { "homepageStatus": 200, "artworkStatus": 200, "frontend": "healthy", "backend": "healthy", "graphiti": "healthy", "neo4j": "healthy", "onlyFrontendRebuilt": true },
+  "unverifiedThisRound": ["Physical mobile devices", "200 percent browser zoom", "Screen readers", "LCP INP CLS Lighthouse", "Paid complete simulation"]
+}

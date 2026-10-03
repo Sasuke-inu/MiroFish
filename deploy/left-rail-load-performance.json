@@ -1,0 +1,140 @@
+{
+  "baselineCommit": "d354592afda283f3aca572f93ac552ad287cbd1a",
+  "method": "Vite 7.3.6 production builds from the same archived frontend/locales snapshot; manifest static import closure; Node gzip per asset. Router-only experiment retains the eager App.vue SettingsView import. Final experiment changes SettingsView to dynamic loading in both router and App.",
+  "excludes": [
+    "HTML, images and fonts",
+    "dynamic route assets until navigation",
+    "real network transfer timing",
+    "LCP, INP, CLS and Lighthouse measurements"
+  ],
+  "before": {
+    "initialAssets": [
+      {
+        "file": "assets/index-B525RT97.css",
+        "type": "css",
+        "bytes": 72890,
+        "gzipBytes": 12842,
+        "sha256": "f2efa28733f4f16efbab187c0e0c22288f8a6273810ddc701929ab2848d45b70"
+      },
+      {
+        "file": "assets/index-Byk0xB1s.js",
+        "type": "js",
+        "bytes": 428077,
+        "gzipBytes": 151948,
+        "sha256": "6eaf07928fcd88f3c27110d1feb077aa2385813bd6ac1217f80f9962fa44427e"
+      }
+    ],
+    "totals": {
+      "js": {
+        "bytes": 428077,
+        "gzipBytes": 151948
+      },
+      "css": {
+        "bytes": 72890,
+        "gzipBytes": 12842
+      },
+      "combined": {
+        "bytes": 500967,
+        "gzipBytes": 164790
+      }
+    },
+    "settingsChunk": null
+  },
+  "routerOnly": {
+    "initialAssets": [
+      {
+        "file": "assets/index-B525RT97.css",
+        "type": "css",
+        "bytes": 72890,
+        "gzipBytes": 12842,
+        "sha256": "f2efa28733f4f16efbab187c0e0c22288f8a6273810ddc701929ab2848d45b70"
+      },
+      {
+        "file": "assets/index-B9b5b_LJ.js",
+        "type": "js",
+        "bytes": 428229,
+        "gzipBytes": 151982,
+        "sha256": "0345110c80d6cd4b99928aa241006c45feb7c75b899f3cc5407f938c7f7916bd"
+      }
+    ],
+    "totals": {
+      "js": {
+        "bytes": 428229,
+        "gzipBytes": 151982
+      },
+      "css": {
+        "bytes": 72890,
+        "gzipBytes": 12842
+      },
+      "combined": {
+        "bytes": 501119,
+        "gzipBytes": 164824
+      }
+    },
+    "settingsChunk": null
+  },
+  "after": {
+    "initialAssets": [
+      {
+        "file": "assets/index-DcNJl9wk.js",
+        "type": "js",
+        "bytes": 406219,
+        "gzipBytes": 146573,
+        "sha256": "0938ce1da50022820a21370e86de59cbc1f39fde64515e4f160c4bac35dddfd8"
+      },
+      {
+        "file": "assets/index-OTUolLPe.css",
+        "type": "css",
+        "bytes": 50471,
+        "gzipBytes": 9538,
+        "sha256": "70a5b34986f558f7492ac83eb01d54e416047ab1af873fd0d539eb52485ad144"
+      }
+    ],
+    "totals": {
+      "js": {
+        "bytes": 406219,
+        "gzipBytes": 146573
+      },
+      "css": {
+        "bytes": 50471,
+        "gzipBytes": 9538
+      },
+      "combined": {
+        "bytes": 456690,
+        "gzipBytes": 156111
+      }
+    },
+    "settingsChunk": {
+      "file": "assets/SettingsView-CqGJK--q.js",
+      "name": "SettingsView",
+      "src": "src/views/SettingsView.vue",
+      "isDynamicEntry": true,
+      "imports": [
+        "index.html"
+      ],
+      "css": [
+        "assets/SettingsView-BkLdx7Pc.css"
+      ]
+    }
+  },
+  "reduction": {
+    "js": {
+      "bytes": 21858,
+      "percent": 5.11,
+      "gzipBytes": 5375,
+      "gzipPercent": 3.54
+    },
+    "css": {
+      "bytes": 22419,
+      "percent": 30.76,
+      "gzipBytes": 3304,
+      "gzipPercent": 25.73
+    },
+    "combined": {
+      "bytes": 44277,
+      "percent": 8.84,
+      "gzipBytes": 8679,
+      "gzipPercent": 5.27
+    }
+  }
+}

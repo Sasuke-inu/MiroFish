@@ -117,7 +117,7 @@ async function render(component, path = '/', props = {}, options = {}) {
   return { wrapper, router, i18n }
 }
 function requestTo(url) { return api.mock.calls.map(([request]) => request).filter(request => request.url === url) }
-async function settle() { await flushPromises(); await flushPromises() }
+async function settle() { await flushPromises(); await vi.dynamicImportSettled(); await flushPromises() }
 async function openSettingsSection(wrapper, label) {
   await wrapper.findAll('.settings-index > button').find(button => button.text().includes(label)).trigger('click')
 }

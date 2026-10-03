@@ -17,13 +17,13 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref, shallowRef, watch, onMounted, onUnmounted, provide } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref, shallowRef, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import service from './api'
-import SettingsView from './views/SettingsView.vue'
 import { initializeAppearance } from './store/appearance'
 
+const SettingsView = defineAsyncComponent(() => import('./views/SettingsView.vue'))
 const status = ref(null)
 const statusError = ref(false)
 const statusBusy = ref(false)

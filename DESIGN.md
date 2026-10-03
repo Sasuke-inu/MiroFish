@@ -39,10 +39,10 @@ colors:
 typography:
   display:
     fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
-    fontSize: "clamp(26px, 2.8vw, 34px)"
+    fontSize: "clamp(2rem, 3.2vw, 2.5rem)"
     fontWeight: 700
-    lineHeight: 1.35
-    letterSpacing: "-0.025em"
+    lineHeight: 1.3
+    letterSpacing: "-0.02em"
   headline:
     fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
     fontSize: "36px"
@@ -58,6 +58,31 @@ typography:
     fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.5
+  title-journey:
+    fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
+    fontSize: "1.25rem"
+    fontWeight: 700
+    lineHeight: 1.45
+  stage-journey:
+    fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 600
+    lineHeight: 1.5
+  detail-journey:
+    fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
+    fontSize: "0.875rem"
+    fontWeight: 400
+    lineHeight: 1.75
+  caption-journey:
+    fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
+    fontSize: "0.8125rem"
+    fontWeight: 400
+    lineHeight: 1.75
+  input:
+    fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
+    fontSize: "1rem"
+    fontWeight: 400
+    lineHeight: 1.7
   body:
     fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
     fontSize: "14px"
@@ -74,8 +99,9 @@ typography:
     fontWeight: 600
   control:
     fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
-    fontSize: "14px"
-    fontWeight: 650
+    fontSize: "1rem"
+    fontWeight: 600
+    lineHeight: 1.5
   caption:
     fontFamily: "Segoe UI, Microsoft JhengHei, PingFang TC, system-ui, sans-serif"
     fontSize: "12px"
@@ -94,9 +120,9 @@ spacing:
   control-gap: "8px"
   compact: "12px"
   section-sm: "16px"
-  group-gap: "20px"
+  group-gap: "24px"
   card: "24px"
-  workspace-gap: "28px"
+  workspace-gap: "40px"
 components:
   button-primary:
     backgroundColor: "{colors.studio-button-light}"
@@ -131,6 +157,7 @@ components:
   field-source:
     backgroundColor: "{colors.studio-surface-light}"
     textColor: "{colors.studio-ink-light}"
+    typography: "{typography.input}"
     rounded: "{rounded.field}"
     padding: "10px 13px"
   nav-settings-active:
@@ -155,7 +182,7 @@ components:
     padding: "15px 24px"
   journey-caption:
     textColor: "{colors.studio-muted-light}"
-    typography: "{typography.caption}"
+    typography: "{typography.caption-journey}"
   history-row:
     backgroundColor: "{colors.studio-paper-light}"
     textColor: "{colors.studio-ink-light}"
@@ -226,10 +253,10 @@ sidecar 的八階 OKLCH 色帶由每個色票的色相與彩度產生，供面�
 
 - **Display**：首頁簡短問題標題，使用 `display` 的彈性尺寸；支援平衡換行。
 - **Headline**：設定頁主標題使用 `headline`；小於等於 560px 時縮為 30px。
-- **Title**：視覺說明的段落標題使用 `title`；工作頁卡片標題使用 `title-workbench`。
+- **Title**：一般段落標題使用 `title`；工作頁卡片標題使用 `title-workbench`。首頁流程標題使用 `title-journey`（1.25rem，預設 20px），步驟名稱使用 `stage-journey`（1rem，預設 16px），短說明使用 `detail-journey`（0.875rem，預設 14px）；流程備註使用 `caption-journey`（0.8125rem，預設 13px）。
 - **Body / Reading**：一般解釋使用 `body`，報告內容使用 `reading`。首頁簡介的行長上限為 65ch；長報告允許換行，程式碼區塊可獨立水平捲動。
 - **Label / Control / Caption**：表單標籤、主要按鈕與補充說明各自使用對應角色。短狀態、數量和時間採清楚可辨的字級；需要對齊的數字使用等寬數字。
-- 網址欄、問題欄、對話與問卷在各自手機斷點調整為 16px；表單不得靠縮小字體硬塞內容。
+- 首頁網址欄與問題欄在所有螢幕寬度使用 `input`（1rem，預設 16px）；首頁簡介、表單分組標題與主要按鈕也使用 1rem。對話與問卷保留各自的手機字級規則；表單不得靠縮小字體硬塞內容。
 
 **The Readable Language Rule.** 文字容器必須容納繁體中文、簡體中文與英文；讓內容換行，並保留圖示操作的可讀名稱。
 
@@ -237,7 +264,9 @@ sidecar 的八階 OKLCH 色帶由每個色票的色相與彩度產生，供面�
 
 共同原則是將相關操作放在一起，以空間、標題和邊界清楚分組。首頁已抽出控制間距、群組間距與工作區間距；其他頁面保留適合其工作的空間密度，不強制使用單一欄數。
 
-目前首頁的主容器上限為 1168px，桌面左右留 24px；內容表單與流程說明採 1.5:1 的兩欄配置，右欄至少 300px。小於等於 880px 時改成單欄，表單先出現；小於等於 600px 時左右留 16px，主要動作佔據可用寬度。表單內的順序為「描述問題 → 加入資料 → 開始分析」。
+目前首頁的主容器上限為 1168px，桌面左右留 24px。寬度至少 960px 時，左側放直向流程說明、右側放內容表單；左欄以 320px 為目標，CSS 使用 `minmax(280px, 320px)`，右欄取得剩餘空間，兩欄間距為 40px。小於 960px 時改成單欄，表單先出現、流程在後，區塊間距為 32px，流程區上限為 540px。小於等於 600px 時左右留 16px，主要動作佔據可用寬度。表單內的順序為「描述問題 → 加入資料 → 開始分析」，分組間距為 24px。
+
+**The Home Layout Rule.** 首頁以「桌面流程在左、表單在右；窄螢幕表單在先」為設計約束。原生內容順序保留表單在流程之前，桌面只改視覺位置；流程三階段維持由上到下的閱讀順序。
 
 設定頁主容器上限為 1440px；桌面使用 200px 分區導覽。小於等於 900px 時導覽改成四欄，小於等於 560px 時為兩欄。模型設定有自己的 1150px 斷點，讓表單與餘額資訊重新排列。
 
@@ -295,23 +324,25 @@ SVG 圖示沿用圓端線條與少量筆畫。插畫使用透明背景、暖石�
 
 ### Inputs / Fields
 
-輸入區有清楚標籤、較強邊框和可辨的游標。網址欄使用 `field-source`；問題欄使用相同色彩與圓角，留較多書寫空間。保留 placeholder、輔助文字、無效狀態、停用狀態和鍵盤焦點，不用圖片取代標籤。
+輸入區有清楚標籤、較強邊框和可辨的游標。網址欄使用 `field-source`，最小高度為 80px；問題欄使用相同色彩與圓角，最小高度為 112px。兩者一律使用 1rem 字體及 1.7 行高，網址短說明使用 0.875rem 及 1.75 行高。保留 placeholder、輔助文字、無效狀態、停用狀態和鍵盤焦點，不用圖片取代標籤。
 
 來源區維持一個「開始分析」流程，自動處理網頁資料準備。通常只顯示必要欄位與短說明；使用限制與完整內容可展開。讀取進度、部分成功、錯誤、重試與用現有資料繼續的選項，按實際狀態清楚呈現。
 
 ### Navigation
 
-頁首保留品牌、歷史、語言和偏好入口。小螢幕可收起圖示旁的文字，但按鈕仍有可讀名稱。設定頁目前分區以底色、字重、邊界與琥珀線共同表示。
+首頁頁首保留品牌、歷史、語言和偏好入口，移除 GitHub 連結；首頁導覽不再加入此連結。小螢幕可收起圖示旁的文字，但按鈕仍有可讀名稱。設定頁目前分區以底色、字重、邊界與琥珀線共同表示。
 
 工作頁五步進度顯示目前、完成和待進行狀態。手機保留目前步驟名稱，其餘名稱保留給輔助閱讀；不要把圖示導覽變成只有顏色差異。
 
 ### Visual Journey
 
-首頁的 ExplorationJourney 使用 `research-journey-v2.webp`，呈現「參考資料 → 人物與互動 → 分析報告」。三段標籤與說明是可翻譯的原生文字，節點與連線是 SVG；插畫不內嵌必要文案。
+首頁的 ExplorationJourney 沿用 `research-journey-v2.webp`，由 CSS 裁出「參考資料 → 人物與互動 → 分析報告」三個場景，逐段由上到下排列。每段左側為場景、右側為可翻譯的原生標籤與短說明；相鄰場景使用向下的 SVG 箭頭連接。三個場景共用原圖，必要文案不寫入圖片。
 
-小於等於 880px 時圖區上限為 460px，插畫高度上限為 150px。詳細五步導覽是另一個可展開的說明，保留方向鍵、Home / End 與焦點操作。圖像與說明須明確表示這是流程示意，不將模擬視為未來結果。
+桌面每個場景為 116px 正方形，小於 960px 時為 96px；場景與文字相隔 16px，相鄰步驟相隔 28px。裁切容器隱藏溢出，原圖寬度設為容器的 300%，依階段索引水平位移並垂直置中。圖片及箭頭為裝飾，內容由有序清單中的原生文字提供。詳細五步導覽是另一個可展開的說明，保留方向鍵、Home / End 與焦點操作。圖像與說明須明確表示這是流程示意，不將模擬視為未來結果。
 
 此組圖文是首頁目前的表達方式；其他頁面依內容選擇合適的圖像或資料視覺化。
+
+以上是本輪依 Home、ExplorationJourney 與 WebSources 原始碼同步的設計約束，不代表已完成本輪瀏覽器驗證。
 
 ## Do's and Don'ts
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-03T02:18:26.248Z",
+  "generatedAt": "2026-10-03T02:51:10.849Z",
   "title": "Design System: MiroFish",
   "extensions": {
     "colorMeta": {
@@ -477,8 +477,8 @@
         "purpose": "設定頁標題；窄版另有縮小值。"
       },
       "title": {
-        "displayName": "視覺說明標題",
-        "purpose": "三階段流程圖的段落名稱。"
+        "displayName": "一般段落標題",
+        "purpose": "一般段落標題；首頁流程另使用 title-journey。"
       },
       "title-workbench": {
         "displayName": "工作卡片標題",
@@ -493,16 +493,36 @@
         "purpose": "需要連續閱讀的報告內容。"
       },
       "label": {
-        "displayName": "欄位標籤",
-        "purpose": "網址欄等表單標籤。"
+        "displayName": "一般欄位標籤",
+        "purpose": "一般表單標籤；首頁網址標籤使用 0.875rem。"
       },
       "control": {
         "displayName": "主要按鈕",
         "purpose": "首頁的主要操作文字。"
       },
       "caption": {
-        "displayName": "補充說明",
-        "purpose": "流程圖說與欄位的常駐短說明。"
+        "displayName": "一般補充說明",
+        "purpose": "一般次要備註；首頁流程與網址短說明使用各自字級。"
+      },
+      "title-journey": {
+        "displayName": "首頁流程標題",
+        "purpose": "直向三階段流程標題，1.25rem（預設 20px）。"
+      },
+      "stage-journey": {
+        "displayName": "流程步驟名稱",
+        "purpose": "每個場景旁的步驟名稱，1rem（預設 16px）。"
+      },
+      "detail-journey": {
+        "displayName": "流程短說明",
+        "purpose": "每個步驟的原生短說明，0.875rem（預設 14px）。"
+      },
+      "caption-journey": {
+        "displayName": "流程備註",
+        "purpose": "流程示意與結果限制，0.8125rem（預設 13px）。"
+      },
+      "input": {
+        "displayName": "首頁輸入文字",
+        "purpose": "問題欄與網址欄所有寬度維持 1rem（預設 16px）。"
       }
     },
     "shadows": [
@@ -564,12 +584,12 @@
         "value": "1050px"
       },
       {
-        "name": "settings-navigation",
-        "value": "900px"
+        "name": "home-stack",
+        "value": "959px"
       },
       {
-        "name": "home-stack",
-        "value": "880px"
+        "name": "settings-navigation",
+        "value": "900px"
       },
       {
         "name": "workbench-container",
@@ -600,7 +620,7 @@
       "refersTo": "button-primary",
       "description": "首頁的主要動作；保留準備來源、執行中與不可送出狀態。",
       "html": "<button class=\"ds-primary\" type=\"button\"><span>開始分析</span><svg viewBox=\"0 0 20 20\" fill=\"none\" aria-hidden=\"true\"><path d=\"M3 10h14m-6-6 6 6-6 6\"/></svg></button>",
-      "css": ".ds-primary{display:inline-flex;justify-content:center;align-items:center;gap:20px;min-height:48px;min-width:145px;padding:12px 18px;border:0;border-radius:9px;background:var(--studio-button,#34392d);color:var(--theme-on-filled,#f5efdf);font-size:14px;font-weight:650;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-primary svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5}.ds-primary:hover:not(:disabled){background:var(--studio-button-hover,#474e3c)}.ds-primary:disabled{background:var(--theme-surface-soft,#d9d5c9);color:var(--studio-muted,#515548);cursor:not-allowed}.ds-primary:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+      "css": ".ds-primary{display:inline-flex;justify-content:center;align-items:center;gap:20px;min-height:48px;min-width:145px;padding:12px 18px;border:0;border-radius:9px;background:var(--studio-button,#34392d);color:var(--theme-on-filled,#f5efdf);font-size:1rem;line-height:1.5;font-weight:600;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-primary svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5}.ds-primary:hover:not(:disabled){background:var(--studio-button-hover,#474e3c)}.ds-primary:disabled{background:var(--theme-surface-soft,#d9d5c9);color:var(--studio-muted,#515548);cursor:not-allowed}.ds-primary:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
     },
     {
       "name": "設定次要按鈕",
@@ -616,7 +636,7 @@
       "refersTo": "button-ghost",
       "description": "歷史紀錄等低強度導覽使用純文字；保持完整點選範圍。",
       "html": "<button class=\"ds-ghost\" type=\"button\">歷史紀錄</button>",
-      "css": ".ds-ghost{min-height:44px;display:inline-flex;align-items:center;padding:8px 0;border:0;background:none;color:var(--studio-muted,#515548);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-ghost:hover{color:var(--studio-accent,#805014)}.ds-ghost:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+      "css": ".ds-ghost{min-height:44px;display:inline-flex;align-items:center;padding:8px 0;border:0;background:none;color:var(--studio-muted,#515548);font-size:.875rem;font-weight:500;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-ghost:hover{color:var(--studio-accent,#805014)}.ds-ghost:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
     },
     {
       "name": "網址輸入框",
@@ -624,7 +644,7 @@
       "refersTo": "field-source",
       "description": "兩行網址輸入區與常駐用途說明；準備來源時沿用停用與進度提示。",
       "html": "<div class=\"ds-source-field\"><label class=\"ds-source-label\" for=\"ds-source-url\">貼上網頁網址</label><textarea class=\"ds-source-input\" id=\"ds-source-url\" rows=\"2\" placeholder=\"https://example.com/article\" spellcheck=\"false\" aria-describedby=\"ds-source-help\"></textarea><p class=\"ds-source-help\" id=\"ds-source-help\">開始分析時會自動讀取並加入資料。</p></div>",
-      "css": ".ds-source-field{min-width:0;font-family:var(--studio-font,system-ui,sans-serif);}.ds-source-label{display:block;font-size:13px;font-weight:600;margin-bottom:8px;color:var(--studio-ink,#282b25)}.ds-source-input{display:block;box-sizing:border-box;width:100%;min-height:76px;resize:vertical;padding:10px 13px;border:1px solid var(--theme-line-strong,#878c78);border-radius:9px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font:14px/1.7 var(--studio-font,system-ui,sans-serif);caret-color:var(--studio-accent,#805014)}.ds-source-input::placeholder{color:var(--studio-muted,#515548)}.ds-source-input:disabled{opacity:.7}.ds-source-help{font-size:12px;color:var(--studio-muted,#515548);line-height:1.8;margin:7px 0 0}.ds-source-input:focus-visible{outline:2px solid var(--studio-accent,#805014);outline-offset:3px;}@media(max-width:600px){.ds-source-input{font-size:16px}}"
+      "css": ".ds-source-field{min-width:0;font-family:var(--studio-font,system-ui,sans-serif);}.ds-source-label{display:block;font-size:.875rem;line-height:1.65;font-weight:600;margin-bottom:8px;color:var(--studio-ink,#282b25)}.ds-source-input{display:block;box-sizing:border-box;width:100%;min-height:80px;resize:vertical;padding:10px 13px;border:1px solid var(--theme-line-strong,#878c78);border-radius:9px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font:1rem/1.7 var(--studio-font,system-ui,sans-serif);caret-color:var(--studio-accent,#805014)}.ds-source-input::placeholder{color:var(--studio-muted,#515548)}.ds-source-input:disabled{opacity:.7}.ds-source-help{font-size:.875rem;color:var(--studio-muted,#515548);line-height:1.75;margin:7px 0 0}.ds-source-input:focus-visible{outline:2px solid var(--studio-accent,#805014);outline-offset:3px;}"
     },
     {
       "name": "設定頁分區導覽",
@@ -648,7 +668,7 @@
       "refersTo": "card-project",
       "description": "首頁表單使用的安靜容器；以表面色與細框分層。",
       "html": "<section class=\"ds-project-card\" aria-labelledby=\"ds-card-title\"><h3 class=\"ds-card-title\" id=\"ds-card-title\"><span class=\"ds-card-number\" aria-hidden=\"true\">1</span>描述你的問題</h3><p class=\"ds-card-copy\">加入參考資料，探索不同人的反應與可能走向。</p></section>",
-      "css": ".ds-project-card{min-width:0;padding:24px;border:1px solid var(--studio-line,#b4b1a3);border-radius:16px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-card-title{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:15px;font-weight:650;line-height:1.5}.ds-card-number{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--studio-paper,#d5cec1);color:var(--studio-muted,#515548);font-size:12px;font-variant-numeric:tabular-nums}.ds-card-copy{margin:0;color:var(--studio-muted,#515548);font-size:14px;line-height:1.8}@media(max-width:600px){.ds-project-card{padding:18px 16px}}"
+      "css": ".ds-project-card{min-width:0;padding:24px;border:1px solid var(--studio-line,#b4b1a3);border-radius:16px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-card-title{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:1rem;font-weight:700;line-height:1.5}.ds-card-number{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--studio-paper,#d5cec1);color:var(--studio-muted,#515548);font-size:12px;font-variant-numeric:tabular-nums}.ds-card-copy{margin:0;color:var(--studio-muted,#515548);font-size:14px;line-height:1.8}@media(max-width:959px){.ds-project-card{padding:20px}}@media(max-width:600px){.ds-project-card{padding:18px 16px}}"
     },
     {
       "name": "工作步驟進度",
@@ -659,12 +679,12 @@
       "css": ".ds-progress{padding:15px 24px;background:var(--studio-paper,#d5cec1);border-bottom:1px solid var(--studio-line,#b4b1a3);font-family:var(--studio-font,system-ui,sans-serif);}.ds-progress-list{display:flex;list-style:none;max-width:920px;margin:0 auto;padding:0}.ds-progress-list li{display:flex;align-items:center;gap:9px;flex:1;font-size:13px;font-weight:600;color:var(--studio-muted,#515548);white-space:nowrap}.ds-progress-number{display:grid;place-items:center;width:28px;height:28px;flex-shrink:0;border:1px solid var(--studio-line,#b4b1a3);border-radius:50%;font-size:11px}.ds-progress-list .ds-progress-current{color:var(--studio-accent,#805014)}.ds-progress-current .ds-progress-number{color:var(--theme-on-filled,#f5efdf);background:var(--studio-accent,#805014);border-color:var(--studio-accent,#805014)}.ds-progress-passed .ds-progress-number{background:var(--theme-success-surface,#d4dfcf);border-color:var(--theme-success-line,#849b7d);color:var(--studio-green,#355b40)}:host-context([data-theme='dark']) .ds-progress-current .ds-progress-number{color:#24251d}@media(max-width:680px){.ds-progress{padding:12px 14px}.ds-progress-list li{justify-content:center;gap:7px}.ds-progress-list li:not(.ds-progress-current)>span:last-child{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.ds-progress-number{width:26px;height:26px}}.ds-progress-list li:last-child{flex:0}.ds-progress-list li:not(:last-child)::after{content:'';height:1px;background:var(--theme-surface-raised,#c7c5b6);flex:1;margin:0 18px}@media(max-width:1050px){.ds-progress-list li:not(:last-child)::after{margin:0 8px}}@media(max-width:680px){.ds-progress-list{gap:6px}.ds-progress-list li:last-child{flex:1}.ds-progress-list .ds-progress-current{flex:0 0 auto;padding-right:5px}.ds-progress-list li:not(:last-child)::after{display:none}}"
     },
     {
-      "name": "三階段視覺圖說",
+      "name": "直向三階段流程",
       "kind": "custom",
       "refersTo": "journey-caption",
-      "description": "ExplorationJourney 插畫下的原生文字與 SVG 連線；可讀內容不寫入圖片。",
-      "html": "<section class=\"ds-journey\" aria-labelledby=\"ds-journey-title\"><h2 class=\"ds-journey-title\" id=\"ds-journey-title\">從資料，看見不同觀點</h2><ol class=\"ds-journey-stages\"><li><span class=\"ds-journey-marker\" aria-hidden=\"true\"><svg class=\"ds-journey-connector\" viewBox=\"0 0 100 16\" preserveAspectRatio=\"none\"><path d=\"M0 8H96m-5-4 5 4-5 4\"/></svg><svg class=\"ds-journey-node\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"4\"/></svg></span><strong>參考資料</strong><span>網頁或檔案</span></li><li><span class=\"ds-journey-marker\" aria-hidden=\"true\"><svg class=\"ds-journey-connector\" viewBox=\"0 0 100 16\" preserveAspectRatio=\"none\"><path d=\"M0 8H96m-5-4 5 4-5 4\"/></svg><svg class=\"ds-journey-node\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"4\"/></svg></span><strong>人物與互動</strong><span>關係與可能反應</span></li><li><span class=\"ds-journey-marker\" aria-hidden=\"true\"><svg class=\"ds-journey-node\" viewBox=\"0 0 16 16\"><circle cx=\"8\" cy=\"8\" r=\"4\"/></svg></span><strong>分析報告</strong><span>觀察與依據</span></li></ol><p class=\"ds-journey-note\">流程示意。模擬提供可能情境，並非未來的預測。</p></section>",
-      "css": ".ds-journey{min-width:0;color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-journey-title{margin:0 0 16px;font-size:18px;line-height:1.5;font-weight:650;text-wrap:balance}.ds-journey-stages{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:0;margin:0;list-style:none}.ds-journey-stages li{min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center}.ds-journey-marker{position:relative;display:block;width:100%;height:24px;margin-bottom:8px}.ds-journey-node{position:relative;width:16px;height:16px;margin-top:4px;fill:var(--studio-paper,#d5cec1);stroke:var(--studio-accent,#805014);stroke-width:1.5}.ds-journey-connector{position:absolute;top:4px;left:calc(50% + 8px);width:calc(100% - 16px);height:16px;fill:none;stroke:var(--studio-line,#b4b1a3);stroke-width:1}.ds-journey-stages strong{font-size:14px;line-height:1.6;font-weight:650}.ds-journey-stages li>span:last-child{color:var(--studio-muted,#515548);font-size:12px;line-height:1.65;margin-top:4px;padding-inline:4px;text-wrap:balance}.ds-journey-note{color:var(--studio-muted,#515548);font-size:12px;line-height:1.8;margin:20px 0 0}"
+      "description": "既有 research-journey-v2.webp 由 CSS 裁成三個場景；桌面左欄依序排列，原生文字在每個場景右側。預覽用相同素材路徑與裁切方式。",
+      "html": "<section class=\"ds-journey\" aria-labelledby=\"ds-journey-title\"><h2 class=\"ds-journey-title\" id=\"ds-journey-title\">從資料，看見不同觀點</h2><ol class=\"ds-journey-stages\"><li style=\"--stage-index:0\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>參考資料</strong><span>網頁或檔案</span></div><svg class=\"ds-journey-connector\" viewBox=\"0 0 16 28\" aria-hidden=\"true\"><path d=\"M8 1v24m-4-5 4 5 4-5\"/></svg></li><li style=\"--stage-index:1\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>人物與互動</strong><span>關係與可能反應</span></div><svg class=\"ds-journey-connector\" viewBox=\"0 0 16 28\" aria-hidden=\"true\"><path d=\"M8 1v24m-4-5 4 5 4-5\"/></svg></li><li style=\"--stage-index:2\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>分析報告</strong><span>觀察與依據</span></div></li></ol><p class=\"ds-journey-note\">流程示意。模擬提供可能情境，並非未來的預測。</p></section>",
+      "css": ".ds-journey{min-width:0;max-width:320px;color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-journey-title{margin:0;font-size:1.25rem;line-height:1.45;font-weight:700;text-wrap:balance}.ds-journey-stages{--artwork-size:116px;display:grid;gap:28px;padding:0;margin:24px 0 0;list-style:none}.ds-journey-stages li{position:relative;min-width:0;display:grid;grid-template-columns:var(--artwork-size) minmax(0,1fr);align-items:center;gap:16px}.ds-journey-artwork{position:relative;display:block;width:var(--artwork-size);height:var(--artwork-size);overflow:hidden}.ds-journey-artwork img{position:absolute;top:50%;left:calc(var(--stage-index) * -100%);display:block;width:300%;max-width:none;height:auto;transform:translateY(-50%)}.ds-journey-stage-copy{min-width:0;overflow-wrap:anywhere}.ds-journey-stage-copy strong{display:block;font-size:1rem;line-height:1.5;font-weight:600}.ds-journey-stage-copy span{display:block;margin-top:4px;color:var(--studio-muted,#515548);font-size:.875rem;line-height:1.75}.ds-journey-connector{position:absolute;top:100%;left:calc(var(--artwork-size) / 2 - 8px);width:16px;height:28px;fill:none;stroke:var(--studio-accent,#805014);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}.ds-journey-note{color:var(--studio-muted,#515548);font-size:.8125rem;line-height:1.75;margin:24px 0 0;max-width:65ch}@media(max-width:959px){.ds-journey{max-width:540px}.ds-journey-stages{--artwork-size:96px;gap:28px;margin-top:20px}}"
     },
     {
       "name": "歷史紀錄清單列",
@@ -677,7 +697,7 @@
   ],
   "narrative": {
     "northStar": "暖石探索工作室",
-    "overview": "MiroFish 的視覺像一張整理思路的工作桌：暖石色與炭灰色提供安定的底，琥珀色指向目前重點。文件、人物關係與報告以可辨識的圖像連起來，讓第一次使用的人也能理解資料如何變成可追問的結果。\n\n介面以清楚、沉穩、易操作為主。圖示、示意圖與簡短文字共同說明工作；進一步的細節可在需要時展開。淺色與深色共用同一套層次與狀態語意，並支援跟隨系統；繁體中文、簡體中文與英文都必須保留完整內容與可讀排版。",
+    "overview": "MiroFish 的視覺像一張整理思路的工作桌：暖石色與炭灰色提供安定的底，琥珀色指向目前重點。文件、人物關係與報告以可辨識的圖像連起來，讓第一次使用的人也能理解資料如何變成可追問的結果。\n\n介面以清楚、沉穩、易操作為主。圖示、示意圖與簡短文字共同說明工作；進一步的細節可在需要時展開。淺色與深色共用同一套層次與狀態語意，並支援跟隨系統；繁體中文、簡體中文與英文都必須保留完整內容與可讀排版。\n\n本輪依 Home.vue、ExplorationJourney.vue 與 WebSources.vue 同步設計約束；此資料不代表本輪瀏覽器驗證已完成。",
     "keyCharacteristics": [
       "暖石、炭灰與琥珀色，保留清楚的文字和邊界。",
       "圖像與短句一起解釋資料、關係、模擬與報告。",
@@ -705,6 +725,16 @@
         "name": "The Quiet Depth Rule",
         "body": "大部分表面先以底色和邊框分層；焦點、選取與浮層才加強外框或陰影。",
         "section": "elevation"
+      },
+      {
+        "name": "The Home Layout Rule",
+        "body": "首頁寬度至少 960px 時，左欄以 320px 為目標（minmax(280px, 320px)），放置直向三階段流程，右欄放表單，欄距 40px；小於 960px 時表單在先、流程在後，區塊間距 32px。原生內容順序保留表單在流程之前。",
+        "section": "layout"
+      },
+      {
+        "name": "The Home Navigation Rule",
+        "body": "首頁頁首保留品牌、歷史、語言與偏好入口，移除 GitHub 連結。",
+        "section": "components"
       }
     ],
     "dos": [
