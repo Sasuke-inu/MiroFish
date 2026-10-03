@@ -18,8 +18,9 @@ class ModelServiceError(RuntimeError):
     def __init__(self, error: APIError):
         status = getattr(error, 'status_code', None)
         self.status_code = status if isinstance(status, int) and 100 <= status <= 599 else None
+        self.outcome_unknown = isinstance(error, (APITimeoutError, APIConnectionError))
         if isinstance(error, APITimeoutError):
-            message = '模型服務連線逾時，請稍後重試。'
+            message = '模型服務連線逾時，回覆結果未確認；已保留工作，不會自動重送。'
         elif isinstance(error, APIConnectionError):
             message = '無法連線到模型服務，請檢查網址、網路與憑證。'
         else:

@@ -91,12 +91,15 @@
       </div>
 
       <div class="action-controls">
-        <button v-if="phase === 1" class="action-btn" @click="handleStopSimulation" :disabled="isStopping">
-          {{ isStopping ? $t('common.processing') : $t('studio.stopSimulation') }}
+        <button v-if="canStart" data-testid="start-simulation" class="action-btn" @click="doStartSimulation" :disabled="isStarting">
+          {{ isStarting ? $t('common.processing') : $t('workbench.start') }}
+        </button>
+        <button v-if="phase === 1" class="action-btn" @click="handleStopSimulation" :disabled="isStopping || ['stopping', 'finalizing'].includes(runStatus.runner_status)">
+          {{ runStatus.runner_status === 'stopping' ? $t('workbench.stopping') : isStopping ? $t('common.processing') : $t('studio.stopSimulation') }}
         </button>
         <button 
           class="action-btn primary"
-          :disabled="phase !== 2 || isGeneratingReport"
+          :disabled="!canGenerateReport || isGeneratingReport"
           @click="handleNextStep"
         >
           <span v-if="isGeneratingReport" class="loading-spinner-small"></span>
@@ -106,7 +109,10 @@
       </div>
     </div>
 
+    <p class="generation-notice">{{ $t('workbench.costNotice') }}</p>
+    <div v-if="stateNotice" class="workflow-error" role="alert">{{ stateNotice }} <button class="action-btn" @click="initializeSimulation">{{ $t('workbench.refresh') }}</button></div>
     <p v-if="startError || actionError" class="workflow-error" role="alert">{{ startError || actionError }}</p>
+    <div v-if="readError" class="workflow-error" role="alert">{{ readError }} <button class="action-btn" @click="initializeSimulation">{{ $t('workbench.refresh') }}</button></div>
 
     <!-- Main Content: Dual Timeline -->
     <div class="main-content-area" ref="scrollContainer">
@@ -268,8 +274,8 @@
         </TransitionGroup>
 
         <div v-if="allActions.length === 0" class="waiting-state">
-          <div v-if="phase < 2 && !startError" class="pulse-ring" aria-hidden="true"></div>
-          <span>{{ $t(startError ? 'common.failed' : phase === 2 ? 'common.noData' : 'common.loading') }}</span>
+          <div v-if="(!statusLoaded || phase === 1) && !startError && !readError" class="pulse-ring" aria-hidden="true"></div>
+          <span>{{ $t(startError ? 'common.failed' : phase >= 2 ? 'common.noData' : statusLoaded && phase === 0 ? 'common.pending' : 'common.loading') }}</span>
         </div>
       </div>
     </div>
@@ -327,10 +333,24 @@ const isStarting = ref(false)
 const isStopping = ref(false)
 const startError = ref(null)
 const actionError = ref('')
+const readError = ref('')
+const statusLoaded = ref(false)
+const finalizingSnapshot = ref(false)
 const runStatus = ref({})
 const allActions = ref([]) // 所有动作（增量累积）
 const actionIds = ref(new Set()) // 用于去重的动作ID集合
 const scrollContainer = ref(null)
+const activeStatuses = new Set(['starting', 'running', 'stopping', 'finalizing'])
+const incompleteStatuses = new Set(['failed', 'stopped', 'interrupted', 'needs_review'])
+const canStart = computed(() => statusLoaded.value && runStatus.value.runner_status === 'idle' && !readError.value)
+const canGenerateReport = computed(() => runStatus.value.runner_status === 'completed' && runStatus.value.graph_ready === true && !readError.value && !finalizingSnapshot.value)
+const stateNotice = computed(() => {
+  const status = runStatus.value.runner_status
+  if (incompleteStatuses.has(status)) return t(`workbench.${status}`) + '. ' + t('workbench.incomplete') + (runStatus.value.error ? `: ${runStatus.value.error}` : '')
+  if (status === 'completed' && runStatus.value.graph_ready !== true) return t('workbench.graphNotReady')
+  if (statusLoaded.value && !['idle', 'completed', ...activeStatuses].includes(status)) return t('workbench.unknownState')
+  return ''
+})
 
 // Computed
 // 按时间顺序显示动作（最新的在最后面，即底部）
@@ -372,233 +392,163 @@ const addLog = (msg) => {
 }
 
 // 重置所有状态（用于重新启动模拟）
+let mounted = true
+let generation = 0
+let stateVersion = 0
+let statusTimer = null
+let detailTimer = null
+let statusRequest = null
+let detailRequest = null
+const current = (token, id) => mounted && token === generation && id === props.simulationId
+const stopPolling = () => {
+  clearInterval(statusTimer)
+  clearInterval(detailTimer)
+  statusTimer = detailTimer = null
+}
+const startPolling = () => {
+  if (!mounted || !activeStatuses.has(runStatus.value.runner_status)) return
+  if (!statusTimer) statusTimer = setInterval(fetchRunStatus, 2000)
+  if (!detailTimer) detailTimer = setInterval(fetchRunStatusDetail, 3000)
+}
 const resetAllState = () => {
+  generation++
+  stateVersion++
+  stopPolling()
+  statusRequest = detailRequest = null
   phase.value = 0
   runStatus.value = {}
   allActions.value = []
   actionIds.value = new Set()
-  prevTwitterRound.value = 0
-  prevRedditRound.value = 0
+  statusLoaded.value = false
+  readError.value = ''
   startError.value = null
-  isStarting.value = false
-  isStopping.value = false
-  stopPolling()  // 停止之前可能存在的轮询
+  actionError.value = ''
+  isStarting.value = isStopping.value = isGeneratingReport.value = false
+  finalizingSnapshot.value = false
 }
-
-// 启动模拟
-const doStartSimulation = async () => {
-  if (!props.simulationId) {
-    addLog(t('log.errorMissingSimId'))
-    return
+const fetchRunStatusDetail = async (finalSnapshot = false) => {
+  const token = generation
+  const id = props.simulationId
+  if (!current(token, id) || !id) return false
+  if (detailRequest) {
+    if (!finalSnapshot) return detailRequest
+    await detailRequest
+    if (!current(token, id)) return false
   }
-
-  // 先重置所有状态，确保不会受到上一次模拟的影响
-  resetAllState()
-  
+  const request = (async () => {
+    try {
+      const res = await getRunStatusDetail(id)
+      if (!current(token, id)) return false
+      if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+      for (const action of res.data.all_actions || []) {
+        const actionId = action.id || `${action.timestamp}-${action.platform}-${action.agent_id}-${action.action_type}`
+        if (!actionIds.value.has(actionId)) {
+          actionIds.value.add(actionId)
+          allActions.value.push({ ...action, _uniqueId: actionId })
+        }
+      }
+      return true
+    } catch (err) {
+      if (current(token, id)) readError.value = t('workbench.readFailed', { error: err.message })
+      return false
+    }
+  })()
+  detailRequest = request
+  try { return await request } finally { if (detailRequest === request) detailRequest = null }
+}
+const applyRunStatus = async (data, token, id) => {
+  if (!current(token, id)) return
+  const previous = runStatus.value
+  runStatus.value = data
+  statusLoaded.value = true
+  const status = data.runner_status
+  for (const [platform, label] of [['twitter', 'Plaza'], ['reddit', 'Community']]) {
+    if (data[`${platform}_current_round`] > (previous[`${platform}_current_round`] || 0)) addLog(`[${label}] R${data[`${platform}_current_round`]}/${data.total_rounds || '-'} | A:${data[`${platform}_actions_count`] || 0}`)
+  }
+  if (previous.runner_status !== status && status === 'completed') addLog(t('log.simCompleted'))
+  if (previous.runner_status !== status && incompleteStatuses.has(status)) addLog(t(`workbench.${status}`))
+  if (activeStatuses.has(status)) {
+    phase.value = 1
+    emit('update-status', status)
+    startPolling()
+  } else {
+    phase.value = status === 'completed' ? 2 : status === 'idle' ? 0 : 3
+    emit('update-status', status || 'needs_review')
+    stopPolling()
+    if (status !== 'idle') {
+      finalizingSnapshot.value = true
+      await fetchRunStatusDetail(true)
+      if (current(token, id)) finalizingSnapshot.value = false
+    }
+  }
+}
+const fetchRunStatus = async () => {
+  const token = generation
+  const id = props.simulationId
+  const version = stateVersion
+  if (!current(token, id) || !id) return false
+  if (statusRequest) return statusRequest
+  const request = (async () => {
+    try {
+      const res = await getRunStatus(id)
+      if (!current(token, id) || version !== stateVersion) return false
+      if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+      readError.value = ''
+      await applyRunStatus(res.data, token, id)
+      return true
+    } catch (err) {
+      if (current(token, id)) {
+        readError.value = t('workbench.readFailed', { error: err.message })
+        emit('update-status', 'error')
+      }
+      return false
+    }
+  })()
+  statusRequest = request
+  try { return await request } finally { if (statusRequest === request) statusRequest = null }
+}
+const doStartSimulation = async () => {
+  if (!canStart.value || isStarting.value) return
+  const token = generation
+  const id = props.simulationId
   isStarting.value = true
   startError.value = null
   addLog(t('log.startingDualSim'))
-  emit('update-status', 'processing')
-  
   try {
-    const params = {
-      simulation_id: props.simulationId,
-      platform: 'parallel',
-      force: true,  // 强制重新开始
-      enable_graph_memory_update: true  // 开启动态图谱更新
-    }
-    
-    if (props.maxRounds) {
-      params.max_rounds = props.maxRounds
-      addLog(t('log.setMaxRounds', { rounds: props.maxRounds }))
-    }
-    
-    addLog(t('log.graphMemoryUpdateEnabled'))
-    
+    // Recheck before the explicit action; another tab may already have started it.
+    if (!await fetchRunStatus() || !current(token, id) || !canStart.value) return
+    stateVersion++
+    const params = { simulation_id: id, platform: 'parallel', force: false, enable_graph_memory_update: true }
+    if (props.maxRounds) params.max_rounds = props.maxRounds
     const res = await startSimulation(params)
-    
-    if (res.success && res.data) {
-      if (res.data.force_restarted) {
-        addLog(t('log.oldSimCleared'))
-      }
-      addLog(t('log.engineStarted'))
-      addLog(`  ├─ PID: ${res.data.process_pid || '-'}`)
-      
-      phase.value = 1
-      runStatus.value = res.data
-      
-      startStatusPolling()
-      startDetailPolling()
-    } else {
-      startError.value = res.error || '启动失败'
-      addLog(t('log.startFailed', { error: res.error || t('common.unknownError') }))
-      emit('update-status', 'error')
-    }
+    if (!current(token, id)) return
+    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+    addLog(t('log.engineStarted'))
+    await applyRunStatus(res.data, token, id)
+    if (current(token, id)) await fetchRunStatus()
   } catch (err) {
-    startError.value = err.message
-    addLog(t('log.startException', { error: err.message }))
-    emit('update-status', 'error')
+    if (current(token, id)) { startError.value = err.message; emit('update-status', 'error') }
   } finally {
-    isStarting.value = false
+    if (current(token, id)) isStarting.value = false
   }
 }
-
-// 停止模拟
 const handleStopSimulation = async () => {
-  if (!props.simulationId || isStopping.value) return
+  if (!mounted || isStopping.value || !['starting', 'running'].includes(runStatus.value.runner_status)) return
+  const token = generation
+  const id = props.simulationId
   actionError.value = ''
-  
   isStopping.value = true
+  stateVersion++
   addLog(t('log.stoppingSim'))
-  
   try {
-    const res = await stopSimulation({ simulation_id: props.simulationId })
-    
-    if (res.success) {
-      addLog(t('log.simStoppedSuccess'))
-      phase.value = 2
-      stopPolling()
-      emit('update-status', 'completed')
-    } else {
-      actionError.value = t('log.stopFailed', { error: res.error || t('common.unknownError') })
-      addLog(actionError.value)
-    }
+    const res = await stopSimulation({ simulation_id: id })
+    if (!current(token, id)) return
+    if (!res.success) throw new Error(res.error || t('common.unknownError'))
+    await applyRunStatus({ ...runStatus.value, ...res.data, runner_status: res.data?.runner_status || 'stopping', graph_ready: false }, token, id)
   } catch (err) {
-    actionError.value = t('log.stopException', { error: err.message })
-    addLog(actionError.value)
+    if (current(token, id)) actionError.value = t('log.stopException', { error: err.message })
   } finally {
-    isStopping.value = false
-  }
-}
-
-// 轮询状态
-let statusTimer = null
-let detailTimer = null
-
-const startStatusPolling = () => {
-  statusTimer = setInterval(fetchRunStatus, 2000)
-}
-
-const startDetailPolling = () => {
-  detailTimer = setInterval(fetchRunStatusDetail, 3000)
-}
-
-const stopPolling = () => {
-  if (statusTimer) {
-    clearInterval(statusTimer)
-    statusTimer = null
-  }
-  if (detailTimer) {
-    clearInterval(detailTimer)
-    detailTimer = null
-  }
-}
-
-// 追踪各平台的上一次轮次，用于检测变化并输出日志
-const prevTwitterRound = ref(0)
-const prevRedditRound = ref(0)
-
-const fetchRunStatus = async () => {
-  if (!props.simulationId) return
-  
-  try {
-    const res = await getRunStatus(props.simulationId)
-    
-    if (res.success && res.data) {
-      const data = res.data
-      
-      runStatus.value = data
-      
-      // 分别检测各平台的轮次变化并输出日志
-      if (data.twitter_current_round > prevTwitterRound.value) {
-        addLog(`[Plaza] R${data.twitter_current_round}/${data.total_rounds} | T:${data.twitter_simulated_hours || 0}h | A:${data.twitter_actions_count}`)
-        prevTwitterRound.value = data.twitter_current_round
-      }
-      
-      if (data.reddit_current_round > prevRedditRound.value) {
-        addLog(`[Community] R${data.reddit_current_round}/${data.total_rounds} | T:${data.reddit_simulated_hours || 0}h | A:${data.reddit_actions_count}`)
-        prevRedditRound.value = data.reddit_current_round
-      }
-      
-      // 检测模拟是否已完成（通过 runner_status 或平台完成状态判断）
-      const isCompleted = data.runner_status === 'completed' || data.runner_status === 'stopped'
-      const isFailed = data.runner_status === 'failed'
-      
-      // runner_status is authoritative because the backend only publishes a
-      // terminal state after the Zep ingestion barrier has completed.
-      if (isFailed) {
-        actionError.value = t('log.simFailed') + (data.error ? `: ${data.error}` : '')
-        addLog(actionError.value)
-        phase.value = 2
-        stopPolling()
-        emit('update-status', 'error')
-      } else if (isCompleted) {
-        addLog(t('log.simCompleted'))
-        phase.value = 2
-        stopPolling()
-        emit('update-status', 'completed')
-      }
-    }
-  } catch (err) {
-    console.warn('获取运行状态失败:', err)
-  }
-}
-
-// 检查所有启用的平台是否已完成
-const checkPlatformsCompleted = (data) => {
-  // 如果没有任何平台数据，返回 false
-  if (!data) return false
-  
-  // 检查各平台的完成状态
-  const twitterCompleted = data.twitter_completed === true
-  const redditCompleted = data.reddit_completed === true
-  
-  // 如果至少有一个平台完成了，检查是否所有启用的平台都完成了
-  // 通过 actions_count 判断平台是否被启用（如果 count > 0 或 running 曾为 true）
-  const twitterEnabled = (data.twitter_actions_count > 0) || data.twitter_running || twitterCompleted
-  const redditEnabled = (data.reddit_actions_count > 0) || data.reddit_running || redditCompleted
-  
-  // 如果没有任何平台被启用，返回 false
-  if (!twitterEnabled && !redditEnabled) return false
-  
-  // 检查所有启用的平台是否都已完成
-  if (twitterEnabled && !twitterCompleted) return false
-  if (redditEnabled && !redditCompleted) return false
-  
-  return true
-}
-
-const fetchRunStatusDetail = async () => {
-  if (!props.simulationId) return
-  
-  try {
-    const res = await getRunStatusDetail(props.simulationId)
-    
-    if (res.success && res.data) {
-      // 使用 all_actions 获取完整的动作列表
-      const serverActions = res.data.all_actions || []
-      
-      // 增量添加新动作（去重）
-      let newActionsAdded = 0
-      serverActions.forEach(action => {
-        // 生成唯一ID
-        const actionId = action.id || `${action.timestamp}-${action.platform}-${action.agent_id}-${action.action_type}`
-        
-        if (!actionIds.value.has(actionId)) {
-          actionIds.value.add(actionId)
-          allActions.value.push({
-            ...action,
-            _uniqueId: actionId
-          })
-          newActionsAdded++
-        }
-      })
-      
-      // 不自动滚动，让用户自由查看时间轴
-      // 新动作会在底部追加
-    }
-  } catch (err) {
-    console.warn('获取详细状态失败:', err)
+    if (current(token, id)) isStopping.value = false
   }
 }
 
@@ -653,41 +603,21 @@ const formatActionTime = (timestamp) => {
 }
 
 const handleNextStep = async () => {
-  if (!props.simulationId) {
-    addLog(t('log.errorMissingSimId'))
-    return
-  }
-
-  if (isGeneratingReport.value) {
-    addLog(t('log.reportRequestSent'))
-    return
-  }
-  
+  if (!canGenerateReport.value || isGeneratingReport.value) return
+  const token = generation
+  const id = props.simulationId
   actionError.value = ''
   isGeneratingReport.value = true
   addLog(t('log.startingReportGen'))
-  
   try {
-    const res = await generateReport({
-      simulation_id: props.simulationId,
-      force_regenerate: true
-    })
-    
-    if (res.success && res.data) {
-      const reportId = res.data.report_id
-      addLog(t('log.reportGenTaskStarted', { reportId }))
-      
-      // 跳转到报告页面
-      router.push({ name: 'Report', params: { reportId } })
-    } else {
-      actionError.value = t('log.reportGenFailed', { error: res.error || t('common.unknownError') })
-      addLog(actionError.value)
-      isGeneratingReport.value = false
-    }
+    const res = await generateReport({ simulation_id: id, force_regenerate: false })
+    if (!current(token, id)) return
+    if (!res.success || !res.data?.report_id) throw new Error(res.error || t('common.unknownError'))
+    await router.push({ name: 'Report', params: { reportId: res.data.report_id } })
   } catch (err) {
-    actionError.value = t('log.reportGenException', { error: err.message })
-    addLog(actionError.value)
-    isGeneratingReport.value = false
+    if (current(token, id)) actionError.value = t('log.reportGenException', { error: err.message })
+  } finally {
+    if (current(token, id)) isGeneratingReport.value = false
   }
 }
 
@@ -702,42 +632,25 @@ watch(() => props.systemLogs?.length, () => {
 })
 
 const initializeSimulation = async () => {
-  try {
-    const existing = await getRunStatus(props.simulationId)
-    if (!existing.success) throw new Error(existing.error || t('common.unknownError'))
-    if (existing.data?.runner_status && existing.data.runner_status !== 'idle') {
-      // Opening or refreshing a monitor must preserve the current run, its
-      // completed graph and the interview environment.
-      phase.value = 1
-      runStatus.value = existing.data
-      emit('update-status', 'processing')
-      startStatusPolling()
-      startDetailPolling()
-      await fetchRunStatusDetail()
-      await fetchRunStatus()
-      return
-    }
-    await doStartSimulation()
-  } catch (err) {
-    startError.value = err.message
-    emit('update-status', 'error')
-    addLog(t('log.startException', { error: err.message }))
-  }
+  if (!mounted || !props.simulationId) return
+  const token = generation
+  const id = props.simulationId
+  if (await fetchRunStatus() && current(token, id) && activeStatuses.has(runStatus.value.runner_status)) await fetchRunStatusDetail()
 }
-
-onMounted(() => {
-  addLog(t('log.step3Init'))
-  if (props.simulationId) {
-    initializeSimulation()
-  }
+watch(() => props.simulationId, () => {
+  resetAllState()
+  initializeSimulation()
 })
-
+onMounted(initializeSimulation)
 onUnmounted(() => {
+  mounted = false
+  generation++
   stopPolling()
 })
 </script>
 
 <style scoped>
+.generation-notice { margin: 12px 20px; color: var(--studio-muted); font-size: 14px; line-height: 1.7; }
 
 .workflow-error {
   flex-shrink: 0;

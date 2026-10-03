@@ -43,7 +43,8 @@
     <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
       <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
-        <GraphPanel 
+        <GraphPanel
+          :project-id="projectData?.project_id"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="5"

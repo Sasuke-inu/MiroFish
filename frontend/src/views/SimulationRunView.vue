@@ -21,6 +21,7 @@
       </div>
 
       <div class="header-right">
+        <RouterLink class="research-return" :to="projectData?.project_id ? '/workbench/' + projectData.project_id : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -43,7 +44,8 @@
     <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
       <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
-        <GraphPanel 
+        <GraphPanel
+          :project-id="projectData?.project_id"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="3"
@@ -78,7 +80,7 @@ import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
 import { getProject, getGraphData } from '../api/graph'
-import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
+import { getSimulation, getSimulationConfig } from '../api/simulation'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import PreferenceControls from '../components/PreferenceControls.vue'
 import WorkflowProgress from '../components/WorkflowProgress.vue'
@@ -97,7 +99,11 @@ const props = defineProps({
 const viewMode = ref('split')
 
 // Data State
-const currentSimulationId = ref(route.params.simulationId)
+const currentSimulationId = ref(props.simulationId || route.params.simulationId)
+let mounted = true
+let generation = 0
+let graphBusy = false
+const valid = token => mounted && token === generation
 // 直接在初始化时从 query 参数获取 maxRounds，确保子组件能立即获取到值
 const maxRounds = ref(route.query.maxRounds ? parseInt(route.query.maxRounds) : null)
 const minutesPerRound = ref(30) // 默认每轮30分钟
@@ -106,7 +112,7 @@ const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
 const loadError = ref('')
-const currentStatus = ref('processing') // processing | completed | error
+const currentStatus = ref('pending') // processing | completed | error
 
 // --- Computed Layout Styles ---
 const leftPanelStyle = computed(() => {
@@ -127,12 +133,12 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return t('common.error')
+  if (['error', 'failed', 'interrupted', 'needs_review', 'stopped'].includes(currentStatus.value)) return t('workbench.' + (currentStatus.value === 'error' ? 'readState' : currentStatus.value))
   if (currentStatus.value === 'completed') return t('common.completed')
-  return t('common.running')
+  return ['idle', 'pending'].includes(currentStatus.value) ? t('common.pending') : currentStatus.value === 'stopping' ? t('workbench.stopping') : currentStatus.value === 'finalizing' ? t('workbench.finalizing') : t('common.running')
 })
 
-const isSimulating = computed(() => currentStatus.value === 'processing')
+const isSimulating = computed(() => ['processing', 'starting', 'running', 'stopping', 'finalizing'].includes(currentStatus.value))
 
 // --- Helpers ---
 const addLog = (msg) => {
@@ -156,53 +162,7 @@ const toggleMaximize = (target) => {
   }
 }
 
-const handleGoBack = async () => {
-  // 在返回 Step 2 之前，先关闭正在运行的模拟
-  addLog(t('log.preparingGoBack'))
-  
-  // 停止轮询
-  stopGraphRefresh()
-  
-  try {
-    // 先尝试优雅关闭模拟环境
-    const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
-    
-    if (envStatusRes.success && envStatusRes.data?.env_alive) {
-      addLog(t('log.closingSimEnv'))
-      try {
-        await closeSimulationEnv({ 
-          simulation_id: currentSimulationId.value,
-          timeout: 10
-        })
-        addLog(t('log.simEnvClosed'))
-      } catch (closeErr) {
-        addLog(t('log.closeSimEnvFailed'))
-        try {
-          await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog(t('log.simForceStopSuccess'))
-        } catch (stopErr) {
-          addLog(t('log.forceStopFailed', { error: stopErr.message }))
-        }
-      }
-    } else {
-      // 环境未运行，检查是否需要停止进程
-      if (isSimulating.value) {
-        addLog(t('log.stoppingSimProcess'))
-        try {
-          await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog(t('log.simStopped'))
-        } catch (err) {
-          addLog(t('log.stopSimFailed', { error: err.message }))
-        }
-      }
-    }
-  } catch (err) {
-    addLog(t('log.checkStatusFailed', { error: err.message }))
-  }
-  
-  // 返回到 Step 2 (环境搭建)
-  router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
-}
+const handleGoBack = () => router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
 
 const handleNextStep = () => {
   // Step3Simulation 组件会直接处理报告生成和路由跳转
@@ -212,18 +172,21 @@ const handleNextStep = () => {
 
 // --- Data Logic ---
 const loadSimulationData = async () => {
+  const token = generation
   loadError.value = ''
   try {
     addLog(t('log.loadingSimData', { id: currentSimulationId.value }))
     
     // 获取 simulation 信息
     const simRes = await getSimulation(currentSimulationId.value)
+    if (!valid(token)) return
     if (simRes.success && simRes.data) {
       const simData = simRes.data
       
       // 获取 simulation config 以获取 minutes_per_round
       try {
         const configRes = await getSimulationConfig(currentSimulationId.value)
+    if (!valid(token)) return
         if (configRes.success && configRes.data?.time_config?.minutes_per_round) {
           minutesPerRound.value = configRes.data.time_config.minutes_per_round
           addLog(t('log.timeConfig', { minutes: minutesPerRound.value }))
@@ -235,6 +198,7 @@ const loadSimulationData = async () => {
       // 获取 project 信息
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
+    if (!valid(token)) return
         if (projRes.success && projRes.data) {
           projectData.value = projRes.data
           addLog(t('log.projectLoadSuccess', { id: projRes.data.project_id }))
@@ -251,6 +215,7 @@ const loadSimulationData = async () => {
       addLog(loadError.value)
     }
   } catch (err) {
+    if (!valid(token)) return
     loadError.value = t('log.loadException', { error: err.message })
     currentStatus.value = 'error'
     addLog(loadError.value)
@@ -258,6 +223,9 @@ const loadSimulationData = async () => {
 }
 
 const loadGraph = async (graphId) => {
+  if (graphBusy || !mounted) return
+  const token = generation
+  graphBusy = true
   // 当正在模拟时，自动刷新不显示全屏 loading，以免闪烁
   // 手动刷新或初始加载时显示 loading
   if (!isSimulating.value) {
@@ -266,6 +234,7 @@ const loadGraph = async (graphId) => {
   
   try {
     const res = await getGraphData(graphId)
+    if (!valid(token)) return
     if (res.success) {
       graphData.value = res.data
       if (!isSimulating.value) {
@@ -273,9 +242,10 @@ const loadGraph = async (graphId) => {
       }
     }
   } catch (err) {
+    if (!valid(token)) return
     addLog(t('log.graphLoadFailed', { error: err.message }))
   } finally {
-    graphLoading.value = false
+    if (valid(token)) { graphLoading.value = false; graphBusy = false }
   }
 }
 
@@ -322,12 +292,28 @@ onMounted(() => {
   loadSimulationData()
 })
 
+watch(() => props.simulationId || route.params.simulationId, id => {
+  if (!id || id === currentSimulationId.value) return
+  generation++
+  stopGraphRefresh()
+  currentSimulationId.value = id
+  maxRounds.value = route.query.maxRounds ? Number.parseInt(route.query.maxRounds) : null
+  projectData.value = graphData.value = null
+  graphBusy = false
+  graphLoading.value = false
+  currentStatus.value = 'pending'
+  systemLogs.value = []
+  loadSimulationData()
+})
 onUnmounted(() => {
+  mounted = false
+  generation++
   stopGraphRefresh()
 })
 </script>
 
 <style scoped>
+.research-return { color: var(--studio-muted); font-size: .875rem; text-decoration: none; padding: 8px; min-height: 44px; display: inline-flex; align-items: center; }
 
 .workflow-error {
   flex-shrink: 0;

@@ -1,6 +1,7 @@
 """One async Graphiti runtime shared by the HTTP service's request threads."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -26,35 +27,50 @@ from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from pydantic import BaseModel, Field, create_model
 
 from ..config import Config
-from ..provider_settings import get_model_settings, model_settings_snapshot
+from ..provider_settings import get_model_settings, model_settings_snapshot, canonical_endpoint, SettingsError
 from ..utils.openai_chat_compat import create_chat_completion, extract_chat_completion_text
 from ..utils.json_object import unwrap_properties
 from .store import ServiceError
+from .namespace_clone import copy_transaction
 
 logger = logging.getLogger('mirofish.local_graph')
 
 
 class RouterLLM(OpenAIGenericClient):
-    """Retain Graphiti extraction/retry while applying the tested 9Router parameters."""
+    """Use Graphiti extraction framing without replaying an uncertain paid call."""
 
     def __init__(self, *args, use_saved_settings=False, **kwargs):
         super().__init__(*args, **kwargs)
+        if hasattr(self.client, 'max_retries'):
+            self.client.max_retries = 0
         self.use_saved_settings = use_saved_settings
+
+    async def _generate_response_with_retry(self, messages, response_model=None, max_tokens=16384, model_size=None):
+        # Graphiti's default Tenacity wrapper also repeats generation. Any
+        # timeout, server error or invalid result needs an explicit new attempt.
+        return await self._generate_response(messages, response_model, max_tokens, model_size)
 
     async def _generate_response(self, messages, response_model=None, max_tokens=16384, model_size=None):
         parameters = [{'role': message.role, 'content': self._clean_input(message.content)}
                       for message in messages if message.role in ('user', 'system', 'assistant')]
-        # Each ingestion batch owns a ContextVar snapshot. Changing settings
-        # never changes the provider halfway through that batch's extraction.
+        # Each graph owns a private ContextVar snapshot across every ingestion
+        # batch and later simulation episode, including after settings changes.
         settings = get_model_settings() if self.use_saved_settings else None
         context = AsyncOpenAI(api_key=settings['api_key'], base_url=settings['base_url'],
-                              timeout=180, max_retries=2,
+                              timeout=180, max_retries=0,
                               http_client=DefaultAsyncHttpxClient(follow_redirects=False, trust_env=False, timeout=180)) if settings else nullcontext(self.client)
-        async with context as client:
-            response = await create_chat_completion(
-                client, model=settings['model'] if settings else self.model, messages=parameters, temperature=self.temperature,
-                max_tokens=max_tokens, response_format=self._build_response_format(response_model),
-            )
+        try:
+            async with context as client:
+                response = await create_chat_completion(
+                    client, model=settings['model'] if settings else self.model, messages=parameters, temperature=self.temperature,
+                    max_tokens=max_tokens, response_format=self._build_response_format(response_model),
+                )
+        except Exception as error:
+            # Provider error bodies can contain credentials. Keep a safe status
+            # for diagnostics; never send the raw exception to Graphiti tracing.
+            status = getattr(error, 'status_code', None)
+            raise ServiceError('模型請求結果未確認，已停止自動重試，請核對此執行。',
+                               status if isinstance(status, int) and 400 <= status < 600 else 502) from None
         content = extract_chat_completion_text(response)
         if not content:
             raise json.JSONDecodeError('9Router returned empty graph extraction', '', 0)
@@ -146,7 +162,8 @@ class Runtime:
         self.store = store
         self.ready = False
         self.error = None
-        self._batch_model_settings = {}
+        self._graph_model_settings = {}
+        self._model_settings_lock = threading.RLock()
         self.loop = asyncio.new_event_loop()
         self.thread = threading.Thread(target=self._run, name='graphiti-runtime', daemon=True)
         self.thread.start()
@@ -164,7 +181,7 @@ class Runtime:
                 config=LLMConfig(api_key=settings['api_key'], base_url=settings['base_url'],
                                  model=settings['model'], small_model=settings['model']),
                 client=AsyncOpenAI(api_key=settings['api_key'] or 'not-configured', base_url=settings['base_url'],
-                                   timeout=180, max_retries=2),
+                                   timeout=180, max_retries=0),
                 structured_output_mode='json_object',
                 use_saved_settings=True,
             )
@@ -193,9 +210,56 @@ class Runtime:
             self.ready = True
             logger.info('Local Graphiti ready; embedding dimension=%s', self.embedder.dimension)
             self.loop.create_task(self._worker())
-        except Exception:
+        except Exception as error:
             self.error = '本機圖譜初始化失敗，請查看圖譜服務紀錄'
-            logger.exception('Graphiti initialization failed')
+            logger.error('Graphiti initialization failed (%s)', type(error).__name__)
+
+    @staticmethod
+    def private_settings(value):
+        """Allow only model credentials, never balance/admin credentials."""
+        if not isinstance(value, dict):
+            raise ServiceError('模型設定快照格式不正確')
+        settings = {key: value.get(key) for key in ('provider', 'base_url', 'model', 'api_key')}
+        if any(not isinstance(item, str) or not item.strip() or len(item) > 4096
+               or any(ord(char) < 32 for char in item) for item in settings.values()):
+            raise ServiceError('模型設定快照不完整或包含無效字元')
+        try:
+            settings['base_url'] = canonical_endpoint(settings['base_url'])
+        except SettingsError:
+            raise ServiceError('模型設定快照的服務網址無效') from None
+        return settings
+
+    @staticmethod
+    def settings_fingerprint(settings):
+        value = {key: settings[key] for key in ('provider', 'base_url', 'model')}
+        value['api_key_sha256'] = hashlib.sha256(settings['api_key'].encode()).hexdigest()
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+    def bind_graph_settings(self, graph_id, settings=None):
+        """Bind an explicitly submitted graph operation before it can enqueue."""
+        private = self.private_settings(get_model_settings() if settings is None else settings)
+        fingerprint = self.settings_fingerprint(private)
+        with self._model_settings_lock:
+            self.store.bind_model_fingerprint(graph_id, fingerprint)
+            previous = self._graph_model_settings.get(graph_id)
+            if previous is not None and self.settings_fingerprint(previous) != fingerprint:
+                raise ServiceError('圖譜的模型設定已固定，請核對後建立新執行', 409)
+            self._graph_model_settings[graph_id] = private
+        return fingerprint
+
+    def settings_for_graph(self, graph_id):
+        """Restore credentials only when the persisted identity still matches."""
+        with self._model_settings_lock:
+            if graph_id in self._graph_model_settings:
+                return dict(self._graph_model_settings[graph_id])
+            expected = self.store.graph(graph_id).get('model_fingerprint')
+            if expected is None:
+                raise ServiceError('圖譜缺少模型設定識別，新增寫入前需核對', 409)
+            private = self.private_settings(get_model_settings())
+            if self.settings_fingerprint(private) != expected:
+                raise ServiceError('重啟後模型設定與圖譜原設定不一致，需核對後才能繼續寫入', 409)
+            self._graph_model_settings[graph_id] = private
+            return dict(private)
 
     def call(self, operation, *args, **kwargs):
         if not self.ready:
@@ -210,10 +274,7 @@ class Runtime:
                 await asyncio.sleep(0.5)
                 continue
             try:
-                batch_key = job.get('batch_id') or job['episode_uuid']
-                if batch_key not in self._batch_model_settings:
-                    self._batch_model_settings[batch_key] = get_model_settings()
-                with model_settings_snapshot(self._batch_model_settings[batch_key]):
+                with model_settings_snapshot(self.settings_for_graph(job['graph_id'])):
                     graph = self.store.graph(job['graph_id'])
                     entities, edges, mapping = ontology_models(graph['ontology'])
                     reference_time = datetime.fromisoformat(job['created_at'].replace('Z', '+00:00'))
@@ -248,12 +309,11 @@ class Runtime:
                     self.store.finish(job['episode_uuid'])
                     logger.info('Graphiti episode complete: graph=%s, episode=%s', job['graph_id'], job['episode_uuid'])
             except Exception as error:
-                logger.exception('Graphiti episode failed: %s', job['episode_uuid'])
-                self.store.finish(job['episode_uuid'], f'{type(error).__name__}: {error}')
-            finally:
-                batch_key = job.get('batch_id') or job['episode_uuid']
-                if not job.get('batch_id') or self.store.batch(job['batch_id'])['status'] in {'succeeded', 'failed'}:
-                    self._batch_model_settings.pop(batch_key, None)
+                # Provider exceptions can echo Authorization or request content.
+                # Keep the safe service explanation and exception type only.
+                logger.error('Graphiti episode failed: %s (%s)', job['episode_uuid'], type(error).__name__)
+                message = str(error) if isinstance(error, ServiceError) else f'圖譜處理失敗（{type(error).__name__}）；請核對服務狀態'
+                self.store.finish(job['episode_uuid'], message)
 
     async def page(self, graph_id, kind, limit, cursor=None):
         model = EntityNode if kind == 'nodes' else EntityEdge
@@ -299,8 +359,32 @@ class Runtime:
     async def delete(self, graph_id):
         self.store.check_delete(graph_id)
         await Node.delete_by_group_id(self.graphiti.driver, graph_id)
+        await self.graphiti.driver.execute_query('MATCH (r:MiroFishCloneReceipt {target_graph_id:$graph}) DELETE r', graph=graph_id)
         self.store.delete_graph(graph_id)
+        with self._model_settings_lock:
+            self._graph_model_settings.pop(graph_id, None)
         return {'success': True, 'graph_id': graph_id}
+
+    async def clone(self, source_graph_id, target_graph_id, operation_id, settings=None):
+        private = self.private_settings(get_model_settings() if settings is None else settings)
+        fingerprint = self.settings_fingerprint(private)
+        receipt = self.store.begin_clone(source_graph_id, target_graph_id, operation_id, fingerprint)
+        if receipt['status'] == 'ready':
+            return receipt
+        self.bind_graph_settings(target_graph_id, private)
+        try:
+            await self.graphiti.driver.execute_query('''CREATE CONSTRAINT mirofish_clone_operation IF NOT EXISTS
+                FOR (r:MiroFishCloneReceipt) REQUIRE r.operation_id IS UNIQUE''')
+            async with self.graphiti.driver.session() as session:
+                summary = await session.execute_write(copy_transaction, source_graph_id, target_graph_id,
+                                                      operation_id, fingerprint)
+            return self.store.finish_clone(operation_id, summary)
+        except Exception as error:
+            self.store.review_clone(operation_id)
+            logger.error('Graphiti namespace copy requires review: %s (%s)', operation_id, type(error).__name__)
+            if isinstance(error, ServiceError):
+                raise
+            raise ServiceError('圖譜複製結果尚未確認，請用相同執行識別核對', 409) from None
 
     async def database_health(self):
         await self.graphiti.driver.execute_query('RETURN 1 AS alive', routing_='r')

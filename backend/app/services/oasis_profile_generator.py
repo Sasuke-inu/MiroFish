@@ -32,6 +32,11 @@ from .zep_entity_reader import EntityNode, ZepEntityReader
 logger = get_logger('mirofish.oasis_profile')
 
 
+class PreparationNeedsReview(RuntimeError):
+    """A paid preparation result is uncertain; never silently replay or replace it."""
+    needs_review = True
+
+
 def _coerce_to_str(value: Any) -> str:
     """Coerce a value to a plain string.
 
@@ -250,7 +255,7 @@ class OasisProfileGenerator:
         graph_id: Optional[str] = None
     ):
         from ..provider_settings import get_model_settings
-        settings = get_model_settings()
+        settings = get_model_settings(stage='prepare')
         self.api_key = api_key or settings['api_key']
         self.base_url = base_url or settings['base_url']
         self.model_name = model_name or settings['model']
@@ -262,6 +267,7 @@ class OasisProfileGenerator:
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
+            max_retries=0,
             http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
         
@@ -571,63 +577,29 @@ class OasisProfileGenerator:
                 entity_name, entity_type, entity_summary, entity_attributes, context
             )
 
-        # 尝试多次生成，直到成功或达到最大重试次数
-        max_attempts = 3
-        last_error = None
-        
-        for attempt in range(max_attempts):
+        try:
+            response = create_chat_completion(
+                self.client, model=self.model_name,
+                messages=[{'role': 'system', 'content': self._get_system_prompt(is_individual)},
+                          {'role': 'user', 'content': prompt}],
+                response_format={'type': 'json_object'}, temperature=0.7,
+            )
+            content = extract_chat_completion_text(response)
+            if response.choices[0].finish_reason == 'length':
+                raise ValueError('Truncated model response')
             try:
-                response = create_chat_completion(
-                    self.client,
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": self._get_system_prompt(is_individual)},
-                        {"role": "user", "content": prompt}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1),  # 每次重试降低温度
-                    # 不设置max_tokens，让LLM自由发挥
-                )
-                
-                content = extract_chat_completion_text(response)
-                
-                # 检查是否被截断（finish_reason不是'stop'）
-                finish_reason = response.choices[0].finish_reason
-                if finish_reason == 'length':
-                    logger.warning(f"LLM输出被截断 (attempt {attempt+1}), 尝试修复...")
-                    content = self._fix_truncated_json(content)
-                
-                # 尝试解析JSON
-                try:
-                    result = unwrap_properties(json.loads(content), {'bio', 'persona', 'age', 'profession', 'mbti'})
-                    
-                    # 验证必需字段
-                    if not result.get('bio') or not result.get('persona'):
-                        raise ValueError('Profile response must include non-empty bio and persona fields')
-                    
-                    return result
-                    
-                except json.JSONDecodeError as je:
-                    logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(je)[:80]}")
-                    
-                    # 尝试修复JSON
-                    result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
-                    if result.get("_fixed"):
-                        del result["_fixed"]
-                        return result
-                    
-                    last_error = je
-                    
-            except Exception as e:
-                logger.warning(f"LLM调用失败 (attempt {attempt+1}): {str(e)[:80]}")
-                last_error = e
-                import time
-                time.sleep(1 * (attempt + 1))  # 指数退避
-        
-        logger.warning(f"LLM生成人设失败（{max_attempts}次尝试）: {last_error}, 使用规则生成")
-        return self._generate_profile_rule_based(
-            entity_name, entity_type, entity_summary, entity_attributes
-        )
+                result = json.loads(content)
+            except json.JSONDecodeError:
+                # Local text repair only; no second generation or invented fields.
+                result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
+                result.pop('_fixed', None)
+            result = unwrap_properties(result, {'bio', 'persona', 'age', 'profession', 'mbti'})
+            if not isinstance(result, dict) or not result.get('bio') or not result.get('persona'):
+                raise ValueError('Profile response needs bio and persona')
+            return result
+        except Exception as error:
+            logger.warning('角色生成結果未確認 (%s)', type(error).__name__)
+            raise PreparationNeedsReview('角色生成結果未確認；已停止自動重試，請核對費用與已保存內容。') from None
     
     def _fix_truncated_json(self, content: str) -> str:
         """修复被截断的JSON（输出被max_tokens限制截断）"""
@@ -695,28 +667,7 @@ class OasisProfileGenerator:
                 except:
                     pass
         
-        # 6. 尝试从内容中提取部分信息
-        bio_match = re.search(r'"bio"\s*:\s*"([^"]*)"', content)
-        persona_match = re.search(r'"persona"\s*:\s*"([^"]*)', content)  # 可能被截断
-        
-        bio = bio_match.group(1) if bio_match else (entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}")
-        persona = persona_match.group(1) if persona_match else (entity_summary or f"{entity_name}是一个{entity_type}。")
-        
-        # 如果提取到了有意义的内容，标记为已修复
-        if bio_match or persona_match:
-            logger.info(f"从损坏的JSON中提取了部分信息")
-            return {
-                "bio": bio,
-                "persona": persona,
-                "_fixed": True
-            }
-        
-        # 7. 完全失败，返回基础结构
-        logger.warning(f"JSON修复失败，返回基础结构")
-        return {
-            "bio": entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}",
-            "persona": entity_summary or f"{entity_name}是一个{entity_type}。"
-        }
+        return {}
     
     def _get_system_prompt(self, is_individual: bool) -> str:
         """获取系统提示词"""
@@ -931,7 +882,8 @@ class OasisProfileGenerator:
             Agent Profile列表
         """
         import concurrent.futures
-        from threading import Lock
+        from threading import Lock, Event
+        cancelled = Event()
         
         # 设置graph_id用于Zep检索
         if graph_id:
@@ -979,6 +931,8 @@ class OasisProfileGenerator:
         def generate_single_profile(idx: int, entity: EntityNode) -> tuple:
             """生成单个profile的工作函数"""
             set_locale(current_locale)
+            if cancelled.is_set():
+                raise PreparationNeedsReview('角色準備已停止；未開始的生成不會繼續。')
             entity_type = entity.get_entity_type() or "Entity"
             
             try:
@@ -988,24 +942,12 @@ class OasisProfileGenerator:
                     use_llm=use_llm
                 )
                 
-                # 实时输出生成的人设到控制台和日志
-                self._print_generated_profile(entity.name, entity_type, profile)
-                
                 return idx, profile, None
                 
             except Exception as e:
-                logger.error(f"生成实体 {entity.name} 的人设失败: {str(e)}")
-                # 创建一个基础profile
-                fallback_profile = OasisAgentProfile(
-                    user_id=idx,
-                    user_name=self._generate_username(entity.name),
-                    name=entity.name,
-                    bio=f"{entity_type}: {entity.name}",
-                    persona=entity.summary or f"A participant in social discussions.",
-                    source_entity_uuid=entity.uuid,
-                    source_entity_type=entity_type,
-                )
-                return idx, fallback_profile, str(e)
+                cancelled.set()
+                logger.error('角色準備停止 (%s)', type(e).__name__)
+                raise PreparationNeedsReview('角色準備結果未確認；已保存部分會保留，不以備用人設冒充成功。') from None
         
         logger.info(f"开始并行生成 {total} 个Agent人设（并行数: {parallel_count}）...")
         print(f"\n{'='*60}")
@@ -1049,20 +991,11 @@ class OasisProfileGenerator:
                         logger.info(f"[{current}/{total}] 成功生成人设: {entity.name} ({entity_type})")
                         
                 except Exception as e:
-                    logger.error(f"处理实体 {entity.name} 时发生异常: {str(e)}")
-                    with lock:
-                        completed_count[0] += 1
-                    profiles[idx] = OasisAgentProfile(
-                        user_id=idx,
-                        user_name=self._generate_username(entity.name),
-                        name=entity.name,
-                        bio=f"{entity_type}: {entity.name}",
-                        persona=entity.summary or "A participant in social discussions.",
-                        source_entity_uuid=entity.uuid,
-                        source_entity_type=entity_type,
-                    )
-                    # 实时写入文件（即使是备用人设）
-                    save_profiles_realtime()
+                    cancelled.set()
+                    for pending in future_to_entity:
+                        pending.cancel()
+                    logger.error('角色批次需要核對 (%s)', type(e).__name__)
+                    raise PreparationNeedsReview('角色準備結果未確認；請核對已完成部分，建立新準備時不會自動重送。') from None
         
         print(f"\n{'='*60}")
         print(f"人设生成完成！共生成 {len([p for p in profiles if p])} 个Agent")

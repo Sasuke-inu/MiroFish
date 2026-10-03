@@ -43,6 +43,29 @@ async function render(component, props = {}) {
 }
 
 describe('Graph interaction quality', () => {
+  it('filters the existing graph and offers a paged keyboard table with the same selection', async () => {
+    const data = structuredClone(graph)
+    for(let i=0;i<54;i++) data.nodes.push({uuid:`extra_${i}`,name:`額外 ${i}`,labels:['Entity','Resident']})
+    const {wrapper}=await render(GraphPanel,{graphData:data})
+    await wrapper.get('.graph-filters input').setValue('咖啡')
+    await flushPromises()
+    expect(wrapper.findAll('.nodes circle')).toHaveLength(1)
+    await wrapper.get('.graph-filters input').setValue('')
+    await wrapper.get('.graph-filters select').setValue('Resident')
+    await wrapper.get('.graph-filters button').trigger('click')
+    expect(wrapper.findAll('.graph-table-view tbody tr')).toHaveLength(50)
+    await wrapper.findAll('.graph-table-paging button')[1].trigger('click')
+    expect(wrapper.findAll('.graph-table-view tbody tr')).toHaveLength(5)
+    const trigger=wrapper.get('.graph-table-view tbody button')
+    trigger.element.focus()
+    await trigger.trigger('click')
+    await flushPromises()
+    expect(wrapper.get('.detail-panel').text()).toContain('額外 49')
+    await wrapper.get('.detail-close').trigger('click')
+    await flushPromises()
+    expect(document.activeElement).toBe(trigger.element)
+    expect(data.nodes).toHaveLength(56)
+  })
   it('renders initially supplied data and opens node details with the keyboard without losing zero or false', async () => {
     const { wrapper } = await render(GraphPanel, { graphData: structuredClone(graph) })
     const node = wrapper.get('.nodes circle[role=button]')

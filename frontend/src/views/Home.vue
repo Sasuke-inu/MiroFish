@@ -3,12 +3,14 @@
     <nav class="studio-navbar" :aria-label="$t('studio.navigation')">
       <RouterLink to="/" class="studio-brand"><span class="brand-mark" aria-hidden="true">≈</span><span>MIROFISH<small>{{ $t('studio.brandSubtitle') }}</small></span></RouterLink>
       <div class="studio-nav-links">
+        <RouterLink to="/workbench" class="workbench-link">{{ $t('research.title') }}</RouterLink>
         <button @click="scrollToBottom" class="history-link">{{ $t('studio.history') }}</button>
         <LanguageSwitcher />
         <PreferenceControls />
       </div>
     </nav>
     <main class="studio-home-main" id="workspace-content" tabindex="-1">
+      <HomeResearchOverview :history-state="historyState" @history="scrollToBottom" />
       <header class="studio-intro">
         <h1>{{ $t('studio.refined.headline') }}</h1>
         <p>{{ $t('studio.refined.intro') }}</p>
@@ -73,7 +75,7 @@
           <button v-if="statusError" type="button" class="service-retry" :disabled="statusBusy" @click="refreshStatus">{{ $t('studio.refresh') }}</button>
         </section>
       </details>
-      <section id="project-history" class="studio-history"><HistoryDatabase /></section>
+      <section id="project-history" class="studio-history"><HistoryDatabase @snapshot="historyState=$event" /></section>
       <footer class="studio-footer"><span>MIROFISH / {{ $t('studio.brandSubtitle') }}</span><span>{{ $t('studio.footer') }}</span></footer>
     </main>
   </div>
@@ -83,6 +85,7 @@
 import { ref, computed, inject, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import HomeResearchOverview from '../components/HomeResearchOverview.vue'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import PreferenceControls from '../components/PreferenceControls.vue'
@@ -92,6 +95,7 @@ import ExplorationJourney from '../components/ExplorationJourney.vue'
 import { setPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import { useSourceCollection } from '../composables/useSourceCollection'
 
+const historyState=ref({items:[],loading:true,error:false})
 const router = useRouter()
 const { t, tm } = useI18n()
 const systemStatus = inject('systemStatus', ref(null))
@@ -259,9 +263,9 @@ const startSimulation = async (useAvailable = false) => {
 .studio-brand small { display: block; margin-top: 2px; color: var(--studio-muted); font-size: 11px; font-weight: 400; letter-spacing: .4px; }
 .brand-mark { display: grid; place-items: center; width: 36px; height: 36px; background: var(--studio-button); color: var(--theme-on-filled); border-radius: 10px; font-size: 29px; letter-spacing: 0; }
 .studio-nav-links { display: flex; align-items: center; gap: 16px; }
-.history-link { min-height: 44px; display: inline-flex; align-items: center; font-size: .875rem; font-weight: 500; color: var(--studio-muted); text-decoration: none; }
-.history-link { border: 0; background: none; padding: 8px 0; }
-.history-link:hover { color: var(--studio-accent); }
+.history-link, .workbench-link { min-height: 44px; display: inline-flex; align-items: center; font-size: .875rem; font-weight: 500; color: var(--studio-muted); text-decoration: none; }
+.history-link, .workbench-link { border: 0; background: none; padding: 8px 0; }
+.history-link:hover, .workbench-link:hover { color: var(--studio-accent); }
 .studio-home-main { max-width: 1168px; margin: 0 auto; padding: 32px 24px 20px; }
 .studio-intro { margin-bottom: 28px; }
 .studio-intro h1 { margin: 0; font-size: clamp(2rem, 3.2vw, 2.5rem); line-height: 1.3; letter-spacing: -.02em; font-weight: 700; text-wrap: balance; }

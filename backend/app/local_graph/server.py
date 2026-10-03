@@ -83,11 +83,25 @@ def create_service(store, runtime, api_key):
         value = body()
         if not isinstance(value.get('name'), str) or not value['name'].strip():
             raise ServiceError('圖譜名稱不能空白')
-        return jsonify(store.create_graph(value.get('graph_id'), value['name'], value.get('description') or ''))
+        snapshot = runtime.private_settings(value.pop('model_snapshot', None)) if 'model_snapshot' in value else None
+        graph_id = value.get('graph_id')
+        store.create_graph(graph_id, value['name'], value.get('description') or '')
+        runtime.bind_graph_settings(graph_id, snapshot)
+        return jsonify(store.graph(graph_id))
 
     @app.get('/graphs/<graph_id>')
     def graph(graph_id):
         return jsonify(store.graph(graph_id))
+
+    @app.post('/graphs/<graph_id>/clone')
+    def clone_graph(graph_id):
+        value = body()
+        return jsonify(runtime.call(runtime.clone, graph_id, value.get('graph_id'),
+                                    value.get('operation_id'), value.pop('model_snapshot', None)))
+
+    @app.get('/graph-clones/<operation_id>')
+    def clone_receipt(operation_id):
+        return jsonify(store.clone_receipt(operation_id))
 
     @app.delete('/graphs/<graph_id>')
     def delete(graph_id):
@@ -146,7 +160,10 @@ def create_service(store, runtime, api_key):
 
     @app.post('/episodes')
     def add_episode():
-        return jsonify(store.add_episode(body()))
+        value = body()
+        snapshot = value.pop('model_snapshot', None)
+        runtime.bind_graph_settings(value.get('graph_id'), snapshot)
+        return jsonify(store.add_episode(value))
 
     @app.get('/episodes/<uuid>')
     def episode(uuid):
@@ -173,9 +190,11 @@ def create_service(store, runtime, api_key):
 
     @app.post('/batches')
     def create_batch():
-        metadata = body().get('metadata', {})
+        value = body()
+        metadata = value.get('metadata', {})
         if not isinstance(metadata, dict):
             raise ServiceError('資料批次的附加資訊格式不正確')
+        runtime.bind_graph_settings(metadata.get('graph_id'), value.pop('model_snapshot', None))
         return jsonify(store.create_batch(metadata))
 
     @app.get('/batches')
@@ -198,6 +217,7 @@ def create_service(store, runtime, api_key):
 
     @app.post('/batches/<batch_id>/process')
     def process(batch_id):
+        runtime.settings_for_graph(store.batch(batch_id)['graph_id'])
         return jsonify(store.process(batch_id))
 
     return app

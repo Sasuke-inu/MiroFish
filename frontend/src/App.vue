@@ -11,7 +11,7 @@
     </template>
   </aside>
   <RouterView v-if="workspaceRoute" :route="workspaceRoute" v-slot="{ Component }">
-    <component :is="Component" v-show="!isSettings" />
+    <component :is="Component" :key="workspaceKey" v-show="!isSettings" />
   </RouterView>
   <SettingsView v-if="isSettings" />
 </template>
@@ -36,6 +36,7 @@ const focusContent = () => {
   content?.scrollIntoView({ block: 'start' })
 }
 const workspaceRoute = shallowRef(null)
+const workspaceKey = computed(() => `${workspaceRoute.value?.name || ''}:${JSON.stringify(workspaceRoute.value?.params || {})}`)
 let workspaceScroll = 0
 let settingsWereOpen = false
 // Settings keep the current workspace mounted, including uploads and chats.
@@ -73,7 +74,7 @@ async function refreshSystemStatus() {
 }
 onMounted(refreshSystemStatus)
 watch([() => route.name, locale], () => {
-  const names = { Home: 'studio.workspace', Settings: 'settings.title', Process: 'studio.step1Title', Simulation: 'studio.step2Title', SimulationRun: 'studio.step3Title', Report: 'studio.step4Title', Interaction: 'studio.step5Title', NotFound: 'quality.notFoundTitle' }
+  const names = { Home: 'studio.workspace', Workbench: 'research.title', Settings: 'settings.title', Process: 'studio.step1Title', Simulation: 'studio.step2Title', SimulationRun: 'studio.step3Title', Report: 'studio.step4Title', Interaction: 'studio.step5Title', NotFound: 'quality.notFoundTitle' }
   document.title = `${t(names[route.name] || 'studio.workspace')} · MiroFish`
 }, { immediate: true })
 </script>

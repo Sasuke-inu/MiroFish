@@ -135,8 +135,11 @@ describe('Workflow quality regressions', () => {
   })
 
   it('shows preparation failure and does not enable the start button', async () => {
+    overrides.set('/api/simulation/sim_fixture', () => ok({ simulation_id: 'sim_fixture', status: 'created' }))
     overrides.set('/api/simulation/prepare', () => ({ success: false, error: '缺少角色資料' }))
     const wrapper = await render(Step2)
+    await wrapper.get('[data-testid=prepare-simulation]').trigger('click')
+    await flushPromises()
     expect(wrapper.get('[role=alert]').text()).toContain('缺少角色資料')
     expect(wrapper.get('.action-btn.primary').attributes('disabled')).toBeDefined()
   })
@@ -188,6 +191,7 @@ describe('Workflow quality regressions', () => {
   })
 
   it('keeps each conversation separate when moving between report, agent and survey', async () => {
+    overrides.set('/api/simulation/env-status', () => ok({ env_alive: true }))
     const wrapper = await render(Step5)
     await wrapper.get('.chat-input').setValue('報告問題')
     await wrapper.get('.send-btn').trigger('click')
@@ -223,6 +227,7 @@ describe('Workflow quality regressions', () => {
   })
 
   it('shows survey failure next to the form and keeps the question for retry', async () => {
+    overrides.set('/api/simulation/env-status', () => ok({ env_alive: true }))
     overrides.set('/api/simulation/interview/batch', () => ({ success: false, error: '稍後再試' }))
     const wrapper = await render(Step5)
     await wrapper.get('.survey-pill').trigger('click')
@@ -232,6 +237,17 @@ describe('Workflow quality regressions', () => {
     await flushPromises()
     expect(wrapper.get('[role=alert]').text()).toContain('稍後再試')
     expect(wrapper.get('.survey-input').element.value).toBe('同意延長營業嗎？')
+  })
+
+  it('labels a pending saved-report read as loading rather than generation', async () => {
+    let finish
+    overrides.set('/api/report/report_fixture', () => new Promise(resolve => { finish = resolve }))
+    const wrapper = await render(ReportView, {}, '/report/report_fixture', { GraphPanel: true, Step4Report: true, PreferenceControls: true, LanguageSwitcher: true })
+    expect(wrapper.get('[role=status]').text()).toBe('載入中...')
+    finish(ok({report_id:'report_fixture', status:'completed'}))
+    await flushPromises()
+    expect(wrapper.get('[role=status]').text()).toBe('已完成')
+    expect(api.mock.calls.flat().filter(call => call.method === 'post')).toHaveLength(0)
   })
 
   it.each([

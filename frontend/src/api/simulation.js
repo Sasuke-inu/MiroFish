@@ -170,6 +170,10 @@ export const getEnvStatus = (data) => {
   return service.post('/api/simulation/env-status', data)
 }
 
+export const getInterviewHistory = (data) => {
+  return service.post('/api/simulation/interview/history', data)
+}
+
 /**
  * 批量采访 Agent
  * @param {Object} data - { simulation_id, interviews: [{ agent_id, prompt }] }

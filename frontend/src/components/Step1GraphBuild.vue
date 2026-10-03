@@ -198,7 +198,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { createSimulation } from '../api/simulation'
@@ -221,19 +221,22 @@ defineEmits(['next-step'])
 const selectedOntologyItem = ref(null)
 const ontologyCloseButton = ref(null)
 const createError = ref('')
+let mounted = true
+onUnmounted(() => { mounted = false })
 let ontologyTrigger = null
 const logContent = ref(null)
 const creatingSimulation = ref(false)
 
 // 进入环境搭建 - 创建 simulation 并跳转
 const handleEnterEnvSetup = async () => {
-  if (creatingSimulation.value) return
+  if (!mounted || creatingSimulation.value) return
   createError.value = ''
   if (!props.projectData?.project_id || !props.projectData?.graph_id) {
     console.error('缺少项目或图谱信息')
     return
   }
   
+  const requestedProject = props.projectData.project_id
   creatingSimulation.value = true
   
   try {
@@ -243,6 +246,7 @@ const handleEnterEnvSetup = async () => {
       enable_twitter: true,
       enable_reddit: true
     })
+    if (!mounted || props.projectData?.project_id !== requestedProject) return
     
     if (res.success && res.data?.simulation_id) {
       // 跳转到 simulation 页面
@@ -255,10 +259,11 @@ const handleEnterEnvSetup = async () => {
       createError.value = t('step1.createSimulationFailed', { error: res.error || t('common.unknownError') })
     }
   } catch (err) {
+    if (!mounted || props.projectData?.project_id !== requestedProject) return
     console.error('创建模拟异常:', err)
     createError.value = t('step1.createSimulationException', { error: err.message })
   } finally {
-    creatingSimulation.value = false
+    if (mounted && props.projectData?.project_id === requestedProject) creatingSimulation.value = false
   }
 }
 

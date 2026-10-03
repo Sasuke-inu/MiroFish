@@ -14,10 +14,23 @@
       </div>
     </div>
     
+    <div v-if="hasNodes" class="graph-filters">
+      <input v-model="query" type="search" :aria-label="graphText.search" :placeholder="graphText.search" />
+      <select v-model="typeFilter" :aria-label="graphText.type"><option value="">{{ graphText.all }}</option><option v-for="type in entityTypes" :key="type.name" :value="type.name">{{ type.name }}</option></select>
+      <button type="button" :aria-pressed="tableView" @click="tableView=!tableView">{{ tableView ? graphText.visual : graphText.table }}</button>
+      <button v-if="query || typeFilter" type="button" @click="query='';typeFilter=''">{{ graphText.clear }}</button>
+      <small role="status">{{ filteredNodes.length }} / {{ graphData.nodes.length }}</small>
+    </div>
     <div class="graph-container" ref="graphContainer">
       <!-- 图谱可视化 -->
       <div v-if="hasNodes" class="graph-view">
-        <svg ref="graphSvg" class="graph-svg" :aria-label="$t('graph.panelTitle')"></svg>
+        <svg v-show="!tableView" ref="graphSvg" class="graph-svg" :aria-label="$t('graph.panelTitle')"></svg>
+        <div v-if="tableView" class="graph-table-view">
+          <p>{{ graphText.meaning }}</p>
+          <label><select v-model="tableKind" :aria-label="graphText.tableKind"><option value="node">{{ graphText.nodes }}</option><option value="edge">{{ graphText.edges }}</option></select></label>
+          <table><caption>{{ graphText.table }} · {{ tableRows.length }}</caption><thead><tr><th>{{ graphText.item }}</th><th>{{ graphText.type }}</th><th>{{ graphText.inspect }}</th></tr></thead><tbody><tr v-for="item in tableRows.slice(tablePage*50,(tablePage+1)*50)" :key="item.uuid"><td>{{ item.name || item.fact || item.uuid }}</td><td>{{ tableKind === 'node' ? item.labels?.join(', ') : item.fact_type || item.name }}</td><td><button type="button" @click="selectTableItem(item,$event)">{{ graphText.inspect }}</button></td></tr></tbody></table>
+          <div class="graph-table-paging"><button :disabled="tablePage===0" @click="tablePage--">{{ graphText.previous }}</button><span>{{ tablePage+1 }} / {{ Math.max(1,Math.ceil(tableRows.length/50)) }}</span><button :disabled="(tablePage+1)*50>=tableRows.length" @click="tablePage++">{{ graphText.next }}</button></div>
+        </div>
         
         <!-- 构建中/模拟中提示 -->
         <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint">
@@ -198,6 +211,7 @@
               </div>
             </template>
           </div>
+          <EvidenceLinks v-if="projectId && selectedItem.data.uuid" :key="`${selectedItem.type}-${selectedItem.data.uuid}`" :project-id="projectId" :subject-type="selectedItem.type" :subject-id="selectedItem.data.uuid" />
         </div>
       </div>
       
@@ -247,9 +261,11 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'
+import EvidenceLinks from './EvidenceLinks.vue'
 
 const props = defineProps({
   graphData: Object,
+  projectId: String,
   loading: Boolean,
   currentPhase: Number,
   awaitingGraphSetup: Boolean,
@@ -258,6 +274,12 @@ const props = defineProps({
 
 const emit = defineEmits(['refresh', 'toggle-maximize'])
 const { t, locale } = useI18n()
+const query=ref(''),typeFilter=ref(''),tableView=ref(false),tableKind=ref('node'),tablePage=ref(0)
+const graphText=computed(()=>locale.value==='en'?{search:'Find a node',type:'Type',all:'All types',visual:'Graph',table:'Accessible table',clear:'Clear filters',meaning:'Colours identify entity types; links are stored relationships, not verified facts. This view shows the saved graph, not a historical replay.',tableKind:'Table content',nodes:'Nodes',edges:'Relationships',item:'Item',inspect:'Inspect',previous:'Previous',next:'Next'}:{search:'搜尋節點',type:'類型',all:'全部類型',visual:'圖譜',table:'文字表格',clear:'清除篩選',meaning:'顏色區分實體類型；連線代表已保存的關係，不等同已證實事實。此處顯示保存的圖譜，並非歷史回放。',tableKind:'表格內容',nodes:'節點',edges:'關係',item:'項目',inspect:'查看',previous:'上一頁',next:'下一頁'})
+const filteredNodes=computed(()=>(props.graphData?.nodes || []).filter(node=>(!typeFilter.value || node.labels?.includes(typeFilter.value)) && `${node.name || ''} ${node.summary || ''} ${node.uuid}`.toLocaleLowerCase().includes(query.value.toLocaleLowerCase())))
+const filteredEdges=computed(()=>{const ids=new Set(filteredNodes.value.map(node=>node.uuid));return (props.graphData?.edges || []).filter(edge=>ids.has(edge.source_node_uuid)&&ids.has(edge.target_node_uuid))})
+const tableRows=computed(()=>tableKind.value==='node'?filteredNodes.value:filteredEdges.value)
+function selectTableItem(item,event){selectedTrigger=event.currentTarget;const entityType=item.labels?.find(label=>label!=='Entity') || 'Entity';selectedItem.value={type:tableKind.value,data:item,entityType,color:entityTypes.value.find(type=>type.name===entityType)?.color}}
 const hasNodes = computed(() => (props.graphData?.nodes?.length || 0) > 0)
 const detailTitleId = useId()
 const detailClose = ref(null)
@@ -389,8 +411,8 @@ const renderGraph = () => {
     
   svg.selectAll('*').remove()
   
-  const nodesData = props.graphData.nodes || []
-  const edgesData = props.graphData.edges || []
+  const nodesData = filteredNodes.value
+  const edgesData = filteredEdges.value
   
   if (nodesData.length === 0) return
 
@@ -869,6 +891,9 @@ watch(() => props.graphData, () => {
   nextTick(renderGraph)
 }, { deep: true })
 
+watch([query,typeFilter,tableKind],()=>{tablePage.value=0;closeDetailPanel();if(currentSimulation)currentSimulation.stop();nextTick(renderGraph)})
+watch(tableView,()=>{if(currentSimulation)currentSimulation.stop();nextTick(renderGraph)})
+
 // 监听边标签显示开关
 watch(showEdgeLabels, (newVal) => {
   if (linkLabelsRef) {
@@ -909,6 +934,17 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.graph-filters{position:absolute;top:64px;inset-inline:16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:12;max-width:calc(100% - 32px)}
+.graph-filters input{width:clamp(100px,30%,240px);min-width:0}
+.graph-filters input,.graph-filters select,.graph-filters button,.graph-table-view button,.graph-table-view select{font:inherit;font-size:13px;min-height:40px;padding:6px 9px;border:1px solid var(--studio-line);border-radius:6px;background:var(--studio-surface);color:var(--studio-ink);max-width:100%}
+.graph-table-view{position:absolute;inset:122px 16px 130px;overflow:auto;background:var(--studio-surface);padding:16px;border:1px solid var(--studio-line);border-radius:8px;z-index:4;line-height:1.5}
+.graph-table-view table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:14px}
+.graph-table-view caption{text-align:start;font-weight:700;margin-block:12px}
+.graph-table-view th,.graph-table-view td{text-align:start;padding:8px;border-bottom:1px solid var(--studio-line);overflow-wrap:anywhere}
+.graph-table-view th:last-child{width:68px}
+.graph-table-paging{display:flex;gap:12px;align-items:center;margin-top:16px}
+.detail-panel>.object-evidence{padding:0 20px 12px}
+@media(max-width:600px){.graph-filters{inset-inline:10px;gap:5px}.graph-table-view{top:170px;inset-inline:10px;padding:10px}.graph-filters input{width:135px}.graph-filters small{width:100%}}
 .graph-panel {
   position: relative;
   width: 100%;

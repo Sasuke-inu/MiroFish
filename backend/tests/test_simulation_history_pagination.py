@@ -1,13 +1,18 @@
 from types import SimpleNamespace
+import json
 
 import pytest
 
 from app import create_app
 from app.api import simulation
+from app.services.report_agent import ReportManager
+
+REAL_REPORT_LOOKUP = simulation._get_report_id_for_simulation
 
 
 @pytest.fixture
-def history_client(monkeypatch):
+def history_client(monkeypatch, tmp_path):
+    monkeypatch.setattr(ReportManager, 'REPORTS_DIR', str(tmp_path / 'reports'))
     records = []
     for index in range(45):
         values = {
@@ -75,3 +80,49 @@ def test_invalid_page_parameters_stay_bounded(history_client, query, limit, offs
     assert len(config_calls) == count
     if offset >= 45:
         assert payload['pagination']['has_more'] is False
+
+
+@pytest.mark.parametrize('status', ['completed', 'failed', 'needs_review', None])
+def test_history_returns_saved_report_status_without_inference(history_client, status):
+    from pathlib import Path
+    client, _ = history_client
+    if status is not None:
+        folder = Path(ReportManager.REPORTS_DIR) / 'report_sim_044'
+        folder.mkdir(parents=True)
+        (folder / 'meta.json').write_text(json.dumps({'report_id': 'report_sim_044',
+            'simulation_id': 'sim_044', 'status': status}), encoding='utf-8')
+    row = client.get('/api/simulation/history?limit=1').json['data'][0]
+    assert row['report_id'] == 'report_sim_044'
+    assert row['report_status'] == status
+
+
+@pytest.mark.parametrize('metadata', [
+    {'report_id': 'report_sim_044', 'simulation_id': 'sim_044'},
+    {'report_id': 'report_sim_044', 'simulation_id': 'sim_other', 'status': 'completed'},
+    {'report_id': 'report_other', 'simulation_id': 'sim_044', 'status': 'completed'},
+    {'report_id': 'report_sim_044', 'simulation_id': 'sim_044', 'status': 'invented'},
+])
+def test_missing_or_mismatched_report_metadata_is_not_completed(history_client, metadata):
+    from pathlib import Path
+    client, _ = history_client
+    folder = Path(ReportManager.REPORTS_DIR) / 'report_sim_044'
+    folder.mkdir(parents=True)
+    (folder / 'meta.json').write_text(json.dumps(metadata), encoding='utf-8')
+    row = client.get('/api/simulation/history?limit=1').json['data'][0]
+    assert row['report_status'] is None
+
+
+def test_history_uses_latest_saved_report_and_keeps_string_helper_contract(history_client, monkeypatch):
+    from pathlib import Path
+    client, _ = history_client
+    for index, status in [(1, 'completed'), (2, 'failed')]:
+        report_id = f'report_version_{index}'
+        folder = Path(ReportManager.REPORTS_DIR) / report_id
+        folder.mkdir(parents=True)
+        (folder / 'meta.json').write_text(json.dumps({'report_id': report_id,
+            'simulation_id': 'sim_044', 'created_at': f'2026-10-0{index}', 'status': status}), encoding='utf-8')
+    monkeypatch.setattr(simulation, '_get_report_id_for_simulation', REAL_REPORT_LOOKUP)
+    assert simulation._get_report_id_for_simulation('sim_044') == 'report_version_2'
+    row = client.get('/api/simulation/history?limit=1').json['data'][0]
+    assert row['report_id'] == 'report_version_2'
+    assert row['report_status'] == 'failed'

@@ -115,7 +115,7 @@ def _infer_provider(base_url):
     return 'custom'
 
 
-def get_model_settings(settings=None):
+def get_model_settings(settings=None, *, stage=None, profile_id=None):
     """Read on each new client/job; an explicit job context always wins."""
     snapshot = _SNAPSHOT.get()
     if snapshot is not None:
@@ -134,8 +134,17 @@ def get_model_settings(settings=None):
             value = json.load(stream)
         if not isinstance(value, dict) or not all(isinstance(value.get(key), str) for key in ('provider', 'base_url', 'model', 'api_key')):
             raise ValueError('invalid saved settings')
-        return {**value, 'source': 'saved'}
+        if stage or profile_id:
+            profile_id = profile_id or value.get('stage_assignments', {}).get(stage)
+            if profile_id and profile_id != 'default':
+                profile = value.get('profiles', {}).get(profile_id)
+                if not profile:
+                    raise ValueError('Stage points to an absent profile')
+                value = {**profile['config'], 'profile_id': profile_id, 'profile_name': profile['name']}
+        return {**{key: item for key, item in value.items() if key not in {'profiles', 'stage_assignments', 'capabilities'}}, 'source': 'saved'}
     except FileNotFoundError:
+        if profile_id and profile_id != 'default':
+            raise SettingsError('原工作使用的具名連線不存在，已停止啟動。', 409) from None
         base_url = get('LLM_BASE_URL', 'https://api.openai.com/v1') or ''
         return {'provider': _infer_provider(base_url), 'base_url': base_url,
                 'model': get('LLM_MODEL_NAME', '') or '', 'api_key': get('LLM_API_KEY', '') or '',
@@ -159,9 +168,9 @@ def model_environment(settings=None):
     return {'LLM_API_KEY': value['api_key'], 'LLM_BASE_URL': value['base_url'],
             'LLM_MODEL_NAME': value['model'], 'LLM_PROVIDER': value['provider'],
             'MIROFISH_MODEL_SNAPSHOT': '1',
-            # A saved primary selection supersedes old per-platform boost vars.
-            **({'LLM_BOOST_API_KEY': '', 'LLM_BOOST_BASE_URL': '', 'LLM_BOOST_MODEL_NAME': ''}
-               if value.get('source') == 'saved' else {})}
+            # Every explicit run snapshot owns its model choice. An inherited
+            # boost environment must not override that recorded selection.
+            'LLM_BOOST_API_KEY': '', 'LLM_BOOST_BASE_URL': '', 'LLM_BOOST_MODEL_NAME': ''}
 
 
 def with_model_snapshot(function):
@@ -247,7 +256,9 @@ def save_settings(payload, settings=None):
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             descriptor, temporary = tempfile.mkstemp(prefix='.providers-', suffix='.tmp', dir=path.parent)
             with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
-                json.dump({key: item for key, item in value.items() if key != 'source'}, stream, ensure_ascii=False)
+                existing = _profile_document(settings)
+                preserved = {key: existing[key] for key in ('schema_version', 'profiles', 'stage_assignments', 'capabilities') if key in existing}
+                json.dump({**preserved, **{key: item for key, item in value.items() if key != 'source'}}, stream, ensure_ascii=False)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.chmod(temporary, 0o600)
@@ -347,6 +358,134 @@ def provider_accounts(settings=None, *, value=None):
                           'is_active': row.get('isActive') is True}
                          for row in connections if isinstance(row, dict) and row.get('provider') == 'opencode-go'
                          and isinstance(row.get('id'), str) and re.fullmatch(r'[A-Za-z0-9_-]{1,100}', row['id'])]}
+
+
+STAGES = ('graph', 'prepare', 'simulation', 'report')
+
+
+def _profile_document(settings=None):
+    """Read the existing private file; migration is additive and explicit."""
+    path = settings_path(settings)
+    try:
+        document = json.loads(path.read_text(encoding='utf-8'))
+        if not isinstance(document, dict):
+            raise ValueError()
+        return document
+    except FileNotFoundError:
+        return {key: value for key, value in get_model_settings(settings).items() if key != 'source'}
+    except (OSError, ValueError):
+        raise SettingsError('無法讀取模型連線，已保留原設定。', 503) from None
+
+
+def _write_profile_document(document, settings=None):
+    from .utils.atomic import write_json
+    path = settings_path(settings)
+    try:
+        path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        write_json(path, document)
+        os.chmod(path, 0o600)
+    except OSError:
+        raise SettingsError('無法保存模型連線；請檢查儲存空間。', 503) from None
+
+
+def _capability_defaults(config):
+    return {'configuration': 'configured' if config.get('api_key') and config.get('model') else 'incomplete',
+            'reachable': 'not_verified', 'model_list': 'not_verified', 'text_generation': 'not_verified',
+            'structured_output': 'not_verified', 'task_usable': 'not_verified',
+            'api': 'chat_completions', 'structured_output_api': None, 'checked_at': None}
+
+
+def profiles_config(settings=None):
+    document = _profile_document(settings)
+    profiles = []
+    for profile_id, item in document.get('profiles', {}).items():
+        profiles.append({'id': profile_id, 'name': item['name'], **public_config(item['config']),
+                         'capabilities': item.get('capabilities') or _capability_defaults(item['config'])})
+    return {'schema_version': document.get('schema_version', 1), 'profiles': profiles,
+            'default': public_config(get_model_settings(settings)),
+            'assignments': {stage: document.get('stage_assignments', {}).get(stage, 'default') for stage in STAGES},
+            'embedding': {'provider': 'local', 'status': 'separate_configuration',
+                          'message': '聊天連線不會變更 embedding 模型或維度，也不會重建索引。'}}
+
+
+def save_profile(payload, settings=None):
+    import uuid
+    if not isinstance(payload, dict) or set(payload) - {'id', 'name', 'config', 'from_default'}:
+        raise SettingsError('模型連線格式不正確。')
+    name = payload.get('name')
+    if not isinstance(name, str) or not name.strip() or len(name) > 100:
+        raise SettingsError('請填入 1–100 字的連線名稱。')
+    profile_id = payload.get('id') or 'connection_' + uuid.uuid4().hex
+    if not isinstance(profile_id, str) or not re.fullmatch(r'connection_[a-f0-9]{32}', profile_id):
+        raise SettingsError('連線識別碼不正確。')
+    draft = payload.get('config')
+    if payload.get('from_default') is True:
+        selected = get_model_settings(settings)
+        draft = {key: selected[key] for key in ('provider', 'base_url', 'model', 'api_key')}
+    if not isinstance(draft, dict) or set(draft) - {'provider', 'base_url', 'model', 'api_key'}:
+        raise SettingsError('具名連線只保存模型金鑰，不承接管理授權。')
+    with _LOCK:
+        document = _profile_document(settings)
+        profiles = document.setdefault('profiles', {})
+        if len(profiles) >= 20 and profile_id not in profiles:
+            raise SettingsError('最多保存 20 組具名連線。')
+        current = profiles.get(profile_id, {}).get('config') or {'provider': '', 'base_url': '', 'model': '', 'api_key': ''}
+        validated = validate_draft(draft, current, require_compatible=False)
+        validated.pop('balance_api_key', None)
+        validated.pop('balance_account_id', None)
+        profiles[profile_id] = {'name': name.strip(), 'config': validated, 'capabilities': _capability_defaults(validated)}
+        document['schema_version'] = 2
+        _write_profile_document(document, settings)
+    return profiles_config(settings)
+
+
+def assign_profiles(payload, settings=None):
+    if not isinstance(payload, dict) or set(payload) - set(STAGES):
+        raise SettingsError('階段配置格式不正確。')
+    with _LOCK:
+        document = _profile_document(settings)
+        known = {'default', *document.get('profiles', {})}
+        if any(not isinstance(value, str) or value not in known for value in payload.values()):
+            raise SettingsError('請選擇已保存的連線。')
+        document.setdefault('stage_assignments', {}).update(payload)
+        document['schema_version'] = 2
+        _write_profile_document(document, settings)
+    return profiles_config(settings)
+
+
+def remove_profile(profile_id, settings=None):
+    with _LOCK:
+        document = _profile_document(settings)
+        if profile_id in document.get('stage_assignments', {}).values():
+            raise SettingsError('請先將使用這組連線的階段改回預設，再移除。', 409)
+        if profile_id not in document.get('profiles', {}):
+            raise SettingsError('找不到此連線。', 404)
+        del document['profiles'][profile_id]
+        _write_profile_document(document, settings)
+    return profiles_config(settings)
+
+
+def test_profile(profile_id, settings=None):
+    with _LOCK:
+        document = _profile_document(settings)
+        original = document.get('profiles', {}).get(profile_id)
+        if not original:
+            raise SettingsError('找不到此連線。', 404)
+        config = dict(original['config'])
+    rows = _request_json(config, '/models').get('data')
+    if not isinstance(rows, list):
+        raise SettingsError('服務沒有回傳模型清單；仍可手動指定模型，生成能力尚未驗證。', 502)
+    models = sorted({row['id'] for row in rows if isinstance(row, dict) and isinstance(row.get('id'), str) and len(row['id']) <= 200})[:3000]
+    capability = {**_capability_defaults(config), 'reachable': 'verified', 'model_list': 'verified', 'checked_at': now()}
+    with _LOCK:
+        latest = _profile_document(settings)
+        current = latest.get('profiles', {}).get(profile_id)
+        if not current or current['config'] != config:
+            raise SettingsError('測試期間連線已變更，已丟棄舊結果。', 409)
+        current['capabilities'] = capability
+        _write_profile_document(latest, settings)
+    return {'profile_id': profile_id, 'models': models, 'capabilities': capability,
+            'mode': 'models_only', 'generation_performed': False}
 
 
 def _router_wallet(value, result):

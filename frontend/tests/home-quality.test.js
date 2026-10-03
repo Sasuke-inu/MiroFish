@@ -10,6 +10,7 @@ import productionRouter from '../src/router'
 import zhTW from '../../locales/zh-TW.json'
 import { createFixtureAdapter } from './fixtures/api'
 import service from '../src/api'
+import { workbenchClient } from '../src/api/workbench'
 import { providerClient } from '../src/api/providers'
 
 const wrappers = []
@@ -23,6 +24,7 @@ async function render(component = Home, provide = {}, path = '/') {
   const fixtureAdapter = createFixtureAdapter()
   service.defaults.adapter = fixtureAdapter
   providerClient.defaults.adapter = fixtureAdapter
+  workbenchClient.defaults.adapter = fixtureAdapter
   const router = createRouter({ history: createMemoryHistory(), routes: productionRouter.options.routes })
   await router.push(path)
   const i18n = createI18n({ legacy: false, locale: 'zh-TW', messages: { 'zh-TW': zhTW } })
@@ -38,6 +40,7 @@ async function choose(wrapper, files) {
 }
 
 describe('Workspace quality regressions', () => {
+  it('places saved research and demo navigation before the intact creation form',async()=>{const {wrapper}=await render();const overview=wrapper.get('.home-research-overview'),form=wrapper.get('.new-project-card');expect(overview.element.compareDocumentPosition(form.element)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();expect(overview.text()).toContain('繼續研究');expect(overview.text()).toContain('最近成果');expect(wrapper.find('#simulation-goal').exists()).toBe(true);expect(wrapper.find('#source-files').exists()).toBe(true)})
   it('explains rejected files and keeps supported files without duplicating them', async () => {
     const { wrapper } = await render()
     const valid = new File(['source'], 'notes.md', { lastModified: 42 })

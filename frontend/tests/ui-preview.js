@@ -5,6 +5,7 @@ import App from '../src/App.vue'
 import productionRouter from '../src/router'
 import i18n from '../src/i18n'
 import service from '../src/api'
+import { workbenchClient } from '../src/api/workbench'
 import { providerClient } from '../src/api/providers'
 import { createFixtureAdapter } from './fixtures/api'
 import '../src/styles/studio.css'
@@ -13,6 +14,7 @@ import '../src/styles/theme.css'
 const fixtureAdapter = createFixtureAdapter({ emptyHistory: new URLSearchParams(location.search).get('emptyHistory') === '1' })
 service.defaults.adapter = fixtureAdapter
 providerClient.defaults.adapter = fixtureAdapter
+  workbenchClient.defaults.adapter = fixtureAdapter
 const router = createRouter({ history: createWebHashHistory(), routes: productionRouter.options.routes })
 createApp(App).use(router).use(i18n).mount('#app')
 document.body.classList.add('fixture-preview')

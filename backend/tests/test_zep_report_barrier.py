@@ -150,22 +150,23 @@ def test_report_reader_lease_blocks_graph_start_and_delete(monkeypatch):
     simulation = SimpleNamespace(
         simulation_id="sim-1",
         project_id="proj-1",
-        graph_id="graph-1",
+        graph_id="graph-1", source_graph_id="source-1", graph_namespace_status="ready",
         status=SimulationStatus.READY,
     )
     project = SimpleNamespace(
         project_id="proj-1",
-        graph_id="graph-1",
+        graph_id="source-1",
         status=ProjectStatus.GRAPH_COMPLETED,
         simulation_requirement="mock requirement",
     )
-    run_state = SimpleNamespace(runner_status=RunnerStatus.COMPLETED)
+    run_state = SimpleNamespace(runner_status=RunnerStatus.COMPLETED, graph_ready=True, run_id="run_fixture",
+                                to_dict=lambda: {'simulation_id': 'sim-1', 'runner_status': 'completed', 'graph_ready': True})
     worker_targets = []
     runner_calls = []
 
     class Tasks:
-        def create_task(self, **_kwargs):
-            return "task-1"
+        def claim_task(self, **_kwargs):
+            return "task-1", True
 
         def update_task(self, *_args, **_kwargs):
             pass
@@ -281,8 +282,10 @@ def test_report_reader_lease_blocks_graph_start_and_delete(monkeypatch):
             start_body, start_status = _json_result(
                 simulation_api.start_simulation()
             )
-        assert start_status == 409
-        assert start_body["active_reports"] == [report_id]
+        # Reopening a completed identity now returns that same execution.
+        # It must never launch a new producer while the report reads its graph.
+        assert start_status == 200
+        assert start_body['data']['reused'] is True
         assert runner_calls == []
 
         with pytest.raises(graph_api.GraphInUseError, match=f"report:{report_id}"):

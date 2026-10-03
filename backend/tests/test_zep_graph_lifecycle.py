@@ -35,7 +35,7 @@ def _json_result(result):
     return response.get_json(), status
 
 
-def test_project_reset_deletes_the_cloud_graph_before_clearing_reference(monkeypatch):
+def test_project_reset_preserves_the_graph_and_requires_new_draft(monkeypatch):
     project = _project(ProjectStatus.GRAPH_COMPLETED)
     events = []
 
@@ -63,11 +63,11 @@ def test_project_reset_deletes_the_cloud_graph_before_clearing_reference(monkeyp
     with app.test_request_context("/api/graph/project/proj-1/reset", method="POST"):
         body, status = _json_result(graph_api.reset_project("proj-1"))
 
-    assert status == 200
-    assert body["success"] is True
-    assert events == [("cloud-delete", "graph-1"), ("save", None)]
-    assert project.zep_batch_id is None
-    assert project.status == ProjectStatus.ONTOLOGY_GENERATED
+    assert status == 409
+    assert body["new_project_required"] is True
+    assert events == []
+    assert project.graph_id == "graph-1"
+    assert project.zep_batch_id == "batch-1"
 
 
 def test_project_reset_refuses_a_graph_with_an_active_simulation(monkeypatch):
@@ -191,8 +191,8 @@ def test_stale_build_resumes_a_persisted_processing_batch(monkeypatch):
         def get_task(self, _task_id):
             return None
 
-        def create_task(self, _description):
-            return "task-resumed"
+        def claim_task(self, *_args, **_kwargs):
+            return "task-resumed", True
 
     class Builder:
         def __init__(self, **_kwargs):
@@ -328,91 +328,15 @@ def test_force_must_be_a_json_boolean(monkeypatch):
     assert "boolean" in body["error"]
 
 
-def test_graph_reset_and_memory_start_cannot_cross_between_delete_and_clear(
-    monkeypatch,
-):
+def test_reset_never_enters_destructive_graph_barrier(monkeypatch):
     project = _project(ProjectStatus.GRAPH_COMPLETED)
-    simulation = SimpleNamespace(
-        simulation_id="sim-1",
-        project_id=project.project_id,
-        graph_id=project.graph_id,
-        status=SimulationStatus.READY,
-    )
-    delete_entered = threading.Event()
-    allow_delete = threading.Event()
-    runner_called = []
-
-    class Builder:
-        def __init__(self, **_kwargs):
-            pass
-
-        def delete_graph(self, graph_id):
-            assert graph_id == "graph-1"
-            delete_entered.set()
-            assert allow_delete.wait(timeout=2)
-
-    class Simulations:
-        def get_simulation(self, _simulation_id):
-            return simulation
-
-    monkeypatch.setattr(graph_api, "GraphBuilderService", Builder)
-    monkeypatch.setattr(graph_api.Config, "ZEP_API_KEY", "test-key")
-    monkeypatch.setattr(
-        graph_api.ProjectManager,
-        "get_project",
-        classmethod(lambda _cls, _project_id: project),
-    )
-    monkeypatch.setattr(
-        graph_api.ProjectManager,
-        "save_project",
-        classmethod(lambda _cls, _project: None),
-    )
-    monkeypatch.setattr(simulation_api, "SimulationManager", Simulations)
-    monkeypatch.setattr(
-        simulation_api.ProjectManager,
-        "get_project",
-        classmethod(lambda _cls, _project_id: project),
-    )
-    monkeypatch.setattr(
-        simulation_api.SimulationRunner,
-        "start_simulation",
-        classmethod(lambda _cls, **_kwargs: runner_called.append(True)),
-    )
-
+    monkeypatch.setattr(graph_api.ProjectManager, 'get_project', lambda _: project)
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError('Reset must never delete a historical graph')
+    monkeypatch.setattr(graph_api, '_delete_cloud_graph_if_present', forbidden)
     app = Flask(__name__)
-    results = {}
-
-    def reset():
-        with app.test_request_context(
-            "/api/graph/project/proj-1/reset", method="POST"
-        ):
-            results["reset"] = _json_result(graph_api.reset_project("proj-1"))
-
-    def start():
-        with app.test_request_context(
-            "/api/simulation/start",
-            method="POST",
-            json={
-                "simulation_id": "sim-1",
-                "enable_graph_memory_update": True,
-            },
-        ):
-            results["start"] = _json_result(simulation_api.start_simulation())
-
-    reset_thread = threading.Thread(target=reset)
-    reset_thread.start()
-    assert delete_entered.wait(timeout=2)
-
-    start_thread = threading.Thread(target=start)
-    start_thread.start()
-    start_thread.join(timeout=0.05)
-    assert start_thread.is_alive()
-
-    allow_delete.set()
-    reset_thread.join(timeout=2)
-    start_thread.join(timeout=2)
-
-    assert results["reset"][1] == 200
-    assert results["start"][1] == 409
-    assert runner_called == []
-    assert project.graph_id is None
+    with app.test_request_context('/reset', method='POST'):
+        body, status = _json_result(graph_api.reset_project('proj-1'))
+    assert status == 409
+    assert body['new_project_required'] is True
+    assert project.graph_id == 'graph-1'

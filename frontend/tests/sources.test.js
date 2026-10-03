@@ -11,6 +11,7 @@ import SourceUsageCard from '../src/components/SourceUsageCard.vue'
 import App from '../src/App.vue'
 import productionRouter from '../src/router'
 import { useSourceCollection } from '../src/composables/useSourceCollection'
+import { workbenchClient } from '../src/api/workbench'
 import { providerClient } from '../src/api/providers'
 import { createFixtureAdapter } from './fixtures/api'
 import { clearPendingUpload, getPendingUpload } from '../src/store/pendingUpload'
@@ -34,6 +35,7 @@ beforeEach(() => {
   localStorage.clear()
   clearPendingUpload()
   providerClient.defaults.adapter = createFixtureAdapter()
+  workbenchClient.defaults.adapter = createFixtureAdapter()
   state = { status: structuredClone(initialStatus), result: { documents: [structuredClone(sourceDocument)], errors: [], attempted: 1, replayed: false, budget }, newPages: 1 }
   api.mockReset().mockImplementation(async request => {
     if (request.url === '/api/sources/status') return success(state.status)
@@ -244,7 +246,9 @@ describe('One-action Home handoff', () => {
     expect(getPendingUpload().isPending).toBe(false)
     await wrapper.get('.start-engine-btn').trigger('click')
     await flushPromises()
-    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/process/new'))
+    // The first navigation loads the real lazy Process component and its graph
+    // dependencies. Allow cold module compilation without weakening assertions.
+    await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/process/new'), { timeout: 4000 })
     expect(getPendingUpload().files).toHaveLength(1)
     expect(await readFile(getPendingUpload().files[0])).toBe(sourceDocument.markdown)
     expect(getPendingUpload().simulationRequirement).toBe('探索來源文章的影響')

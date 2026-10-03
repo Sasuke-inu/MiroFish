@@ -111,6 +111,7 @@ class LLMClient:
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
+            max_retries=0,
             http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
 

@@ -61,6 +61,8 @@ function dispatch(request) {
     if (state.provider.provider === 'opencode_go') return ok({ supported: true, status: 'available', kind: 'subscription_quota', quotas: [{ id: 'rolling', remaining_percent: 68 }, { id: 'weekly', remaining_percent: 84 }] })
     return ok({ supported: false, status: 'unsupported', quotas: [] })
   }
+  if (url === '/api/workbench/tasks') return ok({items:[],runs:[]})
+  if (url === '/api/workbench/projects') return ok({items:[{...project,name:'咖啡店研究',archived:false}],total:1,has_more:false})
   if (url === '/api/system/status') return ok(state.status)
   if (url === '/api/sources/status') return ok({ enabled: true, configured: true, online: true, mode: 'local', cloud_credits: 0, max_pages_per_job: 3, max_chars_per_page: 8000, cache_hours: 24, budget: { used: 0, daily_limit: 10, remaining: 10, resets_at: '2026-10-04T00:00:00+10:00', timezone: 'Australia/Sydney' } })
   if (url === '/api/simulation/history') return ok(state.history)
@@ -76,6 +78,7 @@ function dispatch(request) {
   if (url === '/api/simulation/start' || url === '/api/simulation/sim_fixture/run-status') return ok(state.runStatus)
   if (url === '/api/simulation/stop' || url === '/api/simulation/env/close') return ok({ runner_status: 'stopped' })
   if (url.endsWith('/env-status')) return ok({ env_alive: false, status: 'closed' })
+  if (url === '/api/simulation/interview/history') return ok({ history: [] })
   if (url === '/api/simulation/sim_fixture/run-status/detail') return ok({ all_actions: [], ...state.runStatus })
   if (url === '/api/report/generate') return ok({ report_id: 'report_fixture' })
   if (url === '/api/report/report_fixture') return ok({ report_id: 'report_fixture', simulation_id: 'sim_fixture', status: 'completed' })

@@ -9,8 +9,10 @@ from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
 from queue import Queue, Empty
+from functools import wraps
 
 from ..config import Config
+from ..provider_settings import get_model_settings, model_settings_snapshot
 from ..utils.logger import get_logger
 from ..utils.locale import get_locale, set_locale
 from ..utils.zep import (
@@ -20,6 +22,20 @@ from ..utils.zep import (
 )
 
 logger = get_logger('mirofish.zep_graph_memory_updater')
+
+
+def _frozen_model(function):
+    @wraps(function)
+    def wrapped(self, *args, **kwargs):
+        try:
+            with model_settings_snapshot(self._model_snapshot):
+                return function(self, *args, **kwargs)
+        except Exception as error:
+            secrets = (self._model_snapshot.get('api_key'), getattr(self, 'api_key', None))
+            if any(secret and secret in str(error) for secret in secrets):
+                raise RuntimeError('圖譜更新未確認，請核對此執行。') from None
+            raise
+    return wrapped
 
 
 @dataclass
@@ -245,6 +261,7 @@ class ZepGraphMemoryUpdater:
         graph_id: str,
         api_key: Optional[str] = None,
         simulation_id: Optional[str] = None,
+        model_snapshot: Optional[Dict[str, Any]] = None,
     ):
         """
         初始化更新器
@@ -255,6 +272,8 @@ class ZepGraphMemoryUpdater:
         """
         self.graph_id = graph_id
         self.simulation_id = simulation_id or "unknown"
+        # Kept only in memory: worker threads do not inherit ContextVars.
+        self._model_snapshot = dict(model_snapshot if model_snapshot is not None else get_model_settings(stage='simulation'))
         self.api_key = api_key or Config.ZEP_API_KEY
         self.client = get_zep_client(self.api_key)
         
@@ -306,6 +325,7 @@ class ZepGraphMemoryUpdater:
         self._worker_thread.start()
         logger.info(f"ZepGraphMemoryUpdater 已启动: graph_id={self.graph_id}")
     
+    @_frozen_model
     def stop(self):
         """Drain the worker, flush tail events, and wait for Cloud ingestion."""
         deadline = time.time() + ZEP_INGESTION_WAIT_TIMEOUT_SECONDS
@@ -403,6 +423,7 @@ class ZepGraphMemoryUpdater:
         
         self.add_activity(activity)
     
+    @_frozen_model
     def _worker_loop(self, locale: str = 'zh'):
         """后台工作循环 - 按平台批量发送活动到Zep"""
         set_locale(locale)
@@ -434,7 +455,7 @@ class ZepGraphMemoryUpdater:
                     pass
                     
             except Exception as e:
-                logger.error(f"工作循环异常: {e}")
+                logger.error('圖譜背景更新失敗 (%s)', type(e).__name__)
                 time.sleep(1)
     
     def _build_episode_payloads(
@@ -465,6 +486,7 @@ class ZepGraphMemoryUpdater:
             payloads.append((current_activities, "\n".join(current_lines)))
         return payloads
 
+    @_frozen_model
     def _send_batch_activities(
         self,
         activities: List[AgentActivity],
@@ -529,12 +551,12 @@ class ZepGraphMemoryUpdater:
                 # graph.add has no idempotency key. Replaying an ambiguous
                 # response can duplicate extracted facts, so fail closed and
                 # surface the incomplete batch to SimulationRunner.
-                logger.error(f"批量发送到Zep失败，未自动重放非幂等写入: {e}")
+                logger.error('圖譜活動寫入未確認，不自動重播 (%s)', type(e).__name__)
                 self._failed_count += 1
                 self._failed_batches.append({
                     "platform": platform,
                     "activities": payload_activities,
-                    "error": str(e),
+                    "error": '圖譜活動寫入未確認；請核對此執行。',
                 })
             finally:
                 # Successes have a confirmed episode UUID; failures are kept
@@ -647,7 +669,7 @@ class ZepGraphMemoryManager:
     _lock = threading.Lock()
     
     @classmethod
-    def create_updater(cls, simulation_id: str, graph_id: str) -> ZepGraphMemoryUpdater:
+    def create_updater(cls, simulation_id: str, graph_id: str, *, model_snapshot=None) -> ZepGraphMemoryUpdater:
         """
         为模拟创建图谱记忆更新器
         
@@ -666,6 +688,7 @@ class ZepGraphMemoryManager:
             updater = ZepGraphMemoryUpdater(
                 graph_id,
                 simulation_id=simulation_id,
+                model_snapshot=model_snapshot,
             )
             updater.start()
             cls._updaters[simulation_id] = updater
@@ -763,7 +786,7 @@ class ZepGraphMemoryManager:
                 logger.error(
                     "停止更新器失败: simulation_id=%s, error=%s",
                     simulation_id,
-                    error,
+                    type(error).__name__,
                 )
                 errors.append((simulation_id, error))
 
@@ -772,7 +795,7 @@ class ZepGraphMemoryManager:
 
         if errors:
             details = "; ".join(
-                f"{simulation_id}: {error}"
+                f"{simulation_id}: {type(error).__name__}"
                 for simulation_id, error in errors
             )
             raise RuntimeError(f"部分图谱更新器未完整停止: {details}")

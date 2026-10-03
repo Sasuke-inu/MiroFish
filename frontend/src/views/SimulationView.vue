@@ -21,6 +21,7 @@
       </div>
 
       <div class="header-right">
+        <RouterLink class="research-return" :to="projectData?.project_id ? '/workbench/' + projectData.project_id : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -43,7 +44,8 @@
     <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
       <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
-        <GraphPanel 
+        <GraphPanel
+          :project-id="projectData?.project_id"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="2"
@@ -70,12 +72,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { getProject, getGraphData } from '../api/graph'
-import { getSimulation, stopSimulation, getEnvStatus, closeSimulationEnv } from '../api/simulation'
+import { getSimulation } from '../api/simulation'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import PreferenceControls from '../components/PreferenceControls.vue'
 import WorkflowProgress from '../components/WorkflowProgress.vue'
@@ -94,7 +96,10 @@ const props = defineProps({
 const viewMode = ref('split')
 
 // Data State
-const currentSimulationId = ref(route.params.simulationId)
+const currentSimulationId = ref(props.simulationId || route.params.simulationId)
+let mounted = true
+let generation = 0
+const valid = token => mounted && token === generation
 const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
@@ -188,78 +193,22 @@ const handleNextStep = (params = {}) => {
  * 检查并关闭正在运行的模拟
  * 当用户从 Step 3 返回到 Step 2 时，默认用户要退出模拟
  */
-const checkAndStopRunningSimulation = async () => {
-  if (!currentSimulationId.value) return
-  
-  try {
-    // 先检查模拟环境是否存活
-    const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
-    
-    if (envStatusRes.success && envStatusRes.data?.env_alive) {
-      addLog(t('log.detectedSimEnvRunning'))
-      
-      // 尝试优雅关闭模拟环境
-      try {
-        const closeRes = await closeSimulationEnv({ 
-          simulation_id: currentSimulationId.value,
-          timeout: 10  // 10秒超时
-        })
-        
-        if (closeRes.success) {
-          addLog(t('log.simEnvClosed'))
-        } else {
-          addLog(t('log.closeSimEnvFailedWithError', { error: closeRes.error || t('common.unknownError') }))
-          // 如果优雅关闭失败，尝试强制停止
-          await forceStopSimulation()
-        }
-      } catch (closeErr) {
-        addLog(t('log.closeSimEnvException', { error: closeErr.message }))
-        // 如果优雅关闭异常，尝试强制停止
-        await forceStopSimulation()
-      }
-    } else {
-      // 环境未运行，但可能进程还在，检查模拟状态
-      const simRes = await getSimulation(currentSimulationId.value)
-      if (simRes.success && simRes.data?.status === 'running') {
-        addLog(t('log.detectedSimRunning'))
-        await forceStopSimulation()
-      }
-    }
-  } catch (err) {
-    // 检查环境状态失败不影响后续流程
-    console.warn('检查模拟状态失败:', err)
-  }
-}
-
-/**
- * 强制停止模拟
- */
-const forceStopSimulation = async () => {
-  try {
-    const stopRes = await stopSimulation({ simulation_id: currentSimulationId.value })
-    if (stopRes.success) {
-      addLog(t('log.simForceStopSuccess'))
-    } else {
-      addLog(t('log.forceStopSimFailed', { error: stopRes.error || t('common.unknownError') }))
-    }
-  } catch (err) {
-    addLog(t('log.forceStopSimException', { error: err.message }))
-  }
-}
-
 const loadSimulationData = async () => {
+  const token = generation
   loadError.value = ''
   try {
     addLog(t('log.loadingSimData', { id: currentSimulationId.value }))
 
     // 获取 simulation 信息
     const simRes = await getSimulation(currentSimulationId.value)
+    if (!valid(token)) return
     if (simRes.success && simRes.data) {
       const simData = simRes.data
 
       // 获取 project 信息
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
+          if (!valid(token)) return
         if (projRes.success && projRes.data) {
           projectData.value = projRes.data
           addLog(t('log.projectLoadSuccess', { id: projRes.data.project_id }))
@@ -276,6 +225,7 @@ const loadSimulationData = async () => {
       addLog(loadError.value)
     }
   } catch (err) {
+    if (!valid(token)) return
     loadError.value = t('log.loadException', { error: err.message })
     currentStatus.value = 'error'
     addLog(loadError.value)
@@ -283,17 +233,20 @@ const loadSimulationData = async () => {
 }
 
 const loadGraph = async (graphId) => {
+  const token = generation
   graphLoading.value = true
   try {
     const res = await getGraphData(graphId)
+    if (!valid(token)) return
     if (res.success) {
       graphData.value = res.data
       addLog(t('log.graphDataLoadSuccess'))
     }
   } catch (err) {
+    if (!valid(token)) return
     addLog(t('log.graphLoadFailed', { error: err.message }))
   } finally {
-    graphLoading.value = false
+    if (valid(token)) graphLoading.value = false
   }
 }
 
@@ -303,18 +256,20 @@ const refreshGraph = () => {
   }
 }
 
-onMounted(async () => {
-  addLog(t('log.simViewInit'))
-  
-  // 检查并关闭正在运行的模拟（用户从 Step 3 返回时）
-  await checkAndStopRunningSimulation()
-  
-  // 加载模拟数据
+onMounted(loadSimulationData)
+watch(() => props.simulationId || route.params.simulationId, id => {
+  if (!id || id === currentSimulationId.value) return
+  generation++
+  currentSimulationId.value = id
+  projectData.value = graphData.value = null
+  loadError.value = ''
   loadSimulationData()
 })
+onUnmounted(() => { mounted = false; generation++ })
 </script>
 
 <style scoped>
+.research-return { color: var(--studio-muted); font-size: .875rem; text-decoration: none; padding: 8px; min-height: 44px; display: inline-flex; align-items: center; }
 
 .workflow-error {
   flex-shrink: 0;

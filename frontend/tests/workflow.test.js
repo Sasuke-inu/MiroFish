@@ -23,6 +23,7 @@ import Step5 from '../src/components/Step5Interaction.vue'
 import HistoryDatabase from '../src/components/HistoryDatabase.vue'
 import App from '../src/App.vue'
 import productionRouter from '../src/router'
+import { workbenchClient } from '../src/api/workbench'
 import { providerClient } from '../src/api/providers'
 import { createFixtureAdapter } from './fixtures/api'
 import { getPendingUpload, clearPendingUpload, setPendingUpload } from '../src/store/pendingUpload'
@@ -76,7 +77,8 @@ function dispatch(request) {
   if (url === '/api/simulation/sim_fixture/config') return ok(config)
   if (url === '/api/simulation/start' || url === '/api/simulation/sim_fixture/run-status') return ok(state.runStatus)
   if (url === '/api/simulation/stop' || url === '/api/simulation/env/close') return ok({ runner_status: 'stopped' })
-  if (url.endsWith('/env-status')) return ok({ env_alive: false, status: 'closed' })
+  if (url.endsWith('/env-status')) return ok({ env_alive: !!state.envAlive, status: state.envAlive ? 'alive' : 'closed' })
+  if (url === '/api/simulation/interview/history') return ok({ history: [] })
   if (url === '/api/simulation/sim_fixture/run-status/detail') return ok({ all_actions: [], ...state.runStatus })
   if (url === '/api/report/generate') return ok({ report_id: 'report_fixture' })
   if (url === '/api/report/report_fixture') return ok({ report_id: 'report_fixture', simulation_id: 'sim_fixture', status: 'completed' })
@@ -94,6 +96,7 @@ beforeEach(() => {
   document.documentElement.removeAttribute('data-theme')
   clearPendingUpload()
   providerClient.defaults.adapter = createFixtureAdapter()
+  workbenchClient.defaults.adapter = createFixtureAdapter()
   state = { status: { ready: true, llm_configured: true, graph_configured: true }, history: [historyItem], project: structuredClone(project), unexpected: [], runStatus: { runner_status: 'running', total_rounds: 2, twitter_running: true, reddit_running: true, twitter_current_round: 1, reddit_current_round: 1 } }
   api.mockReset().mockImplementation(async request => dispatch(request))
 })
@@ -180,6 +183,9 @@ describe('Upload and language controls', () => {
     state.status = { ready: false, llm_configured: true, graph_configured: false }
     state.project = { ...project, graph_id: null, status: 'ontology_generated' }
     const { wrapper } = await render(MainView, '/process/proj_fixture', {}, { stubs: { GraphPanel: true } })
+    expect(requestTo('/api/graph/build')).toHaveLength(0)
+    await wrapper.get('[data-testid=start-project]').trigger('click')
+    await settle()
     expect(wrapper.text()).toContain('等待圖譜服務設定')
     expect(wrapper.text()).toContain('分析資料內容')
     expect(wrapper.find('.entity-tag').text()).toBe('Resident')
@@ -188,7 +194,10 @@ describe('Upload and language controls', () => {
   it('passes source files and goal through the existing multipart upload API', async () => {
     state.status.graph_configured = false
     setPendingUpload([new File(['facts'], 'cafe.md')], '探索營業時間')
-    const { router } = await render(MainView, '/process/new', {}, { stubs: { GraphPanel: true } })
+    const { wrapper, router } = await render(MainView, '/process/new', {}, { stubs: { GraphPanel: true } })
+    expect(requestTo('/api/graph/ontology/generate')).toHaveLength(0)
+    await wrapper.get('[data-testid=start-project]').trigger('click')
+    await settle()
     const upload = requestTo('/api/graph/ontology/generate')[0]
     expect(upload.data.get('files').name).toBe('cafe.md')
     expect(upload.data.get('simulation_requirement')).toBe('探索營業時間')
@@ -405,8 +414,11 @@ describe('Graph and simulation features', () => {
   })
   it('retains simulation start and sends the selected round limit', async () => {
     state.runStatus.runner_status = 'idle'
-    await render(Step3, '/', { simulationId: 'sim_fixture', maxRounds: 2, minutesPerRound: 30, systemLogs: [] })
-    expect(requestTo('/api/simulation/start')[0].data).toEqual({ simulation_id: 'sim_fixture', platform: 'parallel', force: true, enable_graph_memory_update: true, max_rounds: 2 })
+    const { wrapper } = await render(Step3, '/', { simulationId: 'sim_fixture', maxRounds: 2, minutesPerRound: 30, systemLogs: [] })
+    expect(requestTo('/api/simulation/start')).toHaveLength(0)
+    await wrapper.get('[data-testid=start-simulation]').trigger('click')
+    await settle()
+    expect(requestTo('/api/simulation/start')[0].data).toEqual({ simulation_id: 'sim_fixture', platform: 'parallel', force: false, enable_graph_memory_update: true, max_rounds: 2 })
   })
   it.each(['running', 'stopping', 'completed'])('restores %s runs without starting or erasing them', async status => {
     state.runStatus.runner_status = status
@@ -427,11 +439,12 @@ describe('Graph and simulation features', () => {
   })
   it('keeps report generation and its destination after simulation completes', async () => {
     state.runStatus.runner_status = 'completed'
+    state.runStatus.graph_ready = true
     const { wrapper, router } = await render(Step3, '/', { simulationId: 'sim_fixture', maxRounds: 2, systemLogs: [] })
     await vi.advanceTimersByTimeAsync(2000)
     await wrapper.get('.action-btn.primary').trigger('click')
     await settle()
-    expect(requestTo('/api/report/generate')[0].data).toEqual({ simulation_id: 'sim_fixture', force_regenerate: true })
+    expect(requestTo('/api/report/generate')[0].data).toEqual({ simulation_id: 'sim_fixture', force_regenerate: false })
     expect(router.currentRoute.value.fullPath).toBe('/report/report_fixture')
   })
 })
@@ -459,6 +472,7 @@ describe('Reports, conversations, surveys and history', () => {
     expect(requestTo('/api/report/chat')[1].data.chat_history).toEqual([{ role: 'user', content: '住戶關心什麼？' }, { role: 'assistant', content: '已整理住戶觀點。' }])
   })
   it('switches to an individual character and restores the report conversation', async () => {
+    state.envAlive = true
     const { wrapper } = await render(Step5, '/', { reportId: 'report_fixture', simulationId: 'sim_fixture', systemLogs: [] })
     await wrapper.get('.chat-input').setValue('住戶關心什麼？')
     await wrapper.get('.send-btn').trigger('click')
@@ -475,6 +489,7 @@ describe('Reports, conversations, surveys and history', () => {
     expect(wrapper.text()).toContain('已整理住戶觀點。')
   })
   it('keeps survey selection, clearing, batch submission and answers', async () => {
+    state.envAlive = true
     const { wrapper } = await render(Step5, '/', { reportId: 'report_fixture', simulationId: 'sim_fixture', systemLogs: [] })
     await wrapper.get('.survey-pill').trigger('click')
     await wrapper.findAll('.action-link')[0].trigger('click')

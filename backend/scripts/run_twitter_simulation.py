@@ -16,6 +16,7 @@ OASIS Twitter模拟预设脚本
 import argparse
 import asyncio
 import json
+from action_logger import EnvironmentHeartbeat
 import logging
 import os
 import random
@@ -162,6 +163,7 @@ class IPCHandler:
         self.commands_dir = os.path.join(simulation_dir, IPC_COMMANDS_DIR)
         self.responses_dir = os.path.join(simulation_dir, IPC_RESPONSES_DIR)
         self.status_file = os.path.join(simulation_dir, ENV_STATUS_FILE)
+        self.heartbeat = EnvironmentHeartbeat(self.status_file)
         self._running = True
         
         # 确保目录存在
@@ -169,13 +171,8 @@ class IPCHandler:
         os.makedirs(self.responses_dir, exist_ok=True)
     
     def update_status(self, status: str):
-        """更新环境状态"""
-        with open(self.status_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                "status": status,
-                "timestamp": datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
-    
+        self.heartbeat.update(status)
+
     def poll_command(self) -> Optional[Dict[str, Any]]:
         """轮询获取待处理命令"""
         if not os.path.exists(self.commands_dir):
@@ -193,7 +190,12 @@ class IPCHandler:
         for filepath, _ in command_files:
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    command = json.load(f)
+                    if (not os.environ.get('MIROFISH_RUN_ID') or
+                        command.get('run_id') != os.environ.get('MIROFISH_RUN_ID') or
+                        command.get('attempt_id') != os.environ.get('MIROFISH_ATTEMPT_ID')):
+                        continue
+                    return command
             except (json.JSONDecodeError, OSError):
                 continue
         
@@ -203,6 +205,8 @@ class IPCHandler:
         """发送响应"""
         response = {
             "command_id": command_id,
+            "run_id": os.environ.get("MIROFISH_RUN_ID"),
+            "attempt_id": os.environ.get("MIROFISH_ATTEMPT_ID"),
             "status": status,
             "result": result,
             "error": error,
@@ -308,6 +312,8 @@ class IPCHandler:
     
     def _get_interview_result(self, agent_id: int) -> Dict[str, Any]:
         """从数据库获取最新的Interview结果"""
+        for _, agent in self.agent_graph.get_agents():
+            agent.retry_attempts = 1
         db_path = os.path.join(self.simulation_dir, "twitter_simulation.db")
         
         result = {
@@ -466,6 +472,7 @@ class TwitterSimulationRunner:
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=llm_model,
+            max_retries=0,
         )
     
     def _get_active_agents_for_round(
@@ -593,7 +600,7 @@ class TwitterSimulationRunner:
         # 数据库路径
         db_path = self._get_db_path()
         if os.path.exists(db_path):
-            os.remove(db_path)
+            raise RuntimeError('An existing simulation database must be preserved; create a new simulation.')
             print(f"已删除旧数据库: {db_path}")
         
         # 创建环境

@@ -1,5 +1,6 @@
 """Provider boundary, durable ingestion and failure tests; real integration is separate."""
 import json
+import threading
 from types import SimpleNamespace
 
 import httpx
@@ -9,7 +10,9 @@ from zep_cloud.core.api_error import ApiError
 
 from app.config import Config
 from app.local_graph.server import create_service
+from app.local_graph.runtime import Runtime
 from app.local_graph.store import ServiceError, Store
+from app.provider_settings import model_settings_snapshot
 from app.utils.graphiti_client import GraphitiClient
 from app.utils.zep import get_zep_client, clear_zep_client_cache
 from app.utils.zep_paging import fetch_all_nodes
@@ -112,9 +115,14 @@ def test_source_time_metadata_and_pagination_survive_restart(store):
     assert page['items'][0]['source_description'] == 'test document'
 
 
-class FakeRuntime:
+class FakeRuntime(Runtime):
     ready, error = True, None
     embedder = SimpleNamespace(dimension=384)
+
+    def __init__(self, store):
+        self.store = store
+        self._graph_model_settings = {}
+        self._model_settings_lock = threading.RLock()
 
     def call(self, operation, *args):
         return operation(*args)
@@ -134,7 +142,7 @@ class FakeRuntime:
 
 @pytest.fixture
 def service(store):
-    app = create_service(store, FakeRuntime(), 'local-test-key')
+    app = create_service(store, FakeRuntime(store), 'local-test-key')
     client = app.test_client()
 
     def transport(request):
@@ -142,7 +150,9 @@ def service(store):
                                data=request.content, headers=dict(request.headers))
         return httpx.Response(response.status_code, headers=dict(response.headers), content=response.data)
 
-    return GraphitiClient('http://graphiti.test', 'local-test-key', transport=httpx.MockTransport(transport)), client
+    with model_settings_snapshot({'provider': 'custom', 'base_url': 'http://127.0.0.1:9001/v1',
+                                  'model': 'fixture-model', 'api_key': 'synthetic-model-key'}):
+        yield GraphitiClient('http://graphiti.test', 'local-test-key', transport=httpx.MockTransport(transport)), client
 
 
 def test_local_http_adapter_keeps_paging_attributes_search_and_batch_contract(service, store):
@@ -187,7 +197,7 @@ def test_selected_local_provider_needs_no_zep_key_and_never_calls_cloud(monkeypa
     from app.utils import zep
     monkeypatch.setattr(Config, 'GRAPH_PROVIDER', 'graphiti')
     monkeypatch.setattr(Config, 'ZEP_API_KEY', '')
-    monkeypatch.setattr(Config, 'GRAPHITI_BASE_URL', 'http://graphiti.test')
+    monkeypatch.setattr(Config, 'GRAPHITI_BASE_URL', 'http://graphiti:5010')
     monkeypatch.setattr(Config, 'GRAPHITI_API_KEY', 'test-key')
     monkeypatch.setattr(zep, 'Zep', lambda **_: pytest.fail('Cloud client must not be constructed'))
     clear_zep_client_cache()

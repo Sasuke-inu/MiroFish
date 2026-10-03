@@ -13,11 +13,11 @@
       <div class="settings-layout">
       <nav class="settings-index" :aria-label="$t('settings.title')">
         <p class="index-label">{{ $t('providers.controlPanel') }}</p>
-        <button v-for="item in sections" :key="item.id" type="button" :aria-current="activeSection === item.id ? 'page' : undefined" :class="{ active: activeSection === item.id }" @click="selectSection(item.id)"><span class="nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ $t(item.label) }}</span><span v-if="item.id === 'models' && providerDirty" class="nav-dirty" :aria-label="$t('providers.unsaved')">•</span></button>
+        <button v-for="item in sections" :key="item.id" type="button" :aria-current="activeSection === item.id ? 'page' : undefined" :class="{ active: activeSection === item.id }" @click="selectSection(item.id)"><span class="nav-icon" aria-hidden="true">{{ item.icon }}</span><span>{{ $t(item.label) }}</span><span v-if="item.id === 'models' && (providerDirty || stageDirty)" class="nav-dirty" :aria-label="$t('providers.unsaved')">•</span></button>
         <div class="settings-index-note"><span class="local-indicator" aria-hidden="true"></span><strong>{{ $t('providers.localWorkspace') }}</strong><p>{{ $t('providers.preferenceScope') }}</p></div>
       </nav>
       <div class="settings-sections">
-      <section v-show="activeSection === 'models'" id="models-panel" aria-labelledby="provider-heading"><ProviderSettings @dirty="providerDirty = $event" /></section>
+      <section v-show="activeSection === 'models'" id="models-panel" aria-labelledby="provider-heading"><ProviderSettings @dirty="providerDirty = $event" /><StageConnections @dirty="stageDirty = $event" /></section>
       <div v-show="activeSection === 'appearance'" id="appearance-panel">
       <section class="settings-card" aria-labelledby="appearance-heading">
         <div class="settings-section-heading"><div><h2 id="appearance-heading">{{ $t('settings.appearance') }}</h2><p>{{ $t('settings.appearanceHelp') }}</p></div><span class="setting-number" aria-hidden="true">01</span></div>
@@ -62,6 +62,7 @@ import { useRoute, useRouter } from 'vue-router'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import SourceUsageCard from '../components/SourceUsageCard.vue'
 import ProviderSettings from '../components/ProviderSettings.vue'
+import StageConnections from '../components/StageConnections.vue'
 import { useAppearance } from '../store/appearance'
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +71,7 @@ const { preference, saved, setTheme } = useAppearance()
 const modes = ['light', 'dark', 'system']
 const activeSection = ref('models')
 const providerDirty = ref(false)
+const stageDirty = ref(false)
 const sections = [
   { id: 'models', label: 'providers.navTitle', icon: '⤴' },
   { id: 'appearance', label: 'providers.appearanceNav', icon: '◐' },
@@ -84,7 +86,7 @@ async function selectSection(id) {
   panel?.focus({ preventScroll: true })
 }
 const removeGuard = router.beforeEach((to, from) => {
-  if (from.name === 'Settings' && to.name !== 'Settings' && providerDirty.value) return window.confirm(t('providers.leaveConfirm'))
+  if (from.name === 'Settings' && to.name !== 'Settings' && (providerDirty.value || stageDirty.value)) return window.confirm(t('providers.leaveConfirm'))
 })
 onBeforeUnmount(removeGuard)
 const status = inject('systemStatus', ref(null))

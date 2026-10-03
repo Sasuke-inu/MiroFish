@@ -21,11 +21,13 @@ from ..utils.logger import get_logger
 from ..utils.locale import t, get_locale, set_locale
 from ..utils.zep_lifecycle import get_graph_readers, graph_lifecycle_lock
 from ..models.task import TaskManager, TaskStatus
+from ..models.execution import public_manifest, utc_now
 from ..models.project import ProjectManager, ProjectStatus
 from ..services.simulation_manager import SimulationManager
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.zep_graph_memory_updater import ZepGraphMemoryManager
 from ..utils.llm_client import LLMResponseError
+from ..provider_settings import get_model_settings, model_settings_snapshot
 
 # 获取日志器
 logger = get_logger('mirofish.api')
@@ -234,31 +236,12 @@ def _reset_project_impl(project_id: str):
             "error": t('api.graphBuilding')
         }), 409
 
-    graph_id = project.graph_id
-    graph_guard = (
-        graph_lifecycle_lock(graph_id) if graph_id else nullcontext()
-    )
-    with graph_guard:
-        try:
-            _delete_cloud_graph_if_present(graph_id)
-        except GraphInUseError as error:
-            return jsonify({"success": False, "error": str(error)}), 409
-
-        # 重置到本体已生成状态
-        if project.ontology:
-            project.status = ProjectStatus.ONTOLOGY_GENERATED
-        else:
-            project.status = ProjectStatus.CREATED
-
-        _clear_project_graph_reference(project)
-        ProjectManager.save_project(project)
-    
-    return jsonify({
-        "success": True,
-        "message": t('api.projectReset', id=project_id),
-        "data": project.to_dict()
-    })
-
+    # Reset used to delete the graph before clearing its historical reference.
+    # A new draft has its own identity; old research is never reused as scratch.
+    consumers = _active_graph_consumers(project.graph_id) if project.graph_id else []
+    return jsonify(success=False, new_project_required=True,
+                   error=('此研究已保留，請複製為新草稿再建立新圖譜。'
+                          + (' 使用中：' + ', '.join(consumers) if consumers else ''))), 409
 
 # ============== 接口1：上传文件并生成本体 ==============
 
@@ -291,6 +274,7 @@ def generate_ontology():
         }
     """
     project = None
+    task_id = None
     try:
         logger.info("=== 开始生成本体定义 ===")
         
@@ -299,71 +283,96 @@ def generate_ontology():
         project_name = request.form.get('project_name', 'Unnamed Project')
         additional_context = request.form.get('additional_context', '')
         
-        logger.debug(f"项目名称: {project_name}")
-        logger.debug(f"模拟需求: {simulation_requirement[:100]}...")
-        
+        existing_id = request.form.get('project_id')
+        if existing_id:
+            from ..services.research_workbench import valid_id
+            project = ProjectManager.get_project(valid_id(existing_id))
+            if not project:
+                return jsonify(success=False, error='找不到此研究。'), 404
+            if project.status != ProjectStatus.CREATED or project.graph_id or project.ontology:
+                return jsonify(success=False, error='已保存的分析不會被覆寫，請複製為新草稿。'), 409
+            simulation_requirement = project.simulation_requirement or simulation_requirement
+
         if not simulation_requirement:
-            return jsonify({
-                "success": False,
-                "error": t('api.requireSimulationRequirement')
-            }), 400
-        
+            return jsonify(success=False, error=t('api.requireSimulationRequirement')), 400
+
         # 获取上传的文件
         uploaded_files = request.files.getlist('files')
-        if not uploaded_files or all(not f.filename for f in uploaded_files):
+        if not existing_id and (not uploaded_files or all(not f.filename for f in uploaded_files)):
             return jsonify({
                 "success": False,
                 "error": t('api.requireFileUpload')
             }), 400
         
         # 创建项目
-        project = ProjectManager.create_project(name=project_name)
+        project = project or ProjectManager.create_project(name=project_name)
         project.simulation_requirement = simulation_requirement
         logger.info(f"创建项目: {project.project_id}")
-        
-        # 保存文件并提取文本
-        document_texts = []
-        all_text = ""
-        
-        for file in uploaded_files:
-            if file and file.filename and allowed_file(file.filename):
-                # 保存文件到项目目录
-                file_info = ProjectManager.save_file_to_project(
-                    project.project_id, 
-                    file, 
-                    file.filename
-                )
-                project.files.append({
-                    "filename": file_info["original_filename"],
-                    "size": file_info["size"]
-                })
-                
-                # 提取文本
-                text = FileParser.extract_text(file_info["path"])
-                text = TextProcessor.preprocess_text(text)
-                document_texts.append(text)
-                all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
-        
-        if not document_texts:
-            ProjectManager.delete_project(project.project_id)
-            return jsonify({
-                "success": False,
-                "error": t('api.noDocProcessed')
-            }), 400
-        
-        # 保存提取的文本
-        project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
-        logger.info(f"文本提取完成，共 {len(all_text)} 字符")
+
+        # This gate is shared with draft materialization across processes.
+        # Claim, exact input bytes and their version metadata move together;
+        # the long-running model call below never holds the gate.
+        with ProjectManager.input_mutation_lock(project.project_id):
+            project = ProjectManager.get_project(project.project_id)
+            if existing_id and (project.status != ProjectStatus.CREATED or project.graph_id or project.ontology):
+                return jsonify(success=False, error='已保存的分析不會被覆寫，請複製為新草稿。'), 409
+            project.simulation_requirement = project.simulation_requirement or simulation_requirement
+            simulation_requirement = project.simulation_requirement
+            task_manager = TaskManager()
+            existing_task = task_manager.find_task(f'ontology:{project.project_id}')
+            if existing_task:
+                return jsonify(success=False, error='此研究的分析已提出，請查看原工作。', task_id=existing_task.task_id), 409
+            settings_snapshot = get_model_settings(stage='graph')
+            task_id, created = task_manager.claim_task('ontology', f'ontology:{project.project_id}',
+                metadata={'project_id': project.project_id, 'model_snapshot': public_manifest(settings_snapshot),
+                          'model_frozen_at': utc_now()})
+            if not created:
+                return jsonify(success=False, error='此研究的分析已提出，請查看原工作。', task_id=task_id), 409
+            task_manager.update_task(task_id, status=TaskStatus.PROCESSING)
+
+            document_texts = []
+            saved_input = ProjectManager.get_input_snapshot(project.project_id) if existing_id else {}
+            all_text = saved_input.get('text', '')
+            input_versions = list(saved_input.get('source_versions', []))
+            if all_text:
+                document_texts.append(all_text)
+            for file in uploaded_files:
+                if file and file.filename and allowed_file(file.filename):
+                    file_info = ProjectManager.save_file_to_project(project.project_id, file, file.filename)
+                    project.files.append({'filename': file_info['original_filename'], 'size': file_info['size']})
+                    text = FileParser.extract_text(file_info['path'])
+                    text = TextProcessor.preprocess_text(text)
+                    from ..services.research_workbench import preserve_upload
+                    version = preserve_upload(project.project_id, file_info['original_filename'], text)
+                    input_versions.append({key: version[key] for key in ('source_id', 'version_id', 'sha256')})
+                    document_texts.append(text)
+                    all_text += f"\n\n=== {file_info['original_filename']} ===\n{text}"
+
+            if not document_texts:
+                task_manager.fail_task(task_id, '未取得可分析的來源，請建立新草稿。')
+                return jsonify(success=False, error=t('api.noDocProcessed')), 400
+
+            project.total_text_length = len(all_text)
+            project.source_versions = input_versions
+            ProjectManager.save_input_snapshot(project.project_id, all_text, input_versions, frozen=True)
+            ProjectManager.save_extracted_text(project.project_id, all_text)
+            ProjectManager.save_project(project)
+            logger.info(f"文本提取完成，共 {len(all_text)} 字符")
         
         # 生成本体
         logger.info("调用 LLM 生成本体定义...")
-        generator = OntologyGenerator()
-        ontology = generator.generate(
-            document_texts=document_texts,
-            simulation_requirement=simulation_requirement,
-            additional_context=additional_context if additional_context else None
-        )
+        try:
+            with model_settings_snapshot(settings_snapshot):
+                generator = OntologyGenerator()
+                ontology = generator.generate(
+                    document_texts=document_texts,
+                    simulation_requirement=simulation_requirement,
+                    additional_context=additional_context if additional_context else None
+                )
+        except Exception as error:
+            task_manager.update_task(task_id, status=TaskStatus.NEEDS_REVIEW if getattr(error, 'outcome_unknown', False) else TaskStatus.FAILED,
+                                     error='來源分析未完成，結果未確認；未自動重試。')
+            raise
         
         # 保存本体到项目
         entity_count = len(ontology.get("entity_types", []))
@@ -377,6 +386,7 @@ def generate_ontology():
         project.analysis_summary = ontology.get("analysis_summary", "")
         project.status = ProjectStatus.ONTOLOGY_GENERATED
         ProjectManager.save_project(project)
+        task_manager.complete_task(task_id, {'project_id': project.project_id})
         logger.info(f"=== 本体生成完成 === 项目ID: {project.project_id}")
         
         return jsonify({
@@ -392,6 +402,10 @@ def generate_ontology():
         })
         
     except Exception as error:
+        if task_id:
+            TaskManager().update_task(task_id,
+                status=TaskStatus.NEEDS_REVIEW if getattr(error, 'outcome_unknown', False) else TaskStatus.FAILED,
+                error='來源分析未完成，已保留原資料；未自動重試。')
         provider_status = getattr(error, "status_code", None)
         request_id = getattr(error, "request_id", None)
 
@@ -419,7 +433,7 @@ def generate_ontology():
         else:
             public_error = "Ontology generation failed; check the server logs"
             response_status = 500
-            logger.exception("Unexpected ontology generation failure")
+            logger.error("Ontology generation failure: %s", type(error).__name__)
 
         response_data = None
         if project is not None:
@@ -580,6 +594,10 @@ def _build_graph_impl():
                     "message": t('progress.graphBuildComplete')
                 }
             })
+
+        if project.graph_id and not resume_existing_batch:
+            return jsonify(success=False, error='原圖譜與既有研究會保留。請複製為新草稿後建立新圖譜。',
+                           code='new_project_required', graph_id=project.graph_id), 409
         
         # 获取配置
         graph_name = data.get('graph_name', project.name or 'MiroFish Graph')
@@ -617,25 +635,18 @@ def _build_graph_impl():
                 "error": t('api.ontologyNotFound')
             }), 400
 
-        # Only mutate Cloud state after the complete rebuild request validates.
-        if project.status == ProjectStatus.FAILED or (
-            force and project.status == ProjectStatus.GRAPH_COMPLETED
-        ):
-            graph_id_to_delete = project.graph_id
-            graph_guard = (
-                graph_lifecycle_lock(graph_id_to_delete)
-                if graph_id_to_delete
-                else nullcontext()
-            )
-            with graph_guard:
-                _delete_cloud_graph_if_present(graph_id_to_delete)
-                project.status = ProjectStatus.ONTOLOGY_GENERATED
-                _clear_project_graph_reference(project)
-                ProjectManager.save_project(project)
-        
+        settings_snapshot = get_model_settings(stage='graph')
+        # Keep the versions actually used by ontology extraction. New source
+        # versions belong to a new draft; they cannot relabel these old bytes.
         # 创建异步任务
         task_manager = TaskManager()
-        task_id = task_manager.create_task(f"构建图谱: {graph_name}")
+        task_id, created = task_manager.claim_task('graph_build',
+            f'graph:{project_id}:{project.zep_batch_id if resume_existing_batch else "initial"}',
+            metadata={'project_id': project_id, 'graph_id': project.graph_id})
+        if not created:
+            task = task_manager.get_task(task_id)
+            return jsonify(success=True, data={'project_id': project_id, 'task_id': task_id,
+                'graph_id': project.graph_id, 'reused': True, 'status': task.status.value})
         logger.info(f"创建图谱构建任务: task_id={task_id}, project_id={project_id}")
         
         # 更新项目状态
@@ -648,6 +659,10 @@ def _build_graph_impl():
 
         # 启动后台任务
         def build_task():
+            with model_settings_snapshot(settings_snapshot):
+                return _build_task()
+
+        def _build_task():
             set_locale(current_locale)
             build_logger = get_logger('mirofish.build')
             try:
@@ -799,24 +814,31 @@ def _build_graph_impl():
                 
             except Exception as e:
                 # 更新项目状态为失败
-                build_logger.error(f"[{task_id}] 图谱构建失败: {str(e)}")
-                build_logger.debug(traceback.format_exc())
+                build_logger.error('Graph build failed: task=%s type=%s', task_id, type(e).__name__)
+                safe_error = '圖譜處理未完成；既有資料保留，請查看服務狀態。'
                 
                 with _project_build_lock(project_id):
                     project.status = ProjectStatus.FAILED
-                    project.error = str(e)
+                    project.error = safe_error
                     ProjectManager.save_project(project)
 
                     task_manager.update_task(
                         task_id,
-                        status=TaskStatus.FAILED,
-                        message=t('progress.buildFailed', error=str(e)),
-                        error=traceback.format_exc()
+                        status=TaskStatus.NEEDS_REVIEW if getattr(e, 'outcome_unknown', False) else TaskStatus.FAILED,
+                        message=t('progress.buildFailed', error=safe_error),
+                        error=safe_error
                     )
         
         # 启动后台线程
         thread = threading.Thread(target=build_task, daemon=True)
-        thread.start()
+        try:
+            thread.start()
+        except Exception:
+            task_manager.fail_task(task_id, '圖譜工作未能啟動；已保留來源與工作身分。')
+            project.status = ProjectStatus.FAILED
+            project.error = '圖譜工作未能啟動。'
+            ProjectManager.save_project(project)
+            raise
         
         return jsonify({
             "success": True,

@@ -1,6 +1,6 @@
 <template>
   <div class="report-panel">
-    <p v-if="reportError" class="report-load-error" role="alert">{{ reportError }}</p>
+    <div v-if="reportError" class="report-load-error" role="alert">{{ reportError }}<p v-if="terminalStatus && terminalStatus !== 'completed'">{{ $t('workbench.reportGap', { count: completedSections, total: totalSections }) }}</p><button v-if="!terminalStatus" class="action-btn" @click="pollReport">{{ $t('workbench.refresh') }}</button></div>
     <!-- Main Split Layout -->
     <div class="main-split-layout">
       <!-- LEFT PANEL: Report Style -->
@@ -14,6 +14,8 @@
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
             <p class="sub-title">{{ reportOutline.summary }}</p>
+            <RouterLink v-if="projectId" :to="`/workbench/${projectId}?section=reports`">{{ $t('research.reportHistory') }}</RouterLink>
+            <EvidenceLinks v-if="projectId && reportId" :project-id="projectId" subject-type="report" :subject-id="reportId" />
             <div class="header-divider"></div>
           </div>
 
@@ -48,6 +50,7 @@
               </div>
               
               <div class="section-body" v-show="!collapsedSections.has(idx)">
+                <EvidenceLinks v-if="projectId && reportId" :project-id="projectId" subject-type="report_section" :subject-id="`${reportId}:section:${idx + 1}`" />
                 <!-- Completed Content -->
                 <div v-if="generatedSections[idx + 1]" class="generated-content" v-html="renderMarkdown(generatedSections[idx + 1])"></div>
                 
@@ -67,7 +70,7 @@
         </div>
 
         <!-- Waiting State -->
-        <div v-if="!reportOutline" class="waiting-placeholder">
+        <div v-if="!reportOutline && !terminalStatus" class="waiting-placeholder">
           <div class="waiting-animation">
             <div class="waiting-ring"></div>
             <div class="waiting-ring"></div>
@@ -79,7 +82,7 @@
 
       <!-- RIGHT PANEL: Workflow Timeline -->
       <div class="right-panel" ref="rightPanel">
-        <div class="panel-header" :class="`panel-header--${activeStep.status}`" v-if="!isComplete">
+        <div class="panel-header" :class="`panel-header--${activeStep.status}`" v-if="!isComplete && !terminalStatus">
           <span class="header-dot" v-if="activeStep.status === 'active'"></span>
           <span class="header-index mono">{{ activeStep.noLabel }}</span>
           <span class="header-title">{{ activeStep.title }}</span>
@@ -367,7 +370,7 @@
           </TransitionGroup>
 
           <!-- Empty State -->
-          <div v-if="agentLogs.length === 0 && !isComplete" class="workflow-empty">
+          <div v-if="agentLogs.length === 0 && !isComplete && !terminalStatus" class="workflow-empty">
             <div class="empty-pulse"></div>
             <span>{{ $t('studio.waitingActivity') }}</span>
           </div>
@@ -394,13 +397,15 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, getReport } from '../api/report'
+import EvidenceLinks from './EvidenceLinks.vue'
 
 const router = useRouter()
 const { t } = useI18n()
 
 const props = defineProps({
   reportId: String,
+  projectId: String,
   simulationId: String,
   systemLogs: Array
 })
@@ -417,6 +422,7 @@ const goToInteraction = () => {
 // State
 const agentLogs = ref([])
 const reportError = ref('')
+const terminalStatus = ref('')
 const consoleLogs = ref([])
 const agentLogLine = ref(0)
 const consoleLogLine = ref(0)
@@ -1755,7 +1761,7 @@ const displayLogs = computed(() => {
 
 // Workflow steps overview (status-based, no nested cards)
 const activeSectionIndex = computed(() => {
-  if (isComplete.value) return null
+  if (isComplete.value || terminalStatus.value) return null
   if (currentSectionIndex.value) return currentSectionIndex.value
   if (totalSections.value > 0 && completedSections.value < totalSections.value) return completedSections.value + 1
   return null
@@ -1770,7 +1776,7 @@ const isPlanningStarted = computed(() => {
 })
 
 const isFinalizing = computed(() => {
-  return !isComplete.value && isPlanningDone.value && totalSections.value > 0 && completedSections.value >= totalSections.value
+  return !isComplete.value && !terminalStatus.value && isPlanningDone.value && totalSections.value > 0 && completedSections.value >= totalSections.value
 })
 
 // 当前活跃的步骤（用于顶部显示）
@@ -2021,84 +2027,95 @@ const getLogLevelClass = (log) => {
   return ''
 }
 
-// Polling
-let agentLogTimer = null
-let consoleLogTimer = null
-let agentLogBusy = false
-
-const fetchAgentLog = async () => {
-  if (!props.reportId || agentLogBusy) return
-  const requestedReport = props.reportId
-  agentLogBusy = true
-  
-  try {
-    const res = await getAgentLog(props.reportId, agentLogLine.value)
-    if (requestedReport !== props.reportId) return
-    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
-    const wasDisconnected = !!reportError.value
-    reportError.value = ''
-    if (wasDisconnected) emit('update-status', isComplete.value ? 'completed' : 'processing')
-    
-    if (res.success && res.data) {
-      const newLogs = res.data.logs || []
-      
-      if (newLogs.length > 0) {
-        newLogs.forEach(log => {
-          agentLogs.value.push(log)
-          
-          if (log.action === 'planning_complete' && log.details?.outline) {
-            reportOutline.value = log.details.outline
-          }
-          
-          if (log.action === 'section_start') {
-            currentSectionIndex.value = log.section_index
-          }
-
-          // section_complete - 章节生成完成
-          if (log.action === 'section_complete') {
-            if (log.details?.content) {
-              generatedSections.value[log.section_index] = log.details.content
-              // 自动展开刚生成的章节
-              expandedContent.value.add(log.section_index - 1)
-              currentSectionIndex.value = null
-            }
-          }
-          
-          if (log.action === 'report_complete') {
-            isComplete.value = true
-            currentSectionIndex.value = null  // 确保清除 loading 状态
-            emit('update-status', 'completed')
-            stopPolling()
-            // 滚动逻辑统一在循环结束后的 nextTick 中处理
-          }
-          
-          if (log.action === 'report_start') {
-            startTime.value = new Date(log.timestamp)
-          }
-        })
-        
-        agentLogLine.value = res.data.from_line + newLogs.length
-        
-        nextTick(() => {
-          if (rightPanel.value) {
-            // 如果任务已完成，滚动到顶部；否则滚动到底部跟随最新日志
-            if (isComplete.value) {
-              rightPanel.value.scrollTop = 0
-            } else {
-              rightPanel.value.scrollTop = rightPanel.value.scrollHeight
-            }
-          }
-        })
+// One read cycle owns report metadata and incremental logs. It never generates.
+let pollTimer = null
+let pollRequest = null
+let mounted = true
+let generation = 0
+const terminalStates = new Set(['completed', 'failed', 'stopped', 'interrupted', 'needs_review'])
+const current = (token, id) => mounted && token === generation && id === props.reportId
+const stopPolling = () => { clearInterval(pollTimer); pollTimer = null }
+const failReport = (status, error) => {
+  terminalStatus.value = status
+  isComplete.value = false
+  currentSectionIndex.value = null
+  reportError.value = t(`workbench.${status}`) + (error ? `: ${error}` : '')
+  emit('update-status', status)
+  stopPolling()
+}
+const pollReport = async () => {
+  if (!mounted || !props.reportId || terminalStatus.value) return
+  if (pollRequest) return pollRequest
+  const token = generation
+  const id = props.reportId
+  const request = (async () => {
+    const results = await Promise.allSettled([
+      getReport(id), getAgentLog(id, agentLogLine.value), getConsoleLog(id, consoleLogLine.value)
+    ])
+    if (!current(token, id)) return
+    let metadata = null
+    const errors = []
+    const data = results.map(result => {
+      if (result.status === 'rejected') { errors.push(result.reason?.message || t('common.unknownError')); return null }
+      if (!result.value.success || !result.value.data) { errors.push(result.value.error || t('common.unknownError')); return null }
+      return result.value.data
+    })
+    metadata = data[0]
+    if (metadata?.outline) {
+      reportOutline.value = metadata.outline
+      metadata.outline.sections?.forEach((section, index) => {
+        if (section.content) generatedSections.value[index + 1] = section.content
+      })
+    }
+    if (data[1]) {
+      const newLogs = data[1].logs || []
+      for (const log of newLogs) {
+        agentLogs.value.push(log)
+        if (log.action === 'planning_complete' && log.details?.outline) reportOutline.value = log.details.outline
+        if (log.action === 'section_start') currentSectionIndex.value = log.section_index
+        if (log.action === 'section_complete' && log.details?.content) {
+          generatedSections.value[log.section_index] = log.details.content
+          expandedContent.value.add(log.section_index - 1)
+          currentSectionIndex.value = null
+        }
+        if (log.action === 'report_start') startTime.value = new Date(log.timestamp)
+        if (log.action === 'error' && ['failed', 'interrupted', 'needs_review'].includes(log.stage)) failReport(log.stage, log.details?.error || log.details?.message)
+      }
+      agentLogLine.value = (data[1].from_line || 0) + newLogs.length
+    }
+    if (data[2]) {
+      const newLogs = data[2].logs || []
+      consoleLogs.value.push(...newLogs)
+      consoleLogLine.value = (data[2].from_line || 0) + newLogs.length
+    }
+    if (metadata && terminalStates.has(metadata.status)) {
+      if (metadata.status !== 'completed') failReport(metadata.status, metadata.error)
+      else if (!terminalStatus.value && (data[1] || metadata.outline)) {
+        isComplete.value = true
+        terminalStatus.value = 'completed'
+        currentSectionIndex.value = null
+        reportError.value = ''
+        emit('update-status', 'completed')
+        stopPolling()
       }
     }
-  } catch (err) {
-    if (requestedReport === props.reportId) {
-      reportError.value = t('log.loadReportLogFailed', { error: err.message })
-      emit('update-status', 'error')
+    if (!terminalStatus.value) {
+      reportError.value = errors.length ? t('workbench.readFailed', { error: errors.join('; ') }) : ''
+      emit('update-status', errors.length ? 'error' : 'processing')
     }
-  } finally {
-    agentLogBusy = false
-  }
+    nextTick(() => {
+      if (!current(token, id)) return
+      if (rightPanel.value) rightPanel.value.scrollTop = terminalStatus.value ? 0 : rightPanel.value.scrollHeight
+      if (logContent.value) logContent.value.scrollTop = logContent.value.scrollHeight
+    })
+  })()
+  pollRequest = request
+  try { await request } finally { if (pollRequest === request) pollRequest = null }
+}
+const startPolling = () => {
+  if (!mounted || !props.reportId || terminalStatus.value) return
+  if (!pollTimer) pollTimer = setInterval(pollReport, 2000)
+  pollReport()
 }
 
 // 提取最终答案内容 - 从 LLM response 中提取章节内容
@@ -2146,82 +2163,30 @@ const extractFinalContent = (response) => {
   return null
 }
 
-const fetchConsoleLog = async () => {
-  if (!props.reportId) return
-  
-  try {
-    const res = await getConsoleLog(props.reportId, consoleLogLine.value)
-    
-    if (res.success && res.data) {
-      const newLogs = res.data.logs || []
-      
-      if (newLogs.length > 0) {
-        consoleLogs.value.push(...newLogs)
-        consoleLogLine.value = res.data.from_line + newLogs.length
-        
-        nextTick(() => {
-          if (logContent.value) {
-            logContent.value.scrollTop = logContent.value.scrollHeight
-          }
-        })
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to fetch console log:', err)
-  }
-}
-
-const startPolling = () => {
-  if (agentLogTimer || consoleLogTimer) return
-  
-  fetchAgentLog()
-  fetchConsoleLog()
-  
-  agentLogTimer = setInterval(fetchAgentLog, 2000)
-  consoleLogTimer = setInterval(fetchConsoleLog, 1500)
-}
-
-const stopPolling = () => {
-  if (agentLogTimer) {
-    clearInterval(agentLogTimer)
-    agentLogTimer = null
-  }
-  if (consoleLogTimer) {
-    clearInterval(consoleLogTimer)
-    consoleLogTimer = null
-  }
-}
-
-// Lifecycle
-onMounted(() => {
-  if (props.reportId) {
-    addLog(`Report Agent initialized: ${props.reportId}`)
-    startPolling()
-  }
-})
-
 onUnmounted(() => {
+  mounted = false
+  generation++
   stopPolling()
 })
-
-watch(() => props.reportId, (newId) => {
-  if (newId) {
-    reportError.value = ''
-    agentLogs.value = []
-    consoleLogs.value = []
-    agentLogLine.value = 0
-    consoleLogLine.value = 0
-    reportOutline.value = null
-    currentSectionIndex.value = null
-    generatedSections.value = {}
-    expandedContent.value = new Set()
-    expandedLogs.value = new Set()
-    collapsedSections.value = new Set()
-    isComplete.value = false
-    startTime.value = null
-    
-    startPolling()
-  }
+watch(() => props.reportId, () => {
+  generation++
+  stopPolling()
+  pollRequest = null
+  reportError.value = ''
+  terminalStatus.value = ''
+  agentLogs.value = []
+  consoleLogs.value = []
+  agentLogLine.value = consoleLogLine.value = 0
+  reportOutline.value = null
+  currentSectionIndex.value = null
+  generatedSections.value = {}
+  expandedContent.value = new Set()
+  expandedLogs.value = new Set()
+  collapsedSections.value = new Set()
+  for (const key of Object.keys(showRawResult)) delete showRawResult[key]
+  isComplete.value = false
+  startTime.value = null
+  startPolling()
 }, { immediate: true })
 </script>
 

@@ -63,3 +63,12 @@ data/
 deploy/ui-*.png
 deploy/ui-scripts-before.json
 deploy/graphiti-*.png
+
+# Local research-workbench acceptance outputs (may contain local record IDs).
+# Keep source generators and the reviewed status/handoff documents in Git.
+deploy/workbench-*.json
+deploy/workbench-*.png
+deploy/workbench-*.pdf
+deploy/workbench-*.txt
+deploy/p0-*.json
+deploy/print-fixture/

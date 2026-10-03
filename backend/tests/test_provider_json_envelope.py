@@ -48,7 +48,7 @@ def test_normalization_preserves_normal_objects_and_rejects_unrelated_envelopes(
         'initial_posts': [{'content': '活動公告'}]}
 
 
-def test_profile_does_not_discard_detail_when_model_ignores_requested_keys(monkeypatch):
+def test_profile_does_not_silently_replace_invalid_schema_with_another_paid_call(monkeypatch):
     responses = iter([{'profile_summary': 'wrong structure'}, {'bio': '虛構店主', 'persona': '這是一份詳細的虛構角色設定。'}])
     calls = []
 
@@ -59,9 +59,9 @@ def test_profile_does_not_discard_detail_when_model_ignores_requested_keys(monke
     monkeypatch.setattr(profiles, 'create_chat_completion', completion)
     monkeypatch.setattr(profiles.time, 'sleep', lambda _seconds: None)
     generator = profiles.OasisProfileGenerator(api_key='test')
-    result = generator._generate_profile_with_llm('小橙', 'CafeOwner', '店主', {}, '')
-    assert result['persona'] == '這是一份詳細的虛構角色設定。'
-    assert len(calls) == 2
+    with pytest.raises(profiles.PreparationNeedsReview):
+        generator._generate_profile_with_llm('小橙', 'CafeOwner', '店主', {}, '')
+    assert len(calls) == 1
     assert 'Do not rename or translate keys' in calls[0]['messages'][0]['content']
     assert generator._is_individual_entity('CafeOwner')
     assert generator._is_individual_entity('ClubMember')

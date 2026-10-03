@@ -4,6 +4,12 @@ import NotFoundView from '../views/NotFoundView.vue'
 
 const routes = [
   {
+    path: '/workbench/:projectId?',
+    name: 'Workbench',
+    component: () => import('../views/WorkbenchView.vue'),
+    props: true
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/SettingsView.vue')

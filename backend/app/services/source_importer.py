@@ -5,7 +5,7 @@ Only this adapter's requests are counted; other Firecrawl clients have separate 
 """
 
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 import ipaddress
 import json
@@ -77,6 +77,9 @@ class SourceImporter:
                     needs_provider INTEGER NOT NULL DEFAULT 0, result TEXT
                 );
                 CREATE INDEX IF NOT EXISTS plans_day ON plans(day);
+                CREATE TABLE IF NOT EXISTS plan_projects (
+                    plan_id TEXT PRIMARY KEY, project_id TEXT NOT NULL
+                );
             ''')
 
     @contextmanager
@@ -134,7 +137,9 @@ class SourceImporter:
                 pass
         return {'enabled': self.enabled, 'configured': self.configured, 'online': online,
                 'mode': 'local', 'cloud_credits': 0, 'max_pages_per_job': self.max_pages,
-                'max_chars_per_page': self.MAX_CHARS, 'cache_hours': 24, 'budget': budget}
+                'max_chars_per_page': self.MAX_CHARS, 'cache_hours': 24, 'budget': budget,
+                'search': {'capability': 'unverified', 'status': 'disabled_authorization',
+                           'enabled': False, 'provider_version': None}}
 
     @classmethod
     def normalize_url(cls, value):
@@ -196,8 +201,11 @@ class SourceImporter:
             return {**self._clean_document_prelude(json.loads(row['document'])), 'cached': True}
         return None
 
-    def plan(self, urls):
+    def plan(self, urls, *, project_id=None):
         self.require_configured()
+        if project_id is not None and (not isinstance(project_id, str)
+                or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', project_id)):
+            raise SourceImportError('plan_scope', '無法確認此研究的網頁整理計畫。', 409)
         if not isinstance(urls, list) or not urls or len(urls) > self.max_pages:
             raise SourceImportError('page_limit', f'每次請選擇 1 至 {self.max_pages} 個網址。')
         normalized = list(dict.fromkeys(self.normalize_url(url) for url in urls))
@@ -218,9 +226,41 @@ class SourceImporter:
             now = self.clock()
             conn.execute('INSERT INTO plans (id,created,expires,day,status,snapshot) VALUES (?,?,?,?,?,?)',
                          (plan_id, now, now + self.PLAN_SECONDS, self._day(), 'planned', json.dumps(entries)))
+            if project_id is not None:
+                conn.execute('INSERT INTO plan_projects (plan_id,project_id) VALUES (?,?)', (plan_id, project_id))
         return {'plan_id': plan_id, 'entries': entries, 'new_pages': estimated,
                 'cached_pages': len(entries) - estimated, 'cloud_credits': 0,
                 'budget': budget, 'expires_in_seconds': self.PLAN_SECONDS}
+
+    def require_plan_project(self, plan_id, project_id):
+        """Bind research adoption to its explicit plan; legacy plans stay unbound."""
+        if not isinstance(plan_id, str) or not re.fullmatch(r'[a-f0-9]{32}', plan_id):
+            raise SourceImportError('plan_scope', '無法確認此研究的網頁整理計畫，請重新預覽。', 409)
+        with self.db() as conn:
+            row = conn.execute('SELECT project_id FROM plan_projects WHERE plan_id=?', (plan_id,)).fetchone()
+        if not row or row['project_id'] != project_id:
+            raise SourceImportError('plan_scope', '此網頁整理計畫不屬於目前研究，請重新預覽。', 409)
+
+    def saved_selection(self, plan_id, urls, *, project_id):
+        """Read only immutable completed results; never fetch, resolve DNS or retry."""
+        self.require_plan_project(plan_id, project_id)
+        if not isinstance(urls, list) or not urls or len(urls) > self.max_pages:
+            raise SourceImportError('page_limit', f'每次請選擇 1 至 {self.max_pages} 個已預覽的網址。')
+        selected = list(dict.fromkeys(self.normalize_url(url) for url in urls))
+        with self.db() as conn:
+            row = conn.execute('SELECT status,result FROM plans WHERE id=?', (plan_id,)).fetchone()
+        if not row or row['status'] != 'completed' or not row['result']:
+            raise SourceImportError('plan_incomplete', '網頁整理尚未完整完成，不能納入研究；請先核對預覽結果。', 409)
+        try:
+            result = json.loads(row['result'])
+            if result.get('status') != 'completed' or result.get('errors') or result.get('skipped_urls'):
+                raise ValueError()
+            documents = {item['url']: item for item in result['documents']}
+        except (ValueError, TypeError, KeyError, AttributeError):
+            raise SourceImportError('plan_incomplete', '保存的預覽結果無法確認，已停止納入研究。', 409) from None
+        if any(url not in documents for url in selected):
+            raise SourceImportError('invalid_selection', '只能納入這次已完成預覽的來源。')
+        return [self._clean_document_prelude(documents[url]) for url in selected]
 
     def _claim(self, plan_id):
         with self.db() as conn:
@@ -283,6 +323,23 @@ class SourceImporter:
         except (httpx.HTTPError, ValueError, AttributeError):
             raise SourceImportError('upstream', 'Firecrawl 未能完成擷取；不會自動重試。', 502) from None
 
+    @staticmethod
+    def _published_at(metadata):
+        # Keep only a precise, explicitly zoned publication timestamp. A date or
+        # a modification timestamp cannot be silently promoted to this field.
+        for key in ('publishedTime', 'publishedAt', 'published_at', 'datePublished', 'article:published_time'):
+            value = metadata.get(key)
+            if not isinstance(value, str) or len(value) > 40:
+                continue
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}[Tt ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:[Zz]|[+-]\d{2}:\d{2})', value):
+                continue
+            try:
+                parsed = datetime.fromisoformat(value.upper().replace('Z', '+00:00'))
+                return parsed.astimezone(timezone.utc).isoformat()
+            except (ValueError, OverflowError):
+                continue
+        return None
+
     def _document(self, url, data):
         metadata = data.get('metadata') or {}
         if not isinstance(metadata, dict):
@@ -308,6 +365,7 @@ class SourceImporter:
         filename = f"web-{urlsplit(url).hostname[:60]}-{hashlib.sha256(url.encode()).hexdigest()[:8]}.md"
         return {'id': hashlib.sha256(url.encode()).hexdigest()[:16], 'url': url, 'source_url': source_url,
                 'title': title, 'fetched_at': fetched_at, 'filename': filename, 'markdown': text,
+                'published_at': self._published_at(metadata), 'parse_status': 'truncated' if truncated else 'parsed',
                 'chars': min(len(body), self.MAX_CHARS), 'truncated': truncated, 'cached': False}
 
     def fetch(self, plan_id):

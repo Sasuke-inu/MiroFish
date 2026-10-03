@@ -332,8 +332,9 @@ def test_native_startup_validation_accepts_saved_key_without_environment_key(set
     assert 'LLM_API_KEY 未配置' not in Config.validate()
 
 
-def test_graphiti_batches_keep_snapshot_and_next_batch_uses_saved_model(setup, monkeypatch):
+def test_graphiti_all_batches_keep_graph_snapshot_when_settings_change(setup, monkeypatch):
     from app.local_graph import runtime
+    import threading
     jobs = [{'episode_uuid': 'one', 'batch_id': 'first', 'graph_id': 'graph', 'created_at': providers.now(),
              'data_type': 'text', 'source_description': 'test', 'data': 'data', 'metadata': {}},
             {'episode_uuid': 'two', 'batch_id': 'first', 'graph_id': 'graph', 'created_at': providers.now(),
@@ -357,16 +358,17 @@ def test_graphiti_batches_keep_snapshot_and_next_batch_uses_saved_model(setup, m
     monkeypatch.setattr(runtime, 'retrieve_episodes', noop)
     monkeypatch.setattr(runtime, 'EpisodicNode', lambda **kwargs: SimpleNamespace(save=noop))
     worker = object.__new__(runtime.Runtime)
-    worker._batch_model_settings = {}
+    worker._graph_model_settings = {'graph': runtime.Runtime.private_settings(providers.get_model_settings())}
+    worker._model_settings_lock = threading.RLock()
     worker.store = SimpleNamespace(claim=claim, graph=lambda _: {'ontology': {}},
         finish=lambda uuid, *args: finished.append(uuid),
         batch=lambda batch: {'status': 'succeeded' if (batch == 'first' and len(finished) >= 2) or (batch == 'second' and len(finished) >= 3) else 'processing'})
     worker.graphiti = SimpleNamespace(driver=SimpleNamespace(execute_query=noop), add_episode=add_episode)
     with pytest.raises(StopAsyncIteration):
         asyncio.run(worker._worker())
-    assert models == ['ocg/test-model', 'ocg/test-model', 'ocg/new-model']
+    assert models == ['ocg/test-model', 'ocg/test-model', 'ocg/test-model']
     assert finished == ['one', 'two', 'three']
-    assert worker._batch_model_settings == {}
+    assert worker._graph_model_settings['graph']['model'] == 'ocg/test-model'
 
 
 def test_failed_atomic_write_preserves_previous_settings(setup, monkeypatch):

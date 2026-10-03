@@ -30,6 +30,8 @@
   --theme-on-filled: #f5efdf;
   --theme-line: var(--studio-line);
   --theme-line-strong: #878c78;
+  --theme-control-line: #6f735f;
+  --theme-accent-text: #7b4a10;
   --theme-info-surface: #d8dcc8;
   --theme-info-ink: #454f29;
   --theme-info-line: #919a74;
@@ -84,6 +86,8 @@
   --theme-overlay: rgba(37, 40, 34, .97);
   --theme-faint: #adb29e;
   --theme-line-strong: #7f896c;
+  --theme-control-line: var(--theme-line-strong);
+  --theme-accent-text: var(--studio-accent);
   --theme-info-surface: #343b25;
   --theme-info-ink: #c2ce8c;
   --theme-info-line: #778551;
@@ -105,7 +109,7 @@
   background-color: var(--studio-surface); color: var(--studio-ink);
 }
 #app .studio-brand .brand-mark { background: var(--studio-button); }
-:root[data-theme='dark'] #app .project-index { color: var(--studio-accent); }
+:root[data-theme='dark'] #app .project-index { color: var(--theme-accent-text); }
 :root[data-theme='dark'] #app .service-dot.connected { box-shadow: 0 0 0 4px var(--studio-success-soft); }
 #app .start-engine-btn:not(:disabled) { background: var(--studio-button); }
 #app .start-engine-btn:hover:not(:disabled) { background: var(--studio-button-hover); }
@@ -116,7 +120,7 @@
 :root[data-theme='dark'] #app .studio-progress .current .progress-number { color: #24251d; }
 :root[data-theme='dark'] #app .main-view .console-logs { background: var(--theme-surface-soft); color: var(--studio-muted); }
 #app .graph-svg .nodes circle { paint-order: stroke fill; }
-#app .project-index { color: var(--studio-accent); }
+#app .project-index { color: var(--theme-accent-text); }
 #app .main-view .status-indicator.processing .dot { background: var(--studio-accent); }
 #app .main-view .status-indicator.completed .dot,
 #app .main-view .status-indicator.ready .dot { background: var(--studio-green); }

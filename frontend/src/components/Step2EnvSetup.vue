@@ -2,6 +2,8 @@
   <div class="env-setup-panel">
     <div class="scroll-container">
       <p v-if="prepareError" class="workflow-error" role="alert">{{ prepareError }}</p>
+      <div v-if="canRecoverNamespace" class="generation-controls"><p class="description">{{ $t('research.recoverNamespaceHelp') }}</p><button class="action-btn" data-testid="recover-namespace" :disabled="namespaceBusy" @click="recoverGraphNamespace">{{ $t('research.recoverNamespace') }}</button></div>
+      <div v-if="phase < 4" class="generation-controls"><p class="description">{{ $t('workbench.costNotice') }}</p><button v-if="canPrepare" class="action-btn primary" data-testid="prepare-simulation" :disabled="prepareBusy" @click="startPrepareSimulation">{{ $t('workbench.prepare') }}</button><button v-if="prepareError" class="action-btn" @click="restorePreparation">{{ $t('workbench.refresh') }}</button></div>
       <!-- Step 01: 模拟实例 -->
       <div class="step-card" :class="{ 'active': phase === 0, 'completed': phase > 0 }">
         <div class="card-header">
@@ -529,7 +531,7 @@
             </button>
             <button 
               class="action-btn primary"
-              :disabled="phase < 4 || !!prepareError"
+              :disabled="phase < 4 || !!prepareError || namespaceUnverified"
               @click="handleStartSimulation"
             >
               {{ $t('step2.startDualWorldSim') }} ➝
@@ -555,6 +557,7 @@
         </div>
         
         <div class="modal-body">
+          <EvidenceLinks v-if="projectData?.project_id && selectedProfileSubjectId" :project-id="projectData.project_id" subject-type="agent" :subject-id="selectedProfileSubjectId" />
           <!-- 基本信息 -->
           <div class="modal-info-grid">
             <div class="info-item">
@@ -647,11 +650,14 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   prepareSimulation,
+  getSimulation,
   getPrepareStatus,
   getSimulationProfilesRealtime,
   getSimulationConfig,
   getSimulationConfigRealtime
 } from '../api/simulation'
+import { recoverNamespace } from '../api/workbench'
+import EvidenceLinks from './EvidenceLinks.vue'
 
 const { t } = useI18n()
 
@@ -675,8 +681,27 @@ const entityTypes = ref([])
 const expectedTotal = ref(null)
 const simulationConfig = ref(null)
 const selectedProfile = ref(null)
+const selectedProfileSubjectId = computed(() => selectedProfile.value?.user_id != null ? `${props.simulationId}:agent:${selectedProfile.value.user_id}` : selectedProfile.value?.source_entity_uuid ? `${props.simulationId}:entity:${selectedProfile.value.source_entity_uuid}` : null)
 const profileModal = ref(null)
 const prepareError = ref('')
+const prepareState = ref('pending')
+const prepareBusy = ref(false)
+const namespaceState = ref(null), namespaceBusy = ref(false)
+const namespaceUnverified = computed(() => !!namespaceState.value?.source_graph_id && namespaceState.value.graph_namespace_status !== 'ready')
+const canRecoverNamespace = computed(() => namespaceUnverified.value && namespaceState.value.source_graph_id !== namespaceState.value.graph_id && namespaceState.value.graph_clone_operation_id === props.simulationId && ['preparing', 'needs_review'].includes(namespaceState.value.graph_namespace_status))
+const canPrepare = computed(() => ['created', 'idle', 'not_started'].includes(prepareState.value) && !prepareError.value && !namespaceUnverified.value)
+let mounted = true
+let generation = 0
+const valid = token => mounted && token === generation
+const reads = new Map()
+const readOnce = (name, read) => {
+  if (!mounted) return Promise.resolve()
+  if (reads.has(name)) return reads.get(name)
+  const request = read()
+  reads.set(name, request)
+  request.finally(() => { if (reads.get(name) === request) reads.delete(name) })
+  return request
+}
 let profileTrigger = null
 const showProfilesDetail = ref(true)
 
@@ -768,7 +793,7 @@ const handlePrepareFailure = (message) => {
 
 // 处理开始模拟按钮点击
 const handleStartSimulation = () => {
-  if (phase.value < 4 || prepareError.value) return
+  if (phase.value < 4 || prepareError.value || namespaceUnverified.value) return
   // 构建传递给父组件的参数
   const params = {}
   
@@ -823,6 +848,11 @@ const handleProfileKeydown = (event) => {
 
 // 自动开始准备模拟
 const startPrepareSimulation = async () => {
+  if (!mounted || !canPrepare.value || prepareBusy.value) return
+  const token = generation
+  prepareBusy.value = true
+  prepareError.value = ''
+  prepareState.value = 'preparing'
   if (!props.simulationId) {
     addLog(t('log.errorMissingSimId'))
     emit('update-status', 'error')
@@ -839,8 +869,10 @@ const startPrepareSimulation = async () => {
     const res = await prepareSimulation({
       simulation_id: props.simulationId,
       use_llm_for_profiles: true,
-      parallel_profile_count: 5
+      parallel_profile_count: 5,
+      force_regenerate: false
     })
+    if (!valid(token)) return
     
     if (res.success && res.data) {
       if (res.data.already_prepared) {
@@ -871,12 +903,15 @@ const startPrepareSimulation = async () => {
       handlePrepareFailure(res.error)
     }
   } catch (err) {
-    handlePrepareFailure(err.message)
+    if (!valid(token)) return
+    if (valid(token)) handlePrepareFailure(err.message)
+  } finally {
+    if (valid(token)) prepareBusy.value = false
   }
 }
 
 const startPolling = () => {
-  pollTimer = setInterval(pollPrepareStatus, 2000)
+  if (mounted && !pollTimer) pollTimer = setInterval(pollPrepareStatus, 2000)
 }
 
 const stopPolling = () => {
@@ -887,7 +922,7 @@ const stopPolling = () => {
 }
 
 const startProfilesPolling = () => {
-  profilesTimer = setInterval(fetchProfilesRealtime, 3000)
+  if (mounted && !profilesTimer) profilesTimer = setInterval(fetchProfilesRealtime, 3000)
 }
 
 const stopProfilesPolling = () => {
@@ -897,7 +932,9 @@ const stopProfilesPolling = () => {
   }
 }
 
-const pollPrepareStatus = async () => {
+const pollPrepareStatus = () => readOnce('status', readPrepareStatus)
+const readPrepareStatus = async () => {
+  const token = generation
   if (!taskId.value && !props.simulationId) return
   
   try {
@@ -905,6 +942,7 @@ const pollPrepareStatus = async () => {
       task_id: taskId.value,
       simulation_id: props.simulationId
     })
+    if (!valid(token)) return
     
     if (res.success && res.data) {
       const data = res.data
@@ -948,20 +986,24 @@ const pollPrepareStatus = async () => {
         stopPolling()
         stopProfilesPolling()
         await loadPreparedData()
-      } else if (data.status === 'failed') {
-        handlePrepareFailure(data.error)
+      } else if (['failed', 'interrupted', 'needs_review', 'stopped'].includes(data.status)) {
+        handlePrepareFailure(data.error || t('workbench.' + data.status))
       }
     }
   } catch (err) {
+    if (!valid(token)) return
     console.warn('轮询状态失败:', err)
   }
 }
 
-const fetchProfilesRealtime = async () => {
+const fetchProfilesRealtime = () => readOnce('profiles', readProfiles)
+const readProfiles = async () => {
+  const token = generation
   if (!props.simulationId) return
   
   try {
     const res = await getSimulationProfilesRealtime(props.simulationId)
+    if (!valid(token)) return
     
     if (res.success && res.data) {
       const prevCount = profiles.value.length
@@ -997,13 +1039,14 @@ const fetchProfilesRealtime = async () => {
       }
     }
   } catch (err) {
+    if (!valid(token)) return
     console.warn('获取 Profiles 失败:', err)
   }
 }
 
 // 配置轮询
 const startConfigPolling = () => {
-  configTimer = setInterval(fetchConfigRealtime, 2000)
+  if (mounted && !configTimer) configTimer = setInterval(fetchConfigRealtime, 2000)
 }
 
 const stopConfigPolling = () => {
@@ -1013,17 +1056,20 @@ const stopConfigPolling = () => {
   }
 }
 
-const fetchConfigRealtime = async () => {
+const fetchConfigRealtime = () => readOnce('config', readConfig)
+const readConfig = async () => {
+  const token = generation
   if (!props.simulationId) return
   
   try {
     const res = await getSimulationConfigRealtime(props.simulationId)
+    if (!valid(token)) return
     
     if (res.success && res.data) {
       const data = res.data
 
-      if (data.status === 'failed' || data.error) {
-        handlePrepareFailure(data.error)
+      if (['failed', 'interrupted', 'needs_review', 'stopped'].includes(data.status) || data.error) {
+        handlePrepareFailure(data.error || t('workbench.' + data.status))
         return
       }
       
@@ -1070,25 +1116,29 @@ const fetchConfigRealtime = async () => {
       }
     }
   } catch (err) {
+    if (!valid(token)) return
     console.warn('获取 Config 失败:', err)
   }
 }
 
 const loadPreparedData = async () => {
+  const token = generation
   phase.value = 2
   addLog(t('log.loadingExistingConfig'))
 
   // 最后获取一次 Profiles
   await fetchProfilesRealtime()
+  if (!valid(token)) return
   addLog(t('log.loadedAgentProfiles', { count: profiles.value.length }))
 
   // 获取配置（使用实时接口）
   try {
     const res = await getSimulationConfigRealtime(props.simulationId)
+    if (!valid(token)) return
     if (res.success && res.data) {
       const configState = res.data
 
-      if (configState.status === 'failed' || configState.error) {
+      if (['failed', 'interrupted', 'needs_review', 'stopped'].includes(configState.status) || configState.error) {
         handlePrepareFailure(configState.error)
         return
       }
@@ -1115,6 +1165,7 @@ const loadPreparedData = async () => {
       }
     }
   } catch (err) {
+    if (!valid(token)) return
     handlePrepareFailure(t('log.loadConfigFailed', { error: err.message }))
   }
 }
@@ -1129,15 +1180,58 @@ watch(() => props.systemLogs?.length, () => {
   })
 })
 
-onMounted(() => {
-  // 自动开始准备流程
-  if (props.simulationId) {
-    addLog(t('log.step2Init'))
-    startPrepareSimulation()
+const recoverGraphNamespace = async () => {
+  if (!canRecoverNamespace.value || namespaceBusy.value) return
+  const token=generation
+  namespaceBusy.value=true
+  prepareError.value=''
+  try { await recoverNamespace(props.simulationId); if (valid(token)) await restorePreparation() }
+  catch(err) { if(valid(token)) prepareError.value=err.message }
+  finally { if(valid(token)) namespaceBusy.value=false }
+}
+const restorePreparation = async () => {
+  if (!mounted || !props.simulationId) return
+  const token = generation
+  prepareError.value = ''
+  try {
+    const res = await getSimulation(props.simulationId)
+    if (!valid(token)) return
+    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+    namespaceState.value = res.data
+    prepareState.value = res.data.status || 'needs_review'
+    taskId.value = res.data.prepare_task_id || res.data.task_id || null
+    if (['ready', 'prepared', 'running', 'completed', 'stopping', 'stopped'].includes(prepareState.value)) {
+      await loadPreparedData()
+    } else if (['preparing', 'processing'].includes(prepareState.value)) {
+      phase.value = 1
+      startPolling()
+      startProfilesPolling()
+      startConfigPolling()
+      await pollPrepareStatus()
+    } else if (!canPrepare.value) {
+      handlePrepareFailure(res.data.error || t('workbench.needs_review'))
+    } else phase.value = 0
+  } catch (err) {
+    if (valid(token)) handlePrepareFailure(t('workbench.readFailed', { error: err.message }))
   }
+}
+onMounted(restorePreparation)
+watch(() => props.simulationId, () => {
+  generation++
+  stopPolling(); stopProfilesPolling(); stopConfigPolling()
+  reads.clear()
+  phase.value = 0
+  prepareBusy.value = false
+  namespaceState.value = null
+  namespaceBusy.value = false
+  profiles.value = []
+  simulationConfig.value = null
+  taskId.value = null
+  restorePreparation()
 })
-
 onUnmounted(() => {
+  mounted = false
+  generation++
   stopPolling()
   stopProfilesPolling()
   stopConfigPolling()

@@ -21,6 +21,7 @@
       </div>
 
       <div class="header-right">
+        <RouterLink class="research-return" :to="projectData?.project_id ? '/workbench/' + projectData.project_id : '/workbench'">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
         <PreferenceControls />
         <div class="step-divider"></div>
@@ -43,7 +44,8 @@
     <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
       <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
-        <GraphPanel 
+        <GraphPanel
+          :project-id="projectData?.project_id"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="4"
@@ -56,6 +58,7 @@
       <!-- Right Panel: Step4 报告生成 -->
       <div class="panel-wrapper right" v-show="viewMode !== 'graph'" :inert="viewMode === 'graph'" :aria-hidden="viewMode === 'graph'" :style="rightPanelStyle">
         <Step4Report
+          :project-id="projectData?.project_id"
           :reportId="currentReportId"
           :simulationId="simulationId"
           :systemLogs="systemLogs"
@@ -68,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -93,14 +96,18 @@ const props = defineProps({
 const viewMode = ref('workbench')
 
 // Data State
-const currentReportId = ref(route.params.reportId)
+const currentReportId = ref(props.reportId || route.params.reportId)
+let mounted = true
+let generation = 0
+let graphBusy = false
+const valid = token => mounted && token === generation
 const simulationId = ref(null)
 const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
 const loadError = ref('')
-const currentStatus = ref('processing') // processing | completed | error
+const currentStatus = ref('loading')
 
 // --- Computed Layout Styles ---
 const leftPanelStyle = computed(() => {
@@ -121,7 +128,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
+  if (currentStatus.value === 'loading') return t('common.loading')
   if (currentStatus.value === 'error') return t('common.error')
+  if (['failed', 'stopped', 'interrupted', 'needs_review'].includes(currentStatus.value)) return t('workbench.' + currentStatus.value)
   if (currentStatus.value === 'completed') return t('common.completed')
   return t('common.processing')
 })
@@ -150,25 +159,30 @@ const toggleMaximize = (target) => {
 
 // --- Data Logic ---
 const loadReportData = async () => {
+  const token = generation
   loadError.value = ''
   try {
     addLog(t('log.loadReportData', { id: currentReportId.value }))
 
     // 获取 report 信息以获取 simulation_id
     const reportRes = await getReport(currentReportId.value)
+    if (!valid(token)) return
     if (reportRes.success && reportRes.data) {
       const reportData = reportRes.data
+      currentStatus.value = reportData.status || 'processing'
       simulationId.value = reportData.simulation_id
 
       if (simulationId.value) {
         // 获取 simulation 信息
         const simRes = await getSimulation(simulationId.value)
+    if (!valid(token)) return
         if (simRes.success && simRes.data) {
           const simData = simRes.data
 
           // 获取 project 信息
           if (simData.project_id) {
             const projRes = await getProject(simData.project_id)
+    if (!valid(token)) return
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
               addLog(t('log.projectLoadSuccess', { id: projRes.data.project_id }))
@@ -187,6 +201,7 @@ const loadReportData = async () => {
       addLog(loadError.value)
     }
   } catch (err) {
+    if (!valid(token)) return
     loadError.value = t('log.loadException', { error: err.message })
     currentStatus.value = 'error'
     addLog(loadError.value)
@@ -194,18 +209,23 @@ const loadReportData = async () => {
 }
 
 const loadGraph = async (graphId) => {
+  if (!mounted || graphBusy) return
+  const token = generation
+  graphBusy = true
   graphLoading.value = true
   
   try {
     const res = await getGraphData(graphId)
+    if (!valid(token)) return
     if (res.success) {
       graphData.value = res.data
       addLog(t('log.graphDataLoadSuccess'))
     }
   } catch (err) {
+    if (!valid(token)) return
     addLog(t('log.graphLoadFailed', { error: err.message }))
   } finally {
-    graphLoading.value = false
+    if (valid(token)) { graphLoading.value = false; graphBusy = false }
   }
 }
 
@@ -216,9 +236,15 @@ const refreshGraph = () => {
 }
 
 // Watch route params
-watch(() => route.params.reportId, (newId) => {
+watch(() => props.reportId || route.params.reportId, (newId) => {
   if (newId && newId !== currentReportId.value) {
+    generation++
     currentReportId.value = newId
+    simulationId.value = projectData.value = graphData.value = null
+    currentStatus.value = 'loading'
+    graphBusy = false
+    graphLoading.value = false
+    systemLogs.value = []
     loadReportData()
   }
 }, { immediate: true })
@@ -227,9 +253,11 @@ onMounted(() => {
   addLog(t('log.reportViewInit'))
   loadReportData()
 })
+onUnmounted(() => { mounted = false; generation++ })
 </script>
 
 <style scoped>
+.research-return { color: var(--studio-muted); font-size: .875rem; text-decoration: none; padding: 8px; min-height: 44px; display: inline-flex; align-items: center; }
 
 .workflow-error {
   flex-shrink: 0;

@@ -40,7 +40,7 @@ def create_app(config_class=Config):
         logger.info("=" * 50)
     
     # 启用CORS
-    CORS(app, resources={r"/api/(?!settings(?:/|$)).*": {"origins": "*"}})
+    CORS(app, resources={r"/api/(?!(?:settings|workbench)(?:/|$)).*": {"origins": "*"}})
     
     # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
     from .services.simulation_runner import SimulationRunner
@@ -53,8 +53,7 @@ def create_app(config_class=Config):
     def log_request():
         logger = get_logger('mirofish.request')
         logger.debug(f"请求: {request.method} {request.path}")
-        if not request.path.startswith('/api/settings') and request.content_type and 'json' in request.content_type:
-            logger.debug(f"请求体: {request.get_json(silent=True)}")
+        # Research content, assumptions and credentials stay out of general logs.
     
     @app.after_request
     def log_response(response):
@@ -71,6 +70,8 @@ def create_app(config_class=Config):
     app.register_blueprint(sources_bp, url_prefix='/api/sources')
     from .api.settings import settings_bp
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    from .api.workbench import workbench_bp
+    app.register_blueprint(workbench_bp, url_prefix='/api/workbench')
     
     # 健康检查
     @app.route('/health')

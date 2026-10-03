@@ -86,7 +86,7 @@
           </svg>
           <div class="action-bar-text">
             <span class="action-bar-title">{{ $t('step5.interactiveTools') }}</span>
-            <span class="action-bar-subtitle mono">{{ $t('step5.agentsAvailable', { count: profiles.length }) }}</span>
+            <span class="action-bar-subtitle mono">{{ canInterview ? $t('step5.agentsAvailable', { count: profiles.length }) : interviewCopy.savedRoles.replace('{count}', profiles.length) }}</span>
           </div>
         </div>
           <div class="action-bar-tabs">
@@ -156,6 +156,21 @@
             </button>
           </div>
         </div>
+
+        <div class="interview-status" role="status">
+          <p>{{ interviewCopy[interviewAvailability] }}</p>
+          <button type="button" :disabled="interviewAvailability === 'checking' || isSending || isSurveying" @click="refreshInterviewAvailability">{{ interviewCopy.refresh }}</button>
+        </div>
+        <details class="interview-history">
+          <summary>{{ interviewCopy.history }} ({{ savedInterviews.length }})</summary>
+          <p v-if="interviewHistoryError">{{ interviewCopy.historyError }}</p>
+          <p v-else-if="!savedInterviews.length">{{ interviewCopy.emptyHistory }}</p>
+          <article v-for="(item, idx) in savedInterviews" :key="idx">
+            <small>{{ item.timestamp }} · {{ item.platform }} · {{ item.agent_id }}</small>
+            <p>{{ item.prompt }}</p>
+            <pre>{{ typeof item.response === 'string' ? item.response : JSON.stringify(item.response, null, 2) }}</pre>
+          </article>
+        </details>
 
         <!-- Chat Mode -->
         <div v-if="activeTab === 'chat'" class="chat-container">
@@ -306,7 +321,7 @@
               :aria-label="$t('studio.chatQuestion')"
               :placeholder="$t('step5.chatInputPlaceholder')"
               @keydown.enter.exact="handleChatEnter"
-              :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
+              :disabled="isSending || (chatTarget === 'agent' && (!selectedAgent || !canInterview))"
               rows="1"
               ref="chatInputRef"
             ></textarea>
@@ -314,7 +329,7 @@
               class="send-btn"
               :aria-label="$t('studio.sendQuestion')"
               @click="sendMessage"
-              :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
+              :disabled="!chatInput.trim() || isSending || (chatTarget === 'agent' && (!selectedAgent || !canInterview))"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -373,7 +388,7 @@
                 v-model="surveyQuestion"
                 class="survey-input"
                 :aria-label="$t('step5.surveyQuestions')"
-                :disabled="isSurveying"
+                :disabled="isSurveying || !canInterview"
                 :placeholder="$t('step5.surveyInputPlaceholder')"
                 rows="3"
               ></textarea>
@@ -382,7 +397,7 @@
             <p v-if="surveyError" class="workflow-error" role="alert">{{ surveyError }}</p>
             <button 
               class="survey-submit-btn"
-              :disabled="selectedAgents.size === 0 || !surveyQuestion.trim() || isSurveying"
+              :disabled="selectedAgents.size === 0 || !surveyQuestion.trim() || isSurveying || !canInterview"
               @click="submitSurvey"
             >
               <span v-if="isSurveying" class="loading-spinner" aria-hidden="true"></span>
@@ -432,9 +447,9 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { chatWithReport, getReport, getAgentLog } from '../api/report'
-import { interviewAgents, getSimulationProfilesRealtime } from '../api/simulation'
+import { interviewAgents, getSimulationProfilesRealtime, getEnvStatus, getInterviewHistory } from '../api/simulation'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps({
   reportId: String,
@@ -473,6 +488,77 @@ const generatedSections = ref({})
 const collapsedSections = ref(new Set())
 const currentSectionIndex = ref(null)
 const profiles = ref([])
+const interviewAvailability = ref('checking')
+const savedInterviews = ref([])
+const interviewHistoryError = ref(false)
+const canInterview = computed(() => interviewAvailability.value === 'available')
+let simulationScope = 0
+const interviewCopy = computed(() => ({
+  'zh-TW': {
+    checking: '正在核對訪談程序；已保存紀錄仍可查看。',
+    available: '上次核對時訪談程序仍在運作；送出前會再次核對。',
+    closed: '訪談程序已結束或無法核對；已保存紀錄仍可查看。',
+    unverified: '目前無法核對訪談程序；已保存紀錄仍可查看。',
+    refresh: '重新核對', history: '已保存的訪談紀錄（最近 100 筆）',
+    emptyHistory: '尚無已保存的訪談紀錄。', historyError: '目前無法讀取已保存紀錄。', savedRoles: '{count} 個已保存的角色'
+  },
+  zh: {
+    checking: '正在核对访谈程序；已保存记录仍可查看。',
+    available: '上次核对时访谈程序仍在运行；发送前会再次核对。',
+    closed: '访谈程序已结束或无法核对；已保存记录仍可查看。',
+    unverified: '目前无法核对访谈程序；已保存记录仍可查看。',
+    refresh: '重新核对', history: '已保存的访谈记录（最近 100 条）',
+    emptyHistory: '尚无已保存的访谈记录。', historyError: '目前无法读取已保存记录。', savedRoles: '{count} 个已保存的角色'
+  },
+  en: {
+    checking: 'Checking the interview process. Saved history remains readable.',
+    available: 'The interview process was running at the last check. It will be checked again before sending.',
+    closed: 'The interview process has ended or cannot be verified. Saved history remains readable.',
+    unverified: 'The interview process cannot currently be verified. Saved history remains readable.',
+    refresh: 'Check again', history: 'Saved interviews (latest 100)',
+    emptyHistory: 'No saved interviews yet.', historyError: 'Saved history could not be loaded.', savedRoles: '{count} saved characters'
+  }
+}[locale.value] || {
+  checking: 'Checking the interview process.', available: 'The interview process is running.',
+  closed: 'The interview process has ended. Saved history remains readable.', unverified: 'The interview process cannot be verified.',
+  refresh: 'Check again', history: 'Saved interviews (latest 100)', emptyHistory: 'No saved interviews yet.',
+  historyError: 'Saved history could not be loaded.', savedRoles: '{count} saved characters'
+}))
+
+const refreshInterviewAvailability = async () => {
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  interviewAvailability.value = 'checking'
+  if (!simulationId) {
+    interviewAvailability.value = 'unverified'
+    return false
+  }
+  try {
+    const result = await getEnvStatus({ simulation_id: simulationId })
+    if (scope !== simulationScope || simulationId !== props.simulationId) return false
+    interviewAvailability.value = result.success && typeof result.data?.env_alive === 'boolean'
+      ? (result.data.env_alive ? 'available' : 'closed') : 'unverified'
+  } catch {
+    if (scope !== simulationScope || simulationId !== props.simulationId) return false
+    interviewAvailability.value = 'unverified'
+  }
+  return canInterview.value
+}
+
+const loadInterviewHistory = async () => {
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  if (!simulationId) return
+  try {
+    const result = await getInterviewHistory({ simulation_id: simulationId, limit: 100 })
+    if (scope !== simulationScope || simulationId !== props.simulationId) return
+    if (!result.success || !Array.isArray(result.data?.history)) throw new Error('history unavailable')
+    savedInterviews.value = result.data.history
+    interviewHistoryError.value = false
+  } catch {
+    if (scope === simulationScope && simulationId === props.simulationId) interviewHistoryError.value = true
+  }
+}
 
 // Helper Methods
 const isSectionCompleted = (sectionIndex) => {
@@ -670,6 +756,13 @@ const handleChatEnter = (event) => {
 // Chat Methods
 const sendMessage = async () => {
   if (!chatInput.value.trim() || isSending.value || (chatTarget.value === 'agent' && !selectedAgent.value)) return
+  if (chatTarget.value === 'agent') {
+    if (!canInterview.value) return
+    isSending.value = true
+    const alive = await refreshInterviewAvailability()
+    isSending.value = false
+    if (!alive) return
+  }
   
   const message = chatInput.value.trim()
   chatInput.value = ''
@@ -829,7 +922,13 @@ const clearAgentSelection = () => {
 }
 
 const submitSurvey = async () => {
-  if (isSurveying.value || selectedAgents.value.size === 0 || !surveyQuestion.value.trim()) return
+  if (isSurveying.value || selectedAgents.value.size === 0 || !surveyQuestion.value.trim() || !canInterview.value) return
+  isSurveying.value = true
+  const alive = await refreshInterviewAvailability()
+  if (!alive) {
+    isSurveying.value = false
+    return
+  }
   const question = surveyQuestion.value.trim()
   surveyError.value = ''
   
@@ -944,10 +1043,13 @@ const loadAgentLogs = async () => {
 }
 
 const loadProfiles = async () => {
-  if (!props.simulationId) return
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  if (!simulationId) return
   
   try {
-    const res = await getSimulationProfilesRealtime(props.simulationId)
+    const res = await getSimulationProfilesRealtime(simulationId)
+    if (scope !== simulationScope || simulationId !== props.simulationId) return
     if (res.success && res.data) {
       profiles.value = res.data.profiles || []
       addLog(t('log.loadedProfiles', { count: profiles.value.length }))
@@ -972,6 +1074,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  simulationScope++
   document.removeEventListener('click', handleClickOutside)
 })
 
@@ -982,13 +1085,46 @@ watch(() => props.reportId, (newId) => {
 }, { immediate: true })
 
 watch(() => props.simulationId, (newId) => {
+  simulationScope++
+  interviewAvailability.value = 'checking'
+  savedInterviews.value = []
+  interviewHistoryError.value = false
+  profiles.value = []
+  selectedAgent.value = null
+  selectedAgentIndex.value = null
+  selectedAgents.value = new Set()
+  chatHistory.value = []
+  chatHistoryCache.value = {}
+  surveyResults.value = []
   if (newId) {
     loadProfiles()
+    refreshInterviewAvailability()
+    loadInterviewHistory()
+  } else {
+    interviewAvailability.value = 'unverified'
   }
 }, { immediate: true })
 </script>
 
 <style scoped>
+
+.interview-status, .interview-history {
+  flex-shrink: 0;
+  margin: 8px 24px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--theme-line);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.interview-status { display: flex; gap: 12px; align-items: center; }
+.interview-status p { flex: 1; margin: 0; }
+.interview-status button { min-height: 44px; flex-shrink: 0; padding: 6px 12px; }
+.interview-history { max-height: 220px; overflow: auto; }
+.interview-history summary { min-height: 44px; align-content: center; cursor: pointer; }
+.interview-history article + article { border-top: 1px solid var(--theme-line); margin-top: 12px; padding-top: 12px; }
+.interview-history pre { white-space: pre-wrap; font: inherit; }
 
 .workflow-error {
   flex-shrink: 0;

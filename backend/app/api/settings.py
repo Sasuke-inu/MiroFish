@@ -90,3 +90,33 @@ def get_accounts():
 @settings_bp.get('/providers/balance')
 def get_balance():
     return jsonify(success=True, data=provider_balance(current_app.config))
+
+
+@settings_bp.get('/profiles')
+def get_profiles():
+    from ..provider_settings import profiles_config
+    return jsonify(success=True, data={**profiles_config(current_app.config), 'csrf_token': csrf_token()})
+
+
+@settings_bp.post('/profiles')
+def put_profile():
+    from ..provider_settings import save_profile
+    return jsonify(success=True, data=save_profile(request.get_json(silent=True), current_app.config))
+
+
+@settings_bp.put('/profiles/assignments')
+def put_assignments():
+    from ..provider_settings import assign_profiles
+    return jsonify(success=True, data=assign_profiles(request.get_json(silent=True), current_app.config))
+
+
+@settings_bp.delete('/profiles/<profile_id>')
+def delete_profile(profile_id):
+    from ..provider_settings import remove_profile
+    return jsonify(success=True, data=remove_profile(profile_id, current_app.config))
+
+
+@settings_bp.post('/profiles/<profile_id>/test')
+def check_profile(profile_id):
+    from ..provider_settings import test_profile
+    return jsonify(success=True, data=test_profile(profile_id, current_app.config))
