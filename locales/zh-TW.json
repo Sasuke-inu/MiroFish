@@ -1122,6 +1122,7 @@
     "openRun": "查看執行",
     "demoHelp": "固定的合成資料，沒有呼叫模型，不代表真實世界的預測。",
     "openDemo": "開啟本機示範",
+    "installDemo": "安裝示範",
     "synthetic": "合成示範",
     "manage": "管理與匯出",
     "rename": "重新命名",
@@ -1549,6 +1550,7 @@
     },
     "checkData": "查看已保存資料",
     "sectionEvidence": "此章的引用與假設",
+    "sectionNotSaved": "此節尚未保存內容。",
     "openForProgress": "開啟研究，查看保存資料與下一步。"
   }
 }

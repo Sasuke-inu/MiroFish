@@ -1122,6 +1122,7 @@
     "openRun": "View run",
     "demoHelp": "Fixed synthetic data with no model calls. These are not real-world predictions.",
     "openDemo": "Open local example",
+    "installDemo": "Install example",
     "synthetic": "Synthetic example",
     "manage": "Manage and export",
     "rename": "Rename",
@@ -1549,6 +1550,7 @@
     },
     "checkData": "View saved data",
     "sectionEvidence": "References and assumptions for this section",
+    "sectionNotSaved": "This section has not been saved yet.",
     "openForProgress": "Open this research to review saved inputs and the next step."
   }
 }
