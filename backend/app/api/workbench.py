@@ -196,8 +196,8 @@ def compare():
 
 @workbench_bp.get('/demos')
 def demos():
-    from ..services.workbench_demos import CATALOG
-    return ok({'items': CATALOG})
+    from ..services.workbench_demos import catalog
+    return ok({'items': catalog()})
 
 
 @workbench_bp.post('/demos/<demo_id>')

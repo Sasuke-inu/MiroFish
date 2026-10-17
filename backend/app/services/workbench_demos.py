@@ -38,6 +38,15 @@ def install(demo_id):
     return {'project_id': project_id, 'kind': 'synthetic_fixture', 'external_calls': 0}
 
 
+def catalog():
+    """Catalog entries plus the installed project id, or None when uninstalled."""
+    ResearchWorkbench()  # creates demo_installations and the research ledger
+    with database() as db:
+        installed = {row['demo_id']: row['project_id']
+                     for row in db.execute('SELECT demo_id, project_id FROM demo_installations')}
+    return [{**item, 'project_id': installed.get(item['id'])} for item in CATALOG]
+
+
 def _seed(workbench, project_id, demo_id):
     from .event_store import EventStore
     from .report_agent import Report, ReportManager, ReportOutline, ReportSection, ReportStatus
