@@ -1550,6 +1550,7 @@
     },
     "checkData": "查看已保存资料",
     "sectionEvidence": "此章的引用与假设",
+    "sectionNotSaved": "本节尚未保存内容。",
     "openForProgress": "打开研究，查看保存资料与下一步。"
   }
 }
