@@ -10,10 +10,38 @@ const service = axios.create({
   }
 })
 
+// Legacy graph/simulation/report/sources routes share one session CSRF token,
+// bootstrapped once from GET /api/session and re-fetched after a 403 reset.
+// workbench.js/providers.js keep their own session handling.
+let csrfToken = ''
+let sessionRequest = null
+
+export function __resetApiGuard() {
+  csrfToken = ''
+  sessionRequest = null
+}
+
+async function session() {
+  if (csrfToken) return csrfToken
+  if (!sessionRequest) {
+    sessionRequest = service.get('/api/session').then(res => {
+      csrfToken = res?.data?.csrf_token || ''
+      return csrfToken
+    }).finally(() => { sessionRequest = null })
+  }
+  return sessionRequest
+}
+
 // 请求拦截器
 service.interceptors.request.use(
-  config => {
+  async config => {
     config.headers['Accept-Language'] = i18n.global.locale.value
+    const method = (config.method || 'get').toUpperCase()
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const token = await session()
+      if (token) config.headers['X-MiroFish-CSRF'] = token
+    }
+    // FormData keeps its existing multipart content type.
     return config
   },
   error => {
@@ -38,6 +66,11 @@ service.interceptors.response.use(
   error => {
     console.error('Response error:', error)
     const apiError = error.response?.data?.error || error.response?.data?.message
+
+    // A rejected token is dropped so the next write bootstraps a fresh one.
+    if (error.response?.status === 403) {
+      __resetApiGuard()
+    }
     
     // 处理超时
     if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {

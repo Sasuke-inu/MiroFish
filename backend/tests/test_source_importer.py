@@ -399,20 +399,28 @@ def test_routes_do_not_accept_provider_options_or_foreign_origin(harness, monkey
     app = create_app()
     app.extensions['source_importer'] = build()
     client = app.test_client()
-    denied = client.post('/api/sources/plan', json={'urls': ['https://example.com/'], 'formats': ['json']})
+    # The app-wide guard now also covers the sources API: writes need the
+    # session CSRF token obtained from the bootstrap endpoint.
+    token = client.get('/api/session').json['data']['csrf_token']
+    csrf = {'X-MiroFish-CSRF': token}
+    denied = client.post('/api/sources/plan', json={'urls': ['https://example.com/'], 'formats': ['json']},
+                         headers=csrf)
     assert denied.status_code == 400
     assert denied.json['code'] == 'invalid_request'
-    origin = client.post('/api/sources/plan', json={'urls': ['https://example.com/']}, headers={'Origin': 'https://untrusted.example'})
+    origin = client.post('/api/sources/plan', json={'urls': ['https://example.com/']},
+                         headers={**csrf, 'Origin': 'https://untrusted.example'})
     assert origin.status_code == 403
-    allowed = client.post('/api/sources/plan', json={'urls': ['https://example.com/']}, headers={'Origin': 'http://localhost:3100'})
+    allowed = client.post('/api/sources/plan', json={'urls': ['https://example.com/']},
+                          headers={**csrf, 'Origin': 'http://localhost:3100'})
     assert allowed.status_code == 200
     assert calls == []
-    assert client.post('/api/sources/fetch', json={'urls': ['https://example.com/']}).status_code == 400
+    assert client.post('/api/sources/fetch', json={'urls': ['https://example.com/']},
+                       headers=csrf).status_code == 400
     status = client.get('/api/sources/status')
     assert status.json['data']['online'] is True
     assert 'private-service-key' not in status.get_data(as_text=True)
     monkeypatch.setattr(app.extensions['source_importer'], 'db', lambda: (_ for _ in ()).throw(OSError('private-path')))
-    failed = client.post('/api/sources/fetch', json={'plan_id': allowed.json['data']['plan_id']})
+    failed = client.post('/api/sources/fetch', json={'plan_id': allowed.json['data']['plan_id']}, headers=csrf)
     assert failed.status_code == 503
     assert 'private-path' not in failed.get_data(as_text=True)
     assert len(posts(calls)) == 0
