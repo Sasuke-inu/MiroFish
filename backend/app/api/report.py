@@ -240,10 +240,9 @@ def generate_report():
 
             settings_snapshot = get_model_settings(stage='report')
             task_manager = TaskManager()
-            version = (existing_report.version + 1) if existing_report else 1
-            task_id, created = task_manager.claim_task(
-                task_type="report_generate",
-                resource_key=f"report:{simulation_id}:v{version}",
+            # 版本編號來自持久化帳本（同一交易內配發並 claim）：刪除報告不會回收版本號
+            task_id, created, version = task_manager.claim_report_version(
+                simulation_id,
                 metadata={
                     "simulation_id": simulation_id,
                     "graph_id": graph_id,
@@ -252,8 +251,15 @@ def generate_report():
             )
             if not created:
                 claimed = task_manager.get_task(task_id)
+                reused_report_id = (claimed.metadata or {}).get('report_id') if claimed else None
+                if not reused_report_id or ReportManager.get_report(reused_report_id) is None:
+                    # 舊工作已存在，但保存的產物不存在：不得回報 already_generated
+                    return jsonify({
+                        "success": False,
+                        "error": '先前版本的工作已完成，但保存的報告內容不存在；此版本需要重新檢查，未重用已刪除的產物。'
+                    }), 409
                 return jsonify(success=True, data={
-                    'simulation_id': simulation_id, 'report_id': claimed.metadata['report_id'],
+                    'simulation_id': simulation_id, 'report_id': reused_report_id,
                     'task_id': task_id, 'status': claimed.status.value, 'reused': True,
                     'already_generated': claimed.status == TaskStatus.COMPLETED})
             ReportManager.save_report(Report(
