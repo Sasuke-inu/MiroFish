@@ -66,6 +66,10 @@ class EvidenceStore:
                                        'model_inference', 'simulation_event')),
                     CHECK(relation IN ('supports', 'contradicts', 'insufficient'))
                 );
+                CREATE TABLE IF NOT EXISTS evidence_latest (
+                    source_id TEXT PRIMARY KEY, version_id TEXT NOT NULL,
+                    observed_at TEXT NOT NULL
+                );
                 CREATE INDEX IF NOT EXISTS evidence_versions_source ON evidence_versions(source_id);
                 CREATE INDEX IF NOT EXISTS evidence_spans_version ON evidence_spans(version_id);
                 CREATE INDEX IF NOT EXISTS evidence_references_subject
@@ -79,6 +83,17 @@ class EvidenceStore:
                     conn.execute(f'''CREATE TRIGGER IF NOT EXISTS {table}_no_{operation.lower()}
                         BEFORE {operation} ON {table}
                         BEGIN SELECT RAISE(ABORT, 'Evidence records are immutable'); END''')
+            # Conservative migration: a source without a pointer adopts its
+            # newest recorded row. Sources that never had a version get none,
+            # so no observation and no text is fabricated.
+            conn.execute('BEGIN IMMEDIATE')
+            conn.execute('''INSERT INTO evidence_latest(source_id, version_id, observed_at)
+                SELECT v.source_id, v.version_id, ?
+                FROM evidence_versions v
+                WHERE v.rowid = (SELECT MAX(w.rowid) FROM evidence_versions w
+                                 WHERE w.source_id = v.source_id)
+                  AND NOT EXISTS (SELECT 1 FROM evidence_latest l WHERE l.source_id = v.source_id)''',
+                (self._now(),))
 
     def _now(self):
         value = self.clock()
@@ -145,6 +160,8 @@ class EvidenceStore:
 
         Repeated identical content keeps the original version metadata. Distinct
         sources may share content storage but always have their own version IDs.
+        Every call also records the returned version as what was observed last,
+        so restoring earlier text moves the pointer back without touching rows.
         Missing legacy content is explicit and is never represented as empty text.
         """
         parser_version = self._text(parser_version, 'parser_version', max_length=256)
@@ -163,6 +180,7 @@ class EvidenceStore:
                 existing = conn.execute('SELECT version_id FROM evidence_versions WHERE source_id=? AND sha256=?',
                                         (source_id, digest)).fetchone()
                 if existing:
+                    self._point_latest(conn, source_id, existing['version_id'])
                     return self._version(conn, existing['version_id'], include_content=False)
                 conn.execute('INSERT OR IGNORE INTO evidence_contents VALUES (?,?,?)',
                              (digest, content, len(content)))
@@ -170,7 +188,28 @@ class EvidenceStore:
             conn.execute('INSERT INTO evidence_versions VALUES (?,?,?,?,?,?,?,?)',
                          (version_id, source_id, digest, parser_version, status,
                           fetched_at, published_at, self._now()))
+            self._point_latest(conn, source_id, version_id)
             return self._version(conn, version_id, include_content=False)
+
+    def _point_latest(self, conn, source_id, version_id):
+        """Upsert the mutable observation pointer inside the caller's transaction."""
+        conn.execute('''INSERT INTO evidence_latest(source_id, version_id, observed_at) VALUES (?,?,?)
+            ON CONFLICT(source_id) DO UPDATE SET version_id=excluded.version_id,
+                                                 observed_at=excluded.observed_at''',
+                     (source_id, version_id, self._now()))
+
+    def latest_version_id(self, source_id):
+        """The version last observed for this source, not the last distinct text."""
+        with self.database() as conn:
+            row = conn.execute('SELECT version_id FROM evidence_latest WHERE source_id=?',
+                               (source_id,)).fetchone()
+        return row['version_id'] if row else None
+
+    def latest_version(self, source_id, *, include_content=False):
+        with self.database() as conn:
+            row = conn.execute('SELECT version_id FROM evidence_latest WHERE source_id=?',
+                               (source_id,)).fetchone()
+            return self._version(conn, row['version_id'], include_content=include_content) if row else None
 
     @staticmethod
     def _version(conn, version_id, *, include_content):
