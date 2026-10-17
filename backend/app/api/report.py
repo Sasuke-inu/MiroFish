@@ -587,9 +587,27 @@ def download_report(report_id: str):
 
 @report_bp.route('/<report_id>', methods=['DELETE'])
 def delete_report(report_id: str):
-    """删除报告"""
+    """删除报告
+
+    仍在生成中的报告由背景工作继续寫入，刪除會被拒絕（409）；不因此停止模型工作。
+    """
     try:
-        success = ReportManager.delete_report(report_id)
+        with ReportManager.report_lock(report_id):
+            report = ReportManager.get_report(report_id)
+
+            if report is None:
+                return jsonify({
+                    "success": False,
+                    "error": t('api.reportNotFound', id=report_id)
+                }), 404
+
+            if report.status in {ReportStatus.PENDING, ReportStatus.PLANNING, ReportStatus.GENERATING}:
+                return jsonify({
+                    "success": False,
+                    "error": '報告仍在生成中，不能刪除。'
+                }), 409
+
+            success = ReportManager.delete_report(report_id)
         
         if not success:
             return jsonify({
