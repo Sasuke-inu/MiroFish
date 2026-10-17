@@ -11,8 +11,12 @@ Report Agent服务
 
 import os
 import json
+import logging
+import threading
 import time
 import re
+import functools
+from contextvars import ContextVar
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -33,10 +37,37 @@ from .zep_tools import (
 
 logger = get_logger('mirofish.report_agent')
 
+# The console loggers are shared by name, so every report must carry its own
+# identity: handlers filter on it and drop records without one.
+current_report_id: ContextVar[Optional[str]] = ContextVar('mirofish_report_id', default=None)
+
+
+class _ReportIdentityFilter(logging.Filter):
+    """Only the records of the owning report reach its console_log.txt."""
+
+    def __init__(self, report_id: str):
+        super().__init__()
+        self.report_id = report_id
+
+    def filter(self, record) -> bool:
+        return current_report_id.get() == self.report_id
+
 
 class ReportNeedsReview(RuntimeError):
     """An unconfirmed paid operation must not trigger fallback generation."""
     outcome_unknown = True
+
+
+class ReportSectionsMissing(ReportNeedsReview):
+    """Outline sections without a saved body cannot be a completed report."""
+
+    def __init__(self, missing: List[int]):
+        self.missing = sorted(int(index) for index in missing)
+        self.public_error = (
+            f'報告章節不完整：缺少第 {"、".join(str(index) for index in self.missing)} 節；'
+            '已保存章節仍可閱讀，未宣告完成。'
+        )
+        super().__init__(self.public_error)
 
 
 class ReportLogger:
@@ -356,7 +387,10 @@ class ReportConsoleLogger:
             datefmt='%H:%M:%S'
         )
         self._file_handler.setFormatter(formatter)
-        
+
+        # 只允許本報告的紀錄寫入，避免共用 logger 互相混入其他報告的查詢與內容
+        self._file_handler.addFilter(_ReportIdentityFilter(self.report_id))
+
         # 添加到 report_agent 相关的 logger
         loggers_to_attach = [
             'mirofish.report_agent',
@@ -1650,7 +1684,10 @@ class ReportAgent:
         
         # 已完成的章节标题列表（用于进度追踪）
         completed_section_titles = []
-        
+
+        # 本次報告的身分；所有共用 logger 的紀錄都依此過濾，finally 一律解除
+        console_identity = current_report_id.set(report_id)
+
         try:
             # 初始化：创建报告文件夹并保存初始状态
             ReportManager._ensure_report_folder(report_id)
@@ -1782,8 +1819,15 @@ class ReportAgent:
                 completed_sections=completed_section_titles
             )
             
-            # 使用ReportManager组装完整报告
-            report.markdown_content = ReportManager.assemble_full_report(report_id, outline)
+            # 组装前核對大綱需要的章節與已保存正文；缺章不得宣告完成
+            missing_sections = ReportManager.missing_section_indexes(report_id, outline)
+            if missing_sections:
+                raise ReportSectionsMissing(missing_sections)
+
+            # 使用ReportManager组装完整报告（缺章時本身也會拒絕）
+            report.markdown_content = ReportManager.assemble_full_report(report_id, outline) or ''
+            if not report.markdown_content:
+                raise ReportNeedsReview('完整報告未能組裝；請核對此版本。')
             report.status = ReportStatus.COMPLETED
             report.completed_at = datetime.now().isoformat()
             
@@ -1819,7 +1863,7 @@ class ReportAgent:
         except Exception as e:
             logger.error('Report generation failed: %s', type(e).__name__)
             report.status = ReportStatus.NEEDS_REVIEW if getattr(e, 'outcome_unknown', False) else ReportStatus.FAILED
-            report.error = '報告生成未完成；回覆結果未確認，已保存的內容仍保留。'
+            report.error = getattr(e, 'public_error', None) or '報告生成未完成；回覆結果未確認，已保存的內容仍保留。'
             
             # 记录错误日志
             if self.report_logger:
@@ -1841,6 +1885,9 @@ class ReportAgent:
                 self.console_logger = None
             
             return report
+        finally:
+            # 成功、失敗與例外路徑都解除身分，處理器也已在各路径移除
+            current_report_id.reset(console_identity)
     
     def chat(
         self, 
@@ -1965,6 +2012,22 @@ class ReportAgent:
         }
 
 
+# 每份報告一條生命週期鎖：保存／組裝與刪除不得交錯（同一行程內共用）
+_REPORT_LOCKS: Dict[str, threading.RLock] = {}
+_REPORT_LOCKS_GUARD = threading.Lock()
+
+
+def _lifecycle_locked(method):
+    """Run a report method under that report's lifecycle lock."""
+
+    @functools.wraps(method)
+    def locked(cls, report_id, *args, **kwargs):
+        with cls.report_lock(report_id):
+            return method(cls, report_id, *args, **kwargs)
+
+    return locked
+
+
 class ReportManager:
     """
     报告管理器
@@ -1986,6 +2049,12 @@ class ReportManager:
     # 报告存储目录
     REPORTS_DIR = os.path.join(Config.UPLOAD_FOLDER, 'reports')
     
+    @classmethod
+    def report_lock(cls, report_id: str) -> threading.RLock:
+        """該報告的共用鎖（可重入）：刪除不會與背景保存或組裝交錯。"""
+        with _REPORT_LOCKS_GUARD:
+            return _REPORT_LOCKS.setdefault(report_id, threading.RLock())
+
     @classmethod
     def _ensure_reports_dir(cls):
         """确保报告根目录存在"""
@@ -2178,6 +2247,7 @@ class ReportManager:
         logger.info(t('report.outlineSaved', reportId=report_id))
     
     @classmethod
+    @_lifecycle_locked
     def save_section(
         cls,
         report_id: str,
@@ -2354,12 +2424,25 @@ class ReportManager:
         return sections
     
     @classmethod
-    def assemble_full_report(cls, report_id: str, outline: ReportOutline) -> str:
+    def missing_section_indexes(cls, report_id: str, outline: ReportOutline) -> List[int]:
+        """大綱要求但沒有保存正文檔的章節編號（組裝不得略過）。"""
+        saved = {info['section_index'] for info in cls.get_generated_sections(report_id)}
+        return [index for index in range(1, len(outline.sections or []) + 1) if index not in saved]
+
+    @classmethod
+    @_lifecycle_locked
+    def assemble_full_report(cls, report_id: str, outline: ReportOutline) -> Optional[str]:
         """
         组装完整报告
         
         从已保存的章节文件组装完整报告，并进行标题清理
+        
+        大綱章節缺正文時回傳 None：不得把部分章節當成完整全文寫入或宣告完成。
         """
+        if cls.missing_section_indexes(report_id, outline):
+            logger.warning('報告章節不完整，未寫入完整全文: %s', report_id)
+            return None
+
         folder = cls._get_report_folder(report_id)
         
         # 构建报告头部
@@ -2512,27 +2595,28 @@ class ReportManager:
     @classmethod
     def save_report(cls, report: Report) -> None:
         """保存报告元信息和完整报告"""
-        cls._ensure_report_folder(report.report_id)
-        
-        # The agent updates content while the execution identity stays frozen.
-        path = cls._get_report_path(report.report_id)
-        if os.path.exists(path):
-            with open(path, encoding='utf-8') as stream:
-                existing = json.load(stream)
-            for key in ('run_id', 'task_id', 'version', 'manifest'):
-                if existing.get(key) is not None:
-                    setattr(report, key, existing[key])
-        write_json(path, report.to_dict())
-        
-        # 保存大纲
-        if report.outline:
-            cls.save_outline(report.report_id, report.outline)
-        
-        # 保存完整Markdown报告
-        if report.markdown_content:
-            with open(cls._get_report_markdown_path(report.report_id), 'w', encoding='utf-8') as f:
-                f.write(report.markdown_content)
-        
+        with cls.report_lock(report.report_id):
+            cls._ensure_report_folder(report.report_id)
+
+            # The agent updates content while the execution identity stays frozen.
+            path = cls._get_report_path(report.report_id)
+            if os.path.exists(path):
+                with open(path, encoding='utf-8') as stream:
+                    existing = json.load(stream)
+                for key in ('run_id', 'task_id', 'version', 'manifest'):
+                    if existing.get(key) is not None:
+                        setattr(report, key, existing[key])
+            write_json(path, report.to_dict())
+
+            # 保存大纲
+            if report.outline:
+                cls.save_outline(report.report_id, report.outline)
+
+            # 保存完整Markdown报告
+            if report.markdown_content:
+                with open(cls._get_report_markdown_path(report.report_id), 'w', encoding='utf-8') as f:
+                    f.write(report.markdown_content)
+
         logger.info(t('report.reportSaved', reportId=report.report_id))
     
     @classmethod
@@ -2629,6 +2713,7 @@ class ReportManager:
         return reports[:limit]
     
     @classmethod
+    @_lifecycle_locked
     def delete_report(cls, report_id: str) -> bool:
         """删除报告（整个文件夹）"""
         import shutil

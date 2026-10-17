@@ -168,6 +168,9 @@ def test_report_reader_lease_blocks_graph_start_and_delete(monkeypatch):
         def claim_task(self, **_kwargs):
             return "task-1", True
 
+        def claim_report_version(self, _simulation_id, metadata=None):
+            return "task-1", True, 1
+
         def update_task(self, *_args, **_kwargs):
             pass
 

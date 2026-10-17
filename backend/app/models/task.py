@@ -90,6 +90,50 @@ class TaskManager:
                  f'attempt_{uuid.uuid4().hex}', json.dumps(public_manifest(metadata or {}), ensure_ascii=False)))
             return task_id, True
 
+    def claim_report_version(self, simulation_id: str, metadata: Optional[Dict] = None):
+        """Allocate the next report version and claim its task in one transaction.
+
+        Versions come from a persistent ledger and are never recycled by
+        deleting a report. A candidate key that already exists is a duplicate
+        request: that task is reused without moving the ledger further.
+        """
+        with database() as db:
+            self._schema(db)
+            db.execute('''CREATE TABLE IF NOT EXISTS report_versions (
+                simulation_id TEXT PRIMARY KEY, last_version INTEGER NOT NULL)''')
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT last_version FROM report_versions WHERE simulation_id=?',
+                             (simulation_id,)).fetchone()
+            if row is None:
+                current = self._report_version_floor(db, simulation_id)
+                db.execute('INSERT INTO report_versions(simulation_id,last_version) VALUES(?,?)',
+                           (simulation_id, current))
+            else:
+                current = row['last_version']
+            version = current + 1
+            resource_key = f'report:{simulation_id}:v{version}'
+            existing = db.execute('SELECT task_id FROM tasks WHERE resource_key=?', (resource_key,)).fetchone()
+            if existing:
+                return existing['task_id'], False, version
+            task_id, now = str(uuid.uuid4()), utc_now()
+            db.execute('''INSERT INTO tasks(task_id,resource_key,task_type,status,created_at,updated_at,
+                heartbeat,owner,attempt_id,metadata) VALUES(?,?,?,'pending',?,?,?,?,?,?)''',
+                (task_id, resource_key, 'report_generate', now, now, now, json.dumps(worker_identity()),
+                 f'attempt_{uuid.uuid4().hex}', json.dumps(public_manifest(metadata or {}), ensure_ascii=False)))
+            db.execute('UPDATE report_versions SET last_version=? WHERE simulation_id=?', (version, simulation_id))
+            return task_id, True, version
+
+    def _report_version_floor(self, db, simulation_id: str) -> int:
+        """First ledger value: highest saved report version or task claim, never lower."""
+        from ..services.report_agent import ReportManager
+        versions = [report.version or 1 for report in ReportManager.list_reports(simulation_id, limit=None)]
+        prefix = f'report:{simulation_id}:v'
+        claimed = [int(row['resource_key'][len(prefix):])
+                   for row in db.execute('SELECT resource_key FROM tasks WHERE resource_key LIKE ?',
+                                         (f'{prefix}%',))
+                   if row['resource_key'][len(prefix):].isdigit()]
+        return max(versions + claimed + [0])
+
     def create_task(self, task_type: str, metadata: Optional[Dict] = None) -> str:
         return self.claim_task(task_type, f'{task_type}:{uuid.uuid4().hex}', metadata)[0]
 
