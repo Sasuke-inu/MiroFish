@@ -1001,7 +1001,10 @@ class SimulationRunner:
         
         try:
             # 位元组位移追踪：只消费完整行（以 \n 结尾），未完成的尾行保留
-            # 在原位移，补齐后再读取一次，不重复写入事件。
+            # 在原位移，补齐后再读取一次，不重复写入事件。游标只在整行
+            # 成功处理、或已留下可见缺口之后才前进：解析失败（超长整数
+            # ValueError、过深嵌套 RecursionError 也算损毁完整行）与处理
+            # 异常都不得带着已前进的游标跳过未记录的行。
             with open(log_path, 'rb') as f:
                 f.seek(position)
                 while True:
@@ -1009,30 +1012,36 @@ class SimulationRunner:
                     if not line or not line.endswith(b'\n'):
                         return position
                     line_offset = position
-                    position += len(line)
+                    next_position = position + len(line)
                     if not line.strip():
+                        position = next_position
                         continue
                     try:
                         action_data = json.loads(line.decode('utf-8'))
-                    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-                        cls._record_log_gap(
-                            state, platform, line_offset,
-                            'json_decode_error' if isinstance(error, json.JSONDecodeError) else 'utf8_decode_error',
-                        )
+                    except UnicodeDecodeError:
+                        cls._record_log_gap(state, platform, line_offset, 'utf8_decode_error')
+                        position = next_position
+                        continue
+                    except (ValueError, RecursionError):  # JSONDecodeError 即 ValueError 子类
+                        cls._record_log_gap(state, platform, line_offset, 'json_decode_error')
+                        position = next_position
                         continue
                     if not isinstance(action_data, dict):
                         cls._record_log_gap(state, platform, line_offset, 'not_a_json_object')
+                        position = next_position
                         continue
                     if state.run_id and (
                         action_data.get('run_id') != state.run_id
                         or action_data.get('attempt_id') != state.attempt_id
                     ):
+                        position = next_position
                         continue
                     try:
                         cls._ingest_action_data(state, platform, graph_updater, action_data)
                     except Exception as error:  # 跳过的事件必须留下可见缺口
                         cls._record_log_gap(state, platform, line_offset,
                                             f'processing_error:{type(error).__name__}')
+                    position = next_position
         except Exception as e:
             logger.warning(f"读取动作日志失败: {log_path}, error={e}")
             return position

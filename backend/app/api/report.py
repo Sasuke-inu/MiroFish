@@ -266,17 +266,6 @@ def generate_report():
                     'simulation_id': simulation_id, 'report_id': reused_report_id,
                     'task_id': task_id, 'status': claimed.status.value, 'reused': True,
                     'already_generated': claimed.status == TaskStatus.COMPLETED})
-            ReportManager.save_report(Report(
-                report_id=report_id, simulation_id=simulation_id, graph_id=graph_id,
-                simulation_requirement=simulation_requirement, status=ReportStatus.PENDING,
-                created_at=datetime.now(timezone.utc).isoformat(), task_id=task_id,
-                run_id=getattr(refreshed_run_state, 'run_id', None), version=version,
-                manifest={'model': public_manifest(settings_snapshot), 'graph_id': graph_id,
-                          'execution': (RunStore.get(simulation_id) or {}).get('manifest', {}),
-                          'version': version, 'completeness': 'complete'}))
-            current_locale = get_locale()
-            register_graph_reader(graph_id, report_id)
-
             def run_generate():
                 with model_settings_snapshot(settings_snapshot):
                     return _run_generate()
@@ -331,12 +320,39 @@ def generate_report():
                 finally:
                     unregister_graph_reader(graph_id, report_id)
 
+            registered_reader = False
+            report_saved = False
             try:
+                ReportManager.save_report(Report(
+                    report_id=report_id, simulation_id=simulation_id, graph_id=graph_id,
+                    simulation_requirement=simulation_requirement, status=ReportStatus.PENDING,
+                    created_at=datetime.now(timezone.utc).isoformat(), task_id=task_id,
+                    run_id=getattr(refreshed_run_state, 'run_id', None), version=version,
+                    manifest={'model': public_manifest(settings_snapshot), 'graph_id': graph_id,
+                              'execution': (RunStore.get(simulation_id) or {}).get('manifest', {}),
+                              'version': version, 'completeness': 'complete'}))
+                report_saved = True
+                current_locale = get_locale()
+                register_graph_reader(graph_id, report_id)
+                registered_reader = True
                 thread = threading.Thread(target=run_generate, daemon=True)
                 thread.start()
             except Exception:
+                # 啟動失敗不得留下沒有執行者的 pending 認領：工作標為失敗、
+                # 解除已完成的登錄；已保存的初始報告也標為失敗，後續請求
+                # 才會配到新版本，而不是一直重用這份殭屍工作。
                 task_manager.fail_task(task_id, '報告工作未能啟動；原有報告仍保留。')
-                unregister_graph_reader(graph_id, report_id)
+                if registered_reader:
+                    unregister_graph_reader(graph_id, report_id)
+                if report_saved:
+                    try:
+                        saved = ReportManager.get_report(report_id)
+                        if saved is not None:
+                            saved.status = ReportStatus.FAILED
+                            saved.error = '報告工作未能啟動；請重新產生。'
+                            ReportManager.save_report(saved)
+                    except Exception:
+                        logger.warning('報告啟動失敗後標記初始報告失敗出錯: report_id=%s', report_id)
                 raise
         
         return jsonify({
