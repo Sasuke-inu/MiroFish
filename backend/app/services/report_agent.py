@@ -11,8 +11,10 @@ Report Agent服务
 
 import os
 import json
+import logging
 import time
 import re
+from contextvars import ContextVar
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -32,6 +34,21 @@ from .zep_tools import (
 )
 
 logger = get_logger('mirofish.report_agent')
+
+# The console loggers are shared by name, so every report must carry its own
+# identity: handlers filter on it and drop records without one.
+current_report_id: ContextVar[Optional[str]] = ContextVar('mirofish_report_id', default=None)
+
+
+class _ReportIdentityFilter(logging.Filter):
+    """Only the records of the owning report reach its console_log.txt."""
+
+    def __init__(self, report_id: str):
+        super().__init__()
+        self.report_id = report_id
+
+    def filter(self, record) -> bool:
+        return current_report_id.get() == self.report_id
 
 
 class ReportNeedsReview(RuntimeError):
@@ -356,7 +373,10 @@ class ReportConsoleLogger:
             datefmt='%H:%M:%S'
         )
         self._file_handler.setFormatter(formatter)
-        
+
+        # 只允許本報告的紀錄寫入，避免共用 logger 互相混入其他報告的查詢與內容
+        self._file_handler.addFilter(_ReportIdentityFilter(self.report_id))
+
         # 添加到 report_agent 相关的 logger
         loggers_to_attach = [
             'mirofish.report_agent',
@@ -1650,7 +1670,10 @@ class ReportAgent:
         
         # 已完成的章节标题列表（用于进度追踪）
         completed_section_titles = []
-        
+
+        # 本次報告的身分；所有共用 logger 的紀錄都依此過濾，finally 一律解除
+        console_identity = current_report_id.set(report_id)
+
         try:
             # 初始化：创建报告文件夹并保存初始状态
             ReportManager._ensure_report_folder(report_id)
@@ -1841,6 +1864,9 @@ class ReportAgent:
                 self.console_logger = None
             
             return report
+        finally:
+            # 成功、失敗與例外路徑都解除身分，處理器也已在各路径移除
+            current_report_id.reset(console_identity)
     
     def chat(
         self, 
