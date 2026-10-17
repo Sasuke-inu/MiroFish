@@ -40,6 +40,8 @@ def test_restored_text_returns_to_draft_and_source_api(workbench):
     assert 'BRAVO' not in ProjectManager.get_extracted_text(pid)
     data = client.get(f"/api/workbench/sources/{a['source']['source_id']}").json['data']
     assert data['latest_version_id'] == a['version']['version_id']
+    bare = service.evidence.create_source(pid, 'document', 'no-versions', title='空的')
+    assert client.get(f"/api/workbench/sources/{bare['source_id']}").json['data']['latest_version_id'] is None
     # The versions history itself is not reordered or rewritten.
     assert data['versions']['items'][0]['version_id'] != a['version']['version_id']
     assert service.evidence.list_versions(a['source']['source_id'])['total'] == 2
