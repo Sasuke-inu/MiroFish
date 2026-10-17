@@ -1,4 +1,9 @@
-"""Local-only settings API: no secrets in responses, logs, caches or URLs."""
+"""Local-only settings API: no secrets in responses, logs, caches or URLs.
+
+The shared policy pieces live in request_guard now (registered app-wide for
+every /api route); this blueprint keeps its own stricter JSON/size rules and
+its specific error messages.
+"""
 import secrets
 from urllib.parse import urlsplit
 
@@ -7,13 +12,10 @@ from flask import Blueprint, current_app, jsonify, request
 from ..provider_settings import (PRESETS, SettingsError, get_model_settings,
                                  provider_accounts, provider_balance, public_config,
                                  save_settings, test_connection)
+from .request_guard import LOCAL_HOSTS as _LOCAL_HOSTS
+from .request_guard import csrf_token, is_trusted_origin  # noqa: F401  (re-exported)
 
 settings_bp = Blueprint('settings', __name__)
-_LOCAL_HOSTS = {'localhost', '127.0.0.1', '::1'}
-
-
-def csrf_token():
-    return current_app.extensions.setdefault('provider_settings_csrf', secrets.token_urlsafe(32))
 
 
 @settings_bp.before_request
@@ -27,14 +29,8 @@ def guard_settings():
     if host not in _LOCAL_HOSTS:
         raise SettingsError('服務設定只能從本機存取。', 403)
     origin = request.headers.get('Origin')
-    if origin:
-        try:
-            parts = urlsplit(origin)
-            trusted = parts.scheme in {'http', 'https'} and parts.hostname in _LOCAL_HOSTS and parts.port in {None, 3000, 3100, 5001}
-        except ValueError:
-            trusted = False
-        if not trusted:
-            raise SettingsError('不允許此外部網頁存取服務設定。', 403)
+    if origin and not is_trusted_origin(origin):
+        raise SettingsError('不允許此外部網頁存取服務設定。', 403)
     if request.headers.get('Sec-Fetch-Site') == 'cross-site':
         raise SettingsError('不允許跨網站存取服務設定。', 403)
     if request.method in {'POST', 'PUT', 'PATCH', 'DELETE'}:

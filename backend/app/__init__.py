@@ -39,14 +39,27 @@ def create_app(config_class=Config):
         logger.info("MiroFish Backend 启动中...")
         logger.info("=" * 50)
     
-    # 启用CORS
-    CORS(app, resources={r"/api/(?!(?:settings|workbench)(?:/|$)).*": {"origins": "*"}})
+    # 启用CORS：only the local dev origins this project actually serves.
+    # The vite proxy rewrites to localhost:5001 and the direct client runs on
+    # localhost:3000; everything else must not receive CORS headers.
+    from .api.request_guard import TRUSTED_ORIGINS
+    CORS(app, resources={r"/api/(?!(?:settings|workbench)(?:/|$)).*": {"origins": list(TRUSTED_ORIGINS)}})
     
     # 注册模拟进程清理函数（确保服务器关闭时终止所有模拟进程）
     from .services.simulation_runner import SimulationRunner
     SimulationRunner.register_cleanup()
     if should_log_startup:
         logger.info("已注册模拟进程清理函数")
+
+    # Uniform local-only + CSRF guard for every /api route (blueprint-level
+    # guards, where they exist, keep their own extra rules).
+    from .api.request_guard import csrf_token, guard_api_request
+    app.before_request(guard_api_request)
+
+    @app.route('/api/session')
+    def api_session():
+        """Bootstrap endpoint: legacy clients fetch the CSRF token here."""
+        return {'success': True, 'data': {'csrf_token': csrf_token()}}
     
     # 请求日志中间件
     @app.before_request
