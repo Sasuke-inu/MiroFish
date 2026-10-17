@@ -1226,9 +1226,9 @@ async def run_twitter_simulation(
             _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
-    # 记录 round 0 结束
+    # 记录 round 0 结束（累计模拟时数 0 小时）
     if action_logger:
-        action_logger.log_round_end(0, initial_action_count)
+        action_logger.log_round_end(0, initial_action_count, simulated_hours=0.0)
     
     # 主模拟循环
     time_config = config.get("time_config", {})
@@ -1244,10 +1244,14 @@ async def run_twitter_simulation(
             log_info(f"轮数已截断: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
     
     start_time = datetime.now()
+    # 实际完成的轮数与退出原因（收到退出信号时不得回報為正常完成）
+    completed_rounds = 0
+    exit_reason = 'completed'
     
     for round_num in range(total_rounds):
         # 检查是否收到退出信号
         if _shutdown_event and _shutdown_event.is_set():
+            exit_reason = 'stopped'
             if main_logger:
                 main_logger.info(f"收到退出信号，在第 {round_num + 1} 轮停止模拟")
             break
@@ -1266,8 +1270,10 @@ async def run_twitter_simulation(
         
         if not active_agents:
             # 没有活跃agent时也记录round结束（actions_count=0）
+            completed_rounds += 1
             if action_logger:
-                action_logger.log_round_end(round_num + 1, 0)
+                action_logger.log_round_end(round_num + 1, 0,
+                                            simulated_hours=completed_rounds * minutes_per_round / 60)
             continue
         
         actions = {agent: LLMAction() for _, agent in active_agents}
@@ -1291,8 +1297,10 @@ async def run_twitter_simulation(
                 total_actions += 1
                 round_action_count += 1
         
+        completed_rounds += 1
         if action_logger:
-            action_logger.log_round_end(round_num + 1, round_action_count)
+            action_logger.log_round_end(round_num + 1, round_action_count,
+                                        simulated_hours=completed_rounds * minutes_per_round / 60)
         
         if (round_num + 1) % 20 == 0:
             progress = (round_num + 1) / total_rounds * 100
@@ -1301,7 +1309,8 @@ async def run_twitter_simulation(
     # 注意：不关闭环境，保留给Interview使用
     
     if action_logger:
-        action_logger.log_simulation_end(total_rounds, total_actions)
+        action_logger.log_simulation_end(completed_rounds, total_actions,
+                                         exit_reason=exit_reason, planned_rounds=total_rounds)
     
     result.total_actions = total_actions
     elapsed = (datetime.now() - start_time).total_seconds()
@@ -1429,9 +1438,9 @@ async def run_reddit_simulation(
             _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
-    # 记录 round 0 结束
+    # 记录 round 0 结束（累计模拟时数 0 小时）
     if action_logger:
-        action_logger.log_round_end(0, initial_action_count)
+        action_logger.log_round_end(0, initial_action_count, simulated_hours=0.0)
     
     # 主模拟循环
     time_config = config.get("time_config", {})
@@ -1447,10 +1456,14 @@ async def run_reddit_simulation(
             log_info(f"轮数已截断: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
     
     start_time = datetime.now()
+    # 实际完成的轮数与退出原因（收到退出信号时不得回報為正常完成）
+    completed_rounds = 0
+    exit_reason = 'completed'
     
     for round_num in range(total_rounds):
         # 检查是否收到退出信号
         if _shutdown_event and _shutdown_event.is_set():
+            exit_reason = 'stopped'
             if main_logger:
                 main_logger.info(f"收到退出信号，在第 {round_num + 1} 轮停止模拟")
             break
@@ -1469,8 +1482,10 @@ async def run_reddit_simulation(
         
         if not active_agents:
             # 没有活跃agent时也记录round结束（actions_count=0）
+            completed_rounds += 1
             if action_logger:
-                action_logger.log_round_end(round_num + 1, 0)
+                action_logger.log_round_end(round_num + 1, 0,
+                                            simulated_hours=completed_rounds * minutes_per_round / 60)
             continue
         
         actions = {agent: LLMAction() for _, agent in active_agents}
@@ -1494,8 +1509,10 @@ async def run_reddit_simulation(
                 total_actions += 1
                 round_action_count += 1
         
+        completed_rounds += 1
         if action_logger:
-            action_logger.log_round_end(round_num + 1, round_action_count)
+            action_logger.log_round_end(round_num + 1, round_action_count,
+                                        simulated_hours=completed_rounds * minutes_per_round / 60)
         
         if (round_num + 1) % 20 == 0:
             progress = (round_num + 1) / total_rounds * 100
@@ -1504,7 +1521,8 @@ async def run_reddit_simulation(
     # 注意：不关闭环境，保留给Interview使用
     
     if action_logger:
-        action_logger.log_simulation_end(total_rounds, total_actions)
+        action_logger.log_simulation_end(completed_rounds, total_actions,
+                                         exit_reason=exit_reason, planned_rounds=total_rounds)
     
     result.total_actions = total_actions
     elapsed = (datetime.now() - start_time).total_seconds()

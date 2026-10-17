@@ -126,19 +126,25 @@ class SimulationRunState:
     heartbeat: Optional[str] = None
     enabled_platforms: List[str] = field(default_factory=list)
     graph_ready: bool = False
+    # None = legacy state without a graph-write claim; otherwise
+    # 'not_requested' | 'confirmed' | 'failed'
+    graph_update_status: Optional[str] = None
     manifest: Dict[str, Any] = field(default_factory=dict)
+    
+    # 动作日志读取缺口（完整但损毁的行，不静默视为完整输入）
+    log_gaps: List[Dict[str, Any]] = field(default_factory=list)
     
     # 进度信息
     current_round: int = 0
     total_rounds: int = 0
-    simulated_hours: int = 0
-    total_simulation_hours: int = 0
+    simulated_hours: float = 0
+    total_simulation_hours: float = 0
     
     # 各平台独立轮次和模拟时间（用于双平台并行显示）
     twitter_current_round: int = 0
     reddit_current_round: int = 0
-    twitter_simulated_hours: int = 0
-    reddit_simulated_hours: int = 0
+    twitter_simulated_hours: float = 0
+    reddit_simulated_hours: float = 0
     
     # 平台状态
     twitter_running: bool = False
@@ -182,7 +188,7 @@ class SimulationRunState:
         self.updated_at = datetime.now().isoformat()
     
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "simulation_id": self.simulation_id,
             "runner_status": self.runner_status.value,
             "run_id": self.run_id,
@@ -214,7 +220,12 @@ class SimulationRunState:
             "completed_at": self.completed_at,
             "error": self.error,
             "process_pid": self.process_pid,
+            "log_gaps": self.log_gaps,
         }
+        # 旧状态没有图谱更新宣告时保持栏位缺席
+        if self.graph_update_status is not None:
+            result["graph_update_status"] = self.graph_update_status
+        return result
     
     def to_detail_dict(self) -> Dict[str, Any]:
         """包含最近动作的详细信息"""
@@ -369,6 +380,8 @@ class SimulationRunner:
                 heartbeat=data.get('heartbeat'),
                 enabled_platforms=data.get('enabled_platforms', []),
                 graph_ready=False,
+                graph_update_status=data.get('graph_update_status'),
+                log_gaps=data.get('log_gaps', []),
                 manifest=data.get('manifest', {}),
                 current_round=data.get("current_round", 0),
                 total_rounds=data.get("total_rounds", 0),
@@ -929,6 +942,9 @@ class SimulationRunner:
             error_message = 'The process exited without valid completion receipts for every selected platform.'
         state.twitter_running = False
         state.reddit_running = False
+        # 图谱写入完成与模拟循环完成分开保存：只有确实要求更新且 updater
+        # 干净收尾时，才能宣告图谱就绪。
+        graph_update_status = 'not_requested'
         if cls._graph_memory_enabled.get(simulation_id, False):
             state.runner_status = RunnerStatus.FINALIZING
             cls._save_run_state(state)
@@ -936,13 +952,21 @@ class SimulationRunner:
             try:
                 ZepGraphMemoryManager.stop_updater(simulation_id)
                 cls._graph_memory_enabled.pop(simulation_id, None)
+                graph_update_status = 'confirmed'
                 logger.info("图谱记忆写入完成: simulation_id=%s", simulation_id)
             except Exception as error:
+                graph_update_status = 'failed'
                 logger.error('停止图谱记忆更新器失败: %s', type(error).__name__)
                 desired_status = RunnerStatus.FAILED
                 error_message = f"圖譜寫入未完整完成 ({type(error).__name__})。"
         state.runner_status = desired_status
-        state.graph_ready = bool(desired_status == RunnerStatus.COMPLETED and state.run_id and state.attempt_id)
+        state.graph_update_status = graph_update_status
+        state.graph_ready = bool(
+            desired_status == RunnerStatus.COMPLETED
+            and state.run_id
+            and state.attempt_id
+            and graph_update_status == 'confirmed'
+        )
         state.error = error_message
         state.completed_at = datetime.now().isoformat()
         cls._save_run_state(state)
@@ -976,97 +1000,146 @@ class SimulationRunner:
             graph_updater = ZepGraphMemoryManager.get_updater(state.simulation_id)
         
         try:
-            with open(log_path, 'r', encoding='utf-8') as f:
+            # 位元组位移追踪：只消费完整行（以 \n 结尾），未完成的尾行保留
+            # 在原位移，补齐后再读取一次，不重复写入事件。
+            with open(log_path, 'rb') as f:
                 f.seek(position)
-                for line in f:
-                    line = line.strip()
-                    if line:
-                        try:
-                            action_data = json.loads(line)
-                            if state.run_id and (
-                                action_data.get('run_id') != state.run_id
-                                or action_data.get('attempt_id') != state.attempt_id
-                            ):
-                                continue
-                            
-                            # 处理事件类型的条目
-                            if "event_type" in action_data:
-                                event_type = action_data.get("event_type")
-                                
-                                # 检测 simulation_end 事件，标记平台已完成
-                                if event_type == "simulation_end":
-                                    if platform == "twitter":
-                                        state.twitter_completed = True
-                                        state.twitter_running = False
-                                        logger.info(f"Twitter 模拟已完成: {state.simulation_id}, total_rounds={action_data.get('total_rounds')}, total_actions={action_data.get('total_actions')}")
-                                    elif platform == "reddit":
-                                        state.reddit_completed = True
-                                        state.reddit_running = False
-                                        logger.info(f"Reddit 模拟已完成: {state.simulation_id}, total_rounds={action_data.get('total_rounds')}, total_actions={action_data.get('total_actions')}")
-                                    
-                                    # 检查是否所有启用的平台都已完成
-                                    # 如果只运行了一个平台，只检查那个平台
-                                    # 如果运行了两个平台，需要两个都完成
-                                    all_completed = cls._check_all_platforms_completed(state)
-                                    if all_completed:
-                                        # The monitor publishes the terminal
-                                        # status after ingestion has drained,
-                                        # while retaining the interview process.
-                                        logger.info(
-                                            f"所有平台已结束，等待图谱写入完成: "
-                                            f"{state.simulation_id}"
-                                        )
-                                
-                                # 更新轮次信息（从 round_end 事件）
-                                elif event_type == "round_end":
-                                    round_num = action_data.get("round", 0)
-                                    simulated_hours = action_data.get("simulated_hours", 0)
-                                    
-                                    # 更新各平台独立的轮次和时间
-                                    if platform == "twitter":
-                                        if round_num > state.twitter_current_round:
-                                            state.twitter_current_round = round_num
-                                        state.twitter_simulated_hours = simulated_hours
-                                    elif platform == "reddit":
-                                        if round_num > state.reddit_current_round:
-                                            state.reddit_current_round = round_num
-                                        state.reddit_simulated_hours = simulated_hours
-                                    
-                                    # 总体轮次取两个平台的最大值
-                                    if round_num > state.current_round:
-                                        state.current_round = round_num
-                                    # 总体时间取两个平台的最大值
-                                    state.simulated_hours = max(state.twitter_simulated_hours, state.reddit_simulated_hours)
-                                
-                                continue
-                            
-                            action = AgentAction(
-                                round_num=action_data.get("round", 0),
-                                timestamp=action_data.get("timestamp", datetime.now().isoformat()),
-                                platform=platform,
-                                agent_id=action_data.get("agent_id", 0),
-                                agent_name=action_data.get("agent_name", ""),
-                                action_type=action_data.get("action_type", ""),
-                                action_args=action_data.get("action_args", {}),
-                                result=action_data.get("result"),
-                                success=action_data.get("success", True),
+                while True:
+                    line = f.readline()
+                    if not line or not line.endswith(b'\n'):
+                        return position
+                    line_offset = position
+                    position += len(line)
+                    if not line.strip():
+                        continue
+                    try:
+                        action_data = json.loads(line.decode('utf-8'))
+                    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                        cls._record_log_gap(
+                            state, platform, line_offset,
+                            'json_decode_error' if isinstance(error, json.JSONDecodeError) else 'utf8_decode_error',
+                        )
+                        continue
+                    if state.run_id and (
+                        action_data.get('run_id') != state.run_id
+                        or action_data.get('attempt_id') != state.attempt_id
+                    ):
+                        continue
+                    
+                    # 处理事件类型的条目
+                    if "event_type" in action_data:
+                        event_type = action_data.get("event_type")
+                        
+                        # 检测 simulation_end 事件，标记平台已完成
+                        if event_type == "simulation_end":
+                            total_rounds = action_data.get("total_rounds")
+                            planned_rounds = action_data.get("planned_rounds")
+                            exit_reason = action_data.get("exit_reason")
+                            # 回条必须证明自然跑完计划轮数：提前退出（外部
+                            # SIGTERM/SIGINT）不得被视为正常完成。
+                            # 旧格式回条（无 exit_reason/planned_rounds 两栏）
+                            # 没有可核对的退出原因，沿用历史行为视为完成。
+                            legacy_receipt = exit_reason is None and planned_rounds is None
+                            receipt_complete = (
+                                (exit_reason == "completed" or legacy_receipt)
+                                and (planned_rounds is None or total_rounds == planned_rounds)
                             )
-                            state.add_action(action)
+                            if platform == "twitter":
+                                state.twitter_running = False
+                            elif platform == "reddit":
+                                state.reddit_running = False
+                            if not receipt_complete:
+                                logger.warning(
+                                    "平台结束回条未证明正常完成，平台保持未完成: "
+                                    "platform=%s, exit_reason=%s, total_rounds=%s, planned_rounds=%s",
+                                    platform, exit_reason, total_rounds, planned_rounds,
+                                )
+                            elif platform == "twitter":
+                                state.twitter_completed = True
+                                logger.info(f"Twitter 模拟已完成: {state.simulation_id}, total_rounds={total_rounds}, total_actions={action_data.get('total_actions')}")
+                            elif platform == "reddit":
+                                state.reddit_completed = True
+                                logger.info(f"Reddit 模拟已完成: {state.simulation_id}, total_rounds={total_rounds}, total_actions={action_data.get('total_actions')}")
+                            else:
+                                continue
                             
-                            # 更新轮次
-                            if action.round_num and action.round_num > state.current_round:
-                                state.current_round = action.round_num
+                            # 检查是否所有启用的平台都已完成
+                            # 如果只运行了一个平台，只检查那个平台
+                            # 如果运行了两个平台，需要两个都完成
+                            if receipt_complete and cls._check_all_platforms_completed(state):
+                                # The monitor publishes the terminal
+                                # status after ingestion has drained,
+                                # while retaining the interview process.
+                                logger.info(
+                                    f"所有平台已结束，等待图谱写入完成: "
+                                    f"{state.simulation_id}"
+                                )
+                        
+                        # 更新轮次信息（从 round_end 事件）
+                        elif event_type == "round_end":
+                            round_num = action_data.get("round", 0)
+                            if not isinstance(round_num, int):
+                                round_num = 0
+                            simulated_hours = action_data.get("simulated_hours")
+                            hours_present = (
+                                isinstance(simulated_hours, (int, float))
+                                and not isinstance(simulated_hours, bool)
+                            )
                             
-                            # 如果启用了图谱记忆更新，将活动发送到Zep
-                            if graph_updater:
-                                graph_updater.add_activity_from_dict(action_data, platform)
+                            # 更新各平台独立的轮次和时间
+                            if platform == "twitter":
+                                if round_num > state.twitter_current_round:
+                                    state.twitter_current_round = round_num
+                                if hours_present:
+                                    state.twitter_simulated_hours = simulated_hours
+                            elif platform == "reddit":
+                                if round_num > state.reddit_current_round:
+                                    state.reddit_current_round = round_num
+                                if hours_present:
+                                    state.reddit_simulated_hours = simulated_hours
                             
-                        except json.JSONDecodeError:
-                            pass
-                return f.tell()
+                            # 总体轮次取两个平台的最大值
+                            if round_num > state.current_round:
+                                state.current_round = round_num
+                            # 总体时间取两个平台的最大值；旧资料缺栏时保留原值
+                            if hours_present:
+                                state.simulated_hours = max(state.twitter_simulated_hours, state.reddit_simulated_hours)
+                        
+                        continue
+                    
+                    action = AgentAction(
+                        round_num=action_data.get("round", 0),
+                        timestamp=action_data.get("timestamp", datetime.now().isoformat()),
+                        platform=platform,
+                        agent_id=action_data.get("agent_id", 0),
+                        agent_name=action_data.get("agent_name", ""),
+                        action_type=action_data.get("action_type", ""),
+                        action_args=action_data.get("action_args", {}),
+                        result=action_data.get("result"),
+                        success=action_data.get("success", True),
+                    )
+                    state.add_action(action)
+                    
+                    # 更新轮次
+                    if action.round_num and action.round_num > state.current_round:
+                        state.current_round = action.round_num
+                    
+                    # 如果启用了图谱记忆更新，将活动发送到Zep
+                    if graph_updater:
+                        graph_updater.add_activity_from_dict(action_data, platform)
         except Exception as e:
             logger.warning(f"读取动作日志失败: {log_path}, error={e}")
             return position
+
+    @staticmethod
+    def _record_log_gap(state: SimulationRunState, platform: str, offset: int, reason: str):
+        """记录被跳过的损毁完整行，状态栏位可见，不静默视为完整输入。"""
+        state.log_gaps.append({'platform': platform, 'offset': offset, 'reason': reason})
+        del state.log_gaps[:-20]
+        logger.warning(
+            "动作日志缺口（完整行无法解析）: platform=%s, offset=%s, reason=%s",
+            platform, offset, reason,
+        )
     
     @classmethod
     def _check_all_platforms_completed(cls, state: SimulationRunState) -> bool:

@@ -122,14 +122,19 @@ class PlatformActionLogger:
         
         self._append(entry)
     
-    def log_round_end(self, round_num: int, actions_count: int):
-        """记录轮次结束"""
+    def log_round_end(self, round_num: int, actions_count: int, simulated_hours: Optional[float] = None):
+        """记录轮次结束
+
+        simulated_hours: 自模拟开始的累计模拟时数（可选，旧调用不带此栏）
+        """
         entry = {
             "round": round_num,
             "timestamp": datetime.now().isoformat(),
             "event_type": "round_end",
             "actions_count": actions_count,
         }
+        if simulated_hours is not None:
+            entry["simulated_hours"] = simulated_hours
         
         self._append(entry)
     
@@ -145,14 +150,22 @@ class PlatformActionLogger:
         
         self._append(entry)
     
-    def log_simulation_end(self, total_rounds: int, total_actions: int):
-        """记录模拟结束"""
+    def log_simulation_end(self, total_rounds: int, total_actions: int,
+                           exit_reason: str = 'completed', planned_rounds: Optional[int] = None):
+        """记录模拟结束
+
+        total_rounds: 实际完成的轮数（不是计划轮数）
+        exit_reason: 'completed' 正常跑完计划轮数；'stopped' 提前收到退出信号
+        planned_rounds: 计划轮数（未提供时视为与 total_rounds 相同，保持旧呼叫兼容）
+        """
         entry = {
             "timestamp": datetime.now().isoformat(),
             "event_type": "simulation_end",
             "platform": self.platform,
             "total_rounds": total_rounds,
             "total_actions": total_actions,
+            "exit_reason": exit_reason,
+            "planned_rounds": total_rounds if planned_rounds is None else planned_rounds,
         }
         
         self._append(entry)
@@ -300,7 +313,8 @@ class ActionLogger:
         
         self._append(entry)
     
-    def log_round_end(self, round_num: int, actions_count: int, platform: str):
+    def log_round_end(self, round_num: int, actions_count: int, platform: str,
+                      simulated_hours: Optional[float] = None):
         entry = {
             "round": round_num,
             "timestamp": datetime.now().isoformat(),
@@ -308,6 +322,8 @@ class ActionLogger:
             "event_type": "round_end",
             "actions_count": actions_count,
         }
+        if simulated_hours is not None:
+            entry["simulated_hours"] = simulated_hours
         
         self._append(entry)
     
@@ -322,13 +338,16 @@ class ActionLogger:
         
         self._append(entry)
     
-    def log_simulation_end(self, platform: str, total_rounds: int, total_actions: int):
+    def log_simulation_end(self, platform: str, total_rounds: int, total_actions: int,
+                           exit_reason: str = 'completed', planned_rounds: Optional[int] = None):
         entry = {
             "timestamp": datetime.now().isoformat(),
             "platform": platform,
             "event_type": "simulation_end",
             "total_rounds": total_rounds,
             "total_actions": total_actions,
+            "exit_reason": exit_reason,
+            "planned_rounds": total_rounds if planned_rounds is None else planned_rounds,
         }
         
         self._append(entry)
