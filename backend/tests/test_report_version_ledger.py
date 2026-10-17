@@ -118,7 +118,7 @@ def test_reused_task_without_its_artifact_is_never_already_generated(environment
     assert response.json.get('already_generated') is not True
 
 
-def test_concurrent_claims_hand_out_each_version_once(tmp_path, monkeypatch):
+def test_concurrent_claims_join_one_active_version(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 
     monkeypatch.setenv('MIROFISH_WORKBENCH_DB', str(tmp_path / 'ledger.sqlite3'))
@@ -129,10 +129,11 @@ def test_concurrent_claims_hand_out_each_version_once(tmp_path, monkeypatch):
         results = list(pool.map(
             lambda _: manager.claim_report_version('sim_race', {'simulation_id': 'sim_race'}), range(6)))
 
-    assert sorted(version for _, _, version in results) == list(range(1, 7))
-    assert len({task_id for task_id, _, _ in results}) == 6
-    assert all(created for _, created, _ in results)
-    assert TaskManager().find_task('report:sim_race:v6') is not None
+    # 同時的重複請求只認領同一份新工作：同一版本、同一工作，只建立一次。
+    assert {version for _, _, version in results} == {1}
+    assert len({task_id for task_id, _, _ in results}) == 1
+    assert sum(created for _, created, _ in results) == 1
+    assert TaskManager().find_task('report:sim_race:v1') is not None
 
 
 def test_concurrent_duplicate_requests_claim_one_task(environment):

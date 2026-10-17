@@ -31,6 +31,10 @@ beforeEach(() => {
 })
 
 describe('shared api client CSRF guard', () => {
+  it('keeps the shared client on the same origin so local origins cannot cross-site', () => {
+    expect(service.defaults.baseURL).toBe('/')
+  })
+
   it('fetches the session token once and carries it on writes', async () => {
     await service.post('/api/graph/build', { project_id: 'p1' })
     expect(sessionCalls).toBe(1)

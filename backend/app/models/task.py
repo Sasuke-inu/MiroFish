@@ -111,6 +111,14 @@ class TaskManager:
             else:
                 current = row['last_version']
             version = current + 1
+            # 先重用仍在執行中的最新認領：跨交易的同時重複請求（含其他
+            # 程序）只認領同一份新工作，帳本號碼只在沒有活動認領時前進。
+            if current > 0:
+                latest = db.execute('SELECT task_id, status, owner FROM tasks WHERE resource_key=?',
+                                    (f'report:{simulation_id}:v{current}',)).fetchone()
+                if (latest and latest['status'] in ACTIVE
+                        and worker_alive(json.loads(latest['owner'])) is True):
+                    return latest['task_id'], False, current
             resource_key = f'report:{simulation_id}:v{version}'
             existing = db.execute('SELECT task_id FROM tasks WHERE resource_key=?', (resource_key,)).fetchone()
             if existing:

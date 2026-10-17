@@ -75,7 +75,7 @@ async function loadSource() {
     versions.value = data.versions?.items || []
     versionOffset.value = versions.value.length
     versionTotal.value = data.versions?.total || versions.value.length
-    versionId.value = props.initialVersionId || versions.value[0]?.version_id || ''
+    versionId.value = props.initialVersionId || data.latest_version_id || versions.value[0]?.version_id || ''
     if (versionId.value) await loadVersion()
   } catch (err) { if (mounted && request === requestId) error.value = err.message }
   finally { if (mounted && request === requestId) loading.value = false }

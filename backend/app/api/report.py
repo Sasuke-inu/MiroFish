@@ -14,7 +14,7 @@ from . import report_bp
 from ..config import Config
 from ..services.report_agent import Report, ReportAgent, ReportManager, ReportStatus
 from ..provider_settings import get_model_settings, model_settings_snapshot
-from ..models.execution import public_manifest, RunStore
+from ..models.execution import ACTIVE, public_manifest, RunStore
 from ..services.simulation_manager import SimulationManager
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.zep_graph_memory_updater import ZepGraphMemoryManager
@@ -252,7 +252,11 @@ def generate_report():
             if not created:
                 claimed = task_manager.get_task(task_id)
                 reused_report_id = (claimed.metadata or {}).get('report_id') if claimed else None
-                if not reused_report_id or ReportManager.get_report(reused_report_id) is None:
+                claimed_status = claimed.status if claimed else None
+                artifact_missing = reused_report_id is None or ReportManager.get_report(reused_report_id) is None
+                # 已完成的工作若產物不存在：不得回報 already_generated；
+                # 仍在執行中的認領允許產物尚未落地（重複請求加入同一份工作）。
+                if not reused_report_id or (claimed_status == TaskStatus.COMPLETED and artifact_missing):
                     # 舊工作已存在，但保存的產物不存在：不得回報 already_generated
                     return jsonify({
                         "success": False,
@@ -304,7 +308,8 @@ def generate_report():
                         progress_callback=progress_callback,
                         report_id=report_id
                     )
-                    ReportManager.save_report(report)
+                    # The agent persists every terminal status itself; a second
+                    # save here could recreate a folder deleted in between.
 
                     if report.status == ReportStatus.COMPLETED:
                         task_manager.complete_task(
@@ -612,6 +617,16 @@ def delete_report(report_id: str):
                     "success": False,
                     "error": '報告仍在生成中，不能刪除。'
                 }), 409
+
+            if report.task_id:
+                task = TaskManager().get_task(report.task_id)
+                # 先宣告完成、工作仍在寫入的視窗同樣不得刪除，
+                # 否則資料夾會在刪除後被背景工作重建。
+                if task is not None and task.status.value in ACTIVE:
+                    return jsonify({
+                        "success": False,
+                        "error": '報告的工作仍在執行中，不能刪除。'
+                    }), 409
 
             success = ReportManager.delete_report(report_id)
         

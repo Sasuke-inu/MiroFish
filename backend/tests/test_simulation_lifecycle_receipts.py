@@ -361,3 +361,59 @@ def test_r15_runner_updates_hours_only_when_present_and_numeric(tmp_path):
     assert state.reddit_simulated_hours == 1.0
     assert state.simulated_hours == 1.0
     assert state.reddit_current_round == 4
+
+
+def test_r02_receipt_with_reason_requires_valid_rounds(tmp_path):
+    """A receipt carrying exit_reason must prove rounds; a missing plan is not a proof."""
+    path = tmp_path / 'actions.jsonl'
+    path.write_text(json.dumps({'event_type': 'simulation_end', 'run_id': 'r', 'attempt_id': 'a',
+                                'exit_reason': 'completed', 'total_rounds': 10}) + '\n', encoding='utf-8')
+    state = SimulationRunState('sim_reason_no_plan', run_id='r', attempt_id='a', enabled_platforms=['reddit'])
+    SimulationRunner._read_action_log(str(path), 0, state, 'reddit')
+    assert state.reddit_completed is False
+
+
+def test_r02_null_fields_do_not_count_as_legacy_receipt(tmp_path):
+    """Legacy is decided by absent keys, not by null values."""
+    path = tmp_path / 'actions.jsonl'
+    path.write_text(json.dumps({'event_type': 'simulation_end', 'run_id': 'r', 'attempt_id': 'a',
+                                'exit_reason': None, 'planned_rounds': None, 'total_rounds': 10}) + '\n',
+                    encoding='utf-8')
+    state = SimulationRunState('sim_null_receipt', run_id='r', attempt_id='a', enabled_platforms=['reddit'])
+    SimulationRunner._read_action_log(str(path), 0, state, 'reddit')
+    assert state.reddit_completed is False
+
+
+def test_r07_non_object_line_records_gap_and_keeps_reading(tmp_path):
+    path = tmp_path / 'actions.jsonl'
+    good = json.dumps({'round': 1, 'run_id': 'r', 'attempt_id': 'a', 'agent_id': 0,
+                       'agent_name': 'A', 'action_type': 'post', 'action_args': {}}) + '\n'
+    path.write_bytes(('null\n' + good).encode('utf-8'))
+    state = SimulationRunState('sim_obj_gap', run_id='r', attempt_id='a', enabled_platforms=['reddit'])
+    position = SimulationRunner._read_action_log(str(path), 0, state, 'reddit')
+    assert position == path.stat().st_size
+    assert state.reddit_actions_count == 1
+    assert len(state.log_gaps) == 1 and state.log_gaps[0]['reason'] == 'not_a_json_object'
+
+
+def test_r07_processing_failure_records_gap_and_next_line_still_ingested(tmp_path, monkeypatch):
+    path = tmp_path / 'actions.jsonl'
+    first = json.dumps({'round': 1, 'run_id': 'r', 'attempt_id': 'a', 'agent_id': 0,
+                        'agent_name': 'A', 'action_type': 'post', 'action_args': {}}) + '\n'
+    second = json.dumps({'round': 2, 'run_id': 'r', 'attempt_id': 'a', 'agent_id': 1,
+                         'agent_name': 'B', 'action_type': 'post', 'action_args': {}}) + '\n'
+    path.write_bytes((first + second).encode('utf-8'))
+
+    class FailingUpdater:
+        def add_activity_from_dict(self, data, platform):
+            if data.get('agent_id') == 0:
+                raise RuntimeError('dispatch down')
+
+    state = SimulationRunState('sim_dispatch_gap', run_id='r', attempt_id='a', enabled_platforms=['reddit'])
+    SimulationRunner._graph_memory_enabled['sim_dispatch_gap'] = True
+    monkeypatch.setattr(module.ZepGraphMemoryManager, 'get_updater', classmethod(lambda *_: FailingUpdater()))
+    position = SimulationRunner._read_action_log(str(path), 0, state, 'reddit')
+    assert position == path.stat().st_size
+    assert state.reddit_actions_count == 2
+    assert len(state.log_gaps) == 1
+    assert state.log_gaps[0]['reason'].startswith('processing_error:')
