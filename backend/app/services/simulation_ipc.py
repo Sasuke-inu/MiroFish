@@ -304,9 +304,14 @@ class SimulationIPCClient:
                 return False
             with open(state_path, encoding='utf-8') as handle:
                 execution = json.load(handle)
-            return execution.get('runner_status') == 'completed' and execution.get('graph_ready') is True and bool(execution.get('run_id')) and all(
-                status.get(key) == execution.get(key) for key in ('run_id', 'attempt_id')
-            )
+            if execution.get('runner_status') != 'completed' or not execution.get('run_id'):
+                return False
+            # Interviews only need the finished loop and a drained graph write.
+            # A completed run that never requested graph updates (R03) keeps
+            # graph_ready False by design and must not lose its interview window.
+            if execution.get('graph_ready') is not True and execution.get('graph_update_status') != 'not_requested':
+                return False
+            return all(status.get(key) == execution.get(key) for key in ('run_id', 'attempt_id'))
         except (json.JSONDecodeError, OSError, ValueError, TypeError):
             return False
 
