@@ -133,9 +133,8 @@ class ResearchWorkbench:
         # Source snapshots are copied as inputs; no graph, tasks, environment,
         # credentials or mutable run state crosses the new project identity.
         for source in self.all_sources(project_id):
-            versions = self.evidence.list_versions(source['source_id'])['items']
-            if versions:
-                version = self.evidence.get_version(versions[0]['version_id'], include_content=True)
+            version = self.latest_version(source['source_id'], include_content=True)
+            if version:
                 self.save_source(draft['project_id'], title=source['title'], source_type=source['source_type'],
                                  identity=source['identity'], locator=source.get('locator'),
                                  content=version.get('content'), status=version['status'],
@@ -150,6 +149,14 @@ class ResearchWorkbench:
             if not page['has_more']:
                 return result
             offset += 200
+
+    def latest_version(self, source_id, *, include_content=False):
+        """The last observed version; legacy rows without a pointer fall back."""
+        version = self.evidence.latest_version(source_id, include_content=include_content)
+        if version is not None:
+            return version
+        page = self.evidence.list_versions(source_id, limit=1)['items']
+        return self.evidence.get_version(page[0]['version_id'], include_content=include_content) if page else None
 
     def save_source(self, project_id, *, title, content=None, source_type='document', identity=None,
                     locator=None, parser_version='text-v1', status='saved', fetched_at=None, published_at=None):
@@ -166,12 +173,10 @@ class ResearchWorkbench:
                     and not TaskManager().find_task(f'ontology:{project_id}')):
                 parts, input_versions = [], []
                 for item in self.all_sources(project_id):
-                    versions = self.evidence.list_versions(item['source_id'], limit=1)['items']
-                    if versions:
-                        saved = self.evidence.get_version(versions[0]['version_id'], include_content=True)
-                        if saved.get('content'):
-                            parts.append(f"=== {item['title']} ===\n{saved['content']}")
-                            input_versions.append({key: saved[key] for key in ('source_id', 'version_id', 'sha256')})
+                    saved = self.latest_version(item['source_id'], include_content=True)
+                    if saved and saved.get('content'):
+                        parts.append(f"=== {item['title']} ===\n{saved['content']}")
+                        input_versions.append({key: saved[key] for key in ('source_id', 'version_id', 'sha256')})
                 combined = '\n\n'.join(parts)
                 ProjectManager.save_input_snapshot(project_id, combined, input_versions)
                 ProjectManager.save_extracted_text(project_id, combined)
@@ -264,16 +269,16 @@ class ResearchWorkbench:
                 if not page['has_more']:
                     break
                 offset += 200
-            latest = [self.evidence.list_versions(source['source_id'], limit=1)['items'] for source in sources]
+            latest = [self.latest_version(source['source_id']) for source in sources]
             runs = self.runs(project_id)
         else:
             sources = _export['sources']['items']
             refs = _export['references']['items']
-            latest = [item['versions'][:1] for item in _export['evidence_index']]
+            latest = [self.latest_version(source['source_id']) for source in sources]
             runs = _export['runs']
         source_refs = [ref for ref in refs if ref['category'] == 'source_record']
         valid = sum(ref['validation']['location_status'] == 'valid' for ref in source_refs)
-        missing = sum(not versions or versions[0]['status'] != 'saved' for versions in latest)
+        missing = sum(version is None or version['status'] != 'saved' for version in latest)
         from .quality_evaluation import QualityEvaluation
         observed = QualityEvaluation.evaluate(runs)
         return {'calculation_version': 'evidence-quality-v1',

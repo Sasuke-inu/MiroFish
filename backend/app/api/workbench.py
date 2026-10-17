@@ -100,7 +100,8 @@ def source(source_id):
     row = evidence.get_source(valid_id(source_id))
     if not row:
         raise EvidenceError('找不到此來源。')
-    return ok({'source': row, 'versions': evidence.list_versions(source_id, **page_args())})
+    return ok({'source': row, 'versions': evidence.list_versions(source_id, **page_args()),
+               'latest_version_id': evidence.latest_version_id(source_id)})
 
 
 @workbench_bp.get('/versions/<version_id>')
@@ -195,8 +196,8 @@ def compare():
 
 @workbench_bp.get('/demos')
 def demos():
-    from ..services.workbench_demos import CATALOG
-    return ok({'items': CATALOG})
+    from ..services.workbench_demos import catalog
+    return ok({'items': catalog()})
 
 
 @workbench_bp.post('/demos/<demo_id>')
