@@ -6,6 +6,7 @@ Step2: Zep实体读取与过滤、OASIS模拟准备与运行（全程自动化�
 import os
 import traceback
 from contextlib import nullcontext
+from pathlib import Path
 from flask import request, jsonify, send_file
 from flask_cors import cross_origin
 
@@ -66,6 +67,24 @@ def _get_default_platform(simulation_id: str) -> str:
     except Exception:
         pass
     return "reddit"
+
+
+# 只有这两个平台能命名模拟数据库文件（R13：平台名不得夹带路径）。
+SIMULATION_PLATFORMS = ('twitter', 'reddit')
+
+
+def _checked_platform(simulation_id: str) -> str:
+    """Resolve the platform and reject anything but twitter/reddit before any
+    database path is built."""
+    platform = request.args.get('platform') or _get_default_platform(simulation_id)
+    if platform not in SIMULATION_PLATFORMS:
+        raise ValueError('不支援的平台參數，僅接受 twitter 或 reddit。')
+    return platform
+
+
+def _readonly_sqlite_uri(database_path: str) -> str:
+    """sqlite3 URI (correct for Windows paths) that can only read the file."""
+    return Path(database_path).as_uri() + '?mode=ro'
 
 
 # Interview prompt 优化前缀
@@ -2193,14 +2212,11 @@ def get_simulation_posts(simulation_id: str):
     返回帖子列表（从SQLite数据库读取）
     """
     try:
-        platform = request.args.get('platform') or _get_default_platform(simulation_id)
+        platform = _checked_platform(simulation_id)
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
 
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = SimulationRunner._simulation_dir(simulation_id)
 
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
@@ -2217,7 +2233,7 @@ def get_simulation_posts(simulation_id: str):
             })
         
         import sqlite3
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(_readonly_sqlite_uri(db_path), uri=True)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -2249,6 +2265,12 @@ def get_simulation_posts(simulation_id: str):
             }
         })
         
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+        
     except Exception as e:
         logger.error(f"获取帖子失败: {str(e)}")
         return jsonify({
@@ -2270,15 +2292,12 @@ def get_simulation_comments(simulation_id: str):
         offset: 偏移量
     """
     try:
-        platform = request.args.get('platform') or _get_default_platform(simulation_id)
+        platform = _checked_platform(simulation_id)
         post_id = request.args.get('post_id')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
 
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = SimulationRunner._simulation_dir(simulation_id)
         
         db_path = os.path.join(sim_dir, f"{platform}_simulation.db")
         
@@ -2292,7 +2311,7 @@ def get_simulation_comments(simulation_id: str):
             })
         
         import sqlite3
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(_readonly_sqlite_uri(db_path), uri=True)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -2325,6 +2344,12 @@ def get_simulation_comments(simulation_id: str):
                 "comments": comments
             }
         })
+        
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
         
     except Exception as e:
         logger.error(f"获取评论失败: {str(e)}")
