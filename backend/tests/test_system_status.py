@@ -34,7 +34,9 @@ def test_fully_configured_install_reports_readiness_without_exposing_keys():
 def test_graph_build_without_zep_reports_configuration_dependency(monkeypatch):
     from app.api import graph
     monkeypatch.setattr(graph.Config, 'ZEP_API_KEY', '')
-    response = create_app().test_client().post('/api/graph/build', json={})
+    client = create_app().test_client()
+    token = client.get('/api/session').json['data']['csrf_token']
+    response = client.post('/api/graph/build', json={}, headers={'X-MiroFish-CSRF': token})
     assert response.status_code == 503
     assert response.json['success'] is False
     assert 'ZEP_API_KEY' in response.json['error']
