@@ -1122,6 +1122,7 @@
     "openRun": "View run",
     "demoHelp": "Fixed synthetic data with no model calls. These are not real-world predictions.",
     "openDemo": "Open local example",
+    "installDemo": "Install example",
     "synthetic": "Synthetic example",
     "manage": "Manage and export",
     "rename": "Rename",

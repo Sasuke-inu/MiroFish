@@ -1122,6 +1122,7 @@
     "openRun": "查看執行",
     "demoHelp": "固定的合成資料，沒有呼叫模型，不代表真實世界的預測。",
     "openDemo": "開啟本機示範",
+    "installDemo": "安装示范",
     "synthetic": "合成示範",
     "manage": "管理與匯出",
     "rename": "重新命名",
