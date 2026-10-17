@@ -4,6 +4,7 @@ Report API路由
 """
 
 import os
+import io
 import traceback
 import threading
 from datetime import datetime, timezone
@@ -561,16 +562,12 @@ def download_report(report_id: str):
         md_path = ReportManager._get_report_markdown_path(report_id)
         
         if not os.path.exists(md_path):
-            # 如果MD文件不存在，生成一个临时文件
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-                f.write(report.markdown_content)
-                temp_path = f.name
-            
+            # 全文檔不存在時直接由記憶體回傳，不在磁碟留下未清理的暫存檔
             return send_file(
-                temp_path,
+                io.BytesIO((report.markdown_content or '').encode('utf-8')),
                 as_attachment=True,
-                download_name=f"{report_id}.md"
+                download_name=f"{report_id}.md",
+                mimetype='text/markdown'
             )
         
         return send_file(
