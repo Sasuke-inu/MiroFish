@@ -11,7 +11,7 @@
         <span> · {{ $t(`research.categories.${reference.category}`) }}</span>
         <p>{{ reference.note }}</p>
         <small>{{ $t(`research.locations.${reference.validation?.location_status || 'unverified'}`) }}</small>
-        <EventReferenceLink :project-id="projectId" :reference="reference" /><button v-if="reference.source_id" type="button" @click="inspect(reference)">{{ text.inspect }}</button>
+        <EventReferenceLink :project-id="projectId" :reference="reference" :report-id="reportSubjectId" /><button v-if="reference.source_id" type="button" @click="inspect(reference)">{{ text.inspect }}</button>
       </article>
       <button v-if="hasMore" :disabled="loading" type="button" @click="load(true)">{{ text.more }}</button>
       <label :for="selectId">{{ text.attach }}</label>
@@ -38,6 +38,9 @@ const strings={
   zh:{evidence:'證據與假設',boundary:'這裡保存來源引用及使用者註記。引句定位相符，不代表內容已證實。',loading:'讀取已保存證據…',retry:'重試',empty:'此項目尚無保存的引用，來源未經驗證。',inspect:'定位原文',more:'更多引用',attach:'附上已保存的來源引句',choose:'選擇已保存的來源',moreSources:'更多來源',selectQuote:'選取引句'}
 }
 const text=computed(()=>strings[locale.value==='en'?'en':'zh'])
+// The saved report this evidence object belongs to travels with an event link,
+// so a standalone report page keeps its version when returning to the workbench.
+const reportSubjectId=computed(()=>props.subjectType==='report'?props.subjectId:(props.subjectType==='report_section'&&props.subjectId?String(props.subjectId).split(':section:')[0]:''))
 const selectId=useId(),open=ref(false),loading=ref(false),error=ref(''),references=ref([]),hasMore=ref(false),sources=ref([]),moreSources=ref(false),sourceId=ref(''),inspector=ref(null)
 let alive=true,generation=0
 async function loadSources(more=false){

@@ -26,12 +26,12 @@ import ReplayBriefing from './ReplayBriefing.vue'
 import EventCountComparison from './EventCountComparison.vue'
 import ReportComparison from './ReportComparison.vue'
 import {getEvents,getProjection,compareRuns,saveReference,resolveEventReference} from '../api/workbench'
-const props = defineProps({runs:{type:Array,default:()=>[]},projectId:String,embedded:Boolean})
+const props = defineProps({runs:{type:Array,default:()=>[]},reports:{type:Array,default:()=>[]},projectId:String,embedded:Boolean})
 const emit = defineEmits(['saved','inspect'])
 const route=useRoute(),router=useRouter(),{t}=useI18n()
 const runLabel=run=>simulationName(run,props.runs,t)
 let restoring=false
-function preservePosition(){if(restoring || route.name!=='Workbench')return;router.replace({query:{...route.query,report:route.query.replay===simulationId.value?route.query.report:undefined,section:props.embedded?'results':'runs',panel:props.embedded?'process':undefined,replay_view:replayView.value==='briefing'?'briefing':undefined,ref_run:undefined,ref_event:undefined,replay:simulationId.value,seq:String(throughSeq.value),...(platform.value?{replay_platform:platform.value}:{replay_platform:undefined}),...(agentId.value?{replay_actor:agentId.value}:{replay_actor:undefined})}})}
+function preservePosition(){if(restoring || route.name!=='Workbench')return;const requested=route.query.report;const keepReport=typeof requested==='string'&&(props.reports.length?props.reports.some(report=>report.report_id===requested&&report.simulation_id===simulationId.value):route.query.replay===simulationId.value);router.replace({query:{...route.query,report:keepReport?requested:undefined,section:props.embedded?'results':'runs',panel:props.embedded?'process':undefined,replay_view:replayView.value==='briefing'?'briefing':undefined,ref_run:undefined,ref_event:undefined,replay:simulationId.value,seq:String(throughSeq.value),...(platform.value?{replay_platform:platform.value}:{replay_platform:undefined}),...(agentId.value?{replay_actor:agentId.value}:{replay_actor:undefined})}})}
 const simulationId=ref(''),platform=ref(''),agentId=ref(''),events=ref([]),selected=ref(null),cursor=ref(null),hasMore=ref(false),capability=ref('event_list'),limitations=ref([]),loading=ref(false),error=ref(''),projection=ref(null),throughSeq=ref(0),seeking=ref(false),projectionError=ref(''),note=ref(''),saving=ref(false),saved=ref(false)
 const left=ref(''),right=ref(''),comparison=ref(null),comparing=ref(false),compareError=ref(''),completedRuns=computed(()=>props.runs.filter(run=>run.status==='completed' && run.run_id && !run.legacy && run.manifest))
 const replayView=ref(route.query.replay_view==='briefing'?'briefing':'events')
