@@ -62,3 +62,14 @@
 - 紅先綠證據：新增 `tests/test_action_log_ingest_gaps.py`、`tests/test_report_setup_failure_cleanup.py`（共 4 測試）；修正前 3 紅 1 綠（`_evidence/parent2/red-round2-fixes.txt`）；修正後鄰近 12 檔 84 綠（`_evidence/parent2/green-round2-fixes.txt`）。
 - 修正後全套後端（父層複驗）：647 passed／7 failed／1 skipped，7 項與未改動基線相同（`_evidence/parent2/backend-full-after-round2.txt`）。前端本輪未變動，維持 341 passed 與 build 成功。
 - 收尾：worktree 全部移除（fix/* 分支保留）；本檔、CODE-REVIEW 與 handoff 一併提交。
+
+## 收尾輪（2026-10-18 後段）：基線、Docker、瀏覽器、SSRF、第三輪覆核、PR
+
+- 基線 7 項失敗修正（a620022）：6 項為環境洩漏——本機根目錄 `.env` 設 GRAPH_PROVIDER=graphiti，使 zep 路徑契約測試（test_zep_retry_and_client ×3、test_system_status 的 zep 形狀斷言 ×2、graph/build 503 ×1）實際走到 graphiti 分支；測試改為明確 pin GRAPH_PROVIDER='zep'（只選分支、不改產品碼）。第 7 項（test_storage_pool 檔案替換）在 Windows 不成立（開啟中的 SQLite 檔被鎖、無法外部替換），改為 win32 skip（Linux 仍執行）。修正後全套：653 passed／0 failed／2 skipped（`_evidence/parent2/backend-full-final.txt`、`green-baseline-fixes.txt`）。
+- Docker：於 a620022 樹真實建置成功（`mirofish-parent2-final`）；6c3b110 後再建置成功（`mirofish-final-pr`）（`_evidence/parent2/docker-build-final*.txt`）。
+- 瀏覽器跨站實測（Playwright/Chromium 156 對執行中後端 5011 與 trusted 代理 3000；`_evidence/parent2/browser-crosssite-test.txt`）：
+  - 跨站頁（127.0.0.1:9999）：GET /api/session 被 CORS 擋（無 ACAO，TypeError）；no-cors POST 伺服器回 403、JS 讀不到；JSON POST 之 preflight 被拒。
+  - 同源 trusted 頁（127.0.0.1:3000 經 /api 代理）：GET /api/session 200＋token；帶 token POST 通過守衛、回 400 業務驗證（缺 simulation_id）。R01 於真實瀏覽器成立。
+- SSRF 下游確認（原保留風險）：adapter 端（normalize_url：scheme／連接埠／非公網主機／文件副檔名白名單；fetch 前 assert_public_dns 全位址檢查；document 層再核最終 sourceURL）如原設計。實測下游：本機 Firecrawl（v2 API，`safeFetch`）在連線階段直接拒絕內網目標——對 host.docker.internal:9999 的抓取被 `Connection violated security rules`（safeFetch.js:88）擋下，重試引擎亦同（`_evidence/parent2/firecrawl-safefetch-block.txt`、`firecrawl-redirect-probe.txt`）。殘餘：未以公開網域實測「公開頁→轉址→內網」鏈；不同 Firecrawl 版本／設定仍需部署時核對。原「未確認」降級為「本機所跑版本具連線級防護已驗證」。
+- 第三輪聚焦覆核（c04acd4..HEAD，gpt-6.1-sol read-only；`_evidence/codex-review3b-output.txt`）：1×P2——未啟動即失敗的報告（無 outline、無內文）仍被既有報告早退分支擋住，不帶 force 的重試無法產生新版本；已修正於 6c3b110（僅「FAILED 且零產出」放行一般重試），並補紅先綠重試測試（`_evidence/parent2/red-round3.txt`、`green-round3.txt`）。修正後全套：654 passed／0 failed／2 skipped。
+- PR：本分支推送至 fork `Sasuke-inu/MiroFish`（上游 666ghj/MiroFish 為第三方 repo，本帳號僅讀取權，未對上游開 PR）並合併至 fork main；上游 repo 無 PR CI（workflow 僅 tag／排程觸發），品質門檻為本檔所列之全部本機驗證。

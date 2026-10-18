@@ -18,6 +18,7 @@
 - 邊界：沒有真實模型、付費服務、live 服務重啟或 push；全部只提交本機。R03 決策：未要求圖譜更新的完成執行保留 completed、graph_ready=false，報告維持不解鎖；訪談閘門另以 graph_update_status=not_requested 放行（746408c）。
 - 工作區：6 個修正 worktree 已移除（fix/* 分支保留）；覆核與測試證據在 `D:\Dev\Projects\mirofish-worktrees\_evidence\`（repo 外）。
 - 三個使用任務仍為「待使用者驗收」（見下節 2026-10-03 交付）；R09 修正後「開啟保存示範」不再走安裝／補寫路徑。
+- 收尾（同日後段）：基線測試 hermetic 化後全套 653 → 654 passed／0 failed／2 skipped；Docker 於最終樹重建成功；瀏覽器跨站實測（跨站擋、同源通）；Firecrawl 下游以 safeFetch 連線級阻擋內網目標（已驗證本機版本）；第三輪聚焦覆核 1×P2 已修正（6c3b110）。程式與文件推送至 fork `Sasuke-inu/MiroFish` 並合併 PR（詳見 IMPLEMENTATION 收尾輪）。
 
 ## 最新交付：主流程收斂（2026-10-03）
 
