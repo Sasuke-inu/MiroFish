@@ -11,7 +11,7 @@ const state = reactive({
 })
 
 export function setPendingUpload(files, requirement) {
-  state.files = files
+  state.files = [...files]
   state.simulationRequirement = requirement
   state.isPending = true
 }

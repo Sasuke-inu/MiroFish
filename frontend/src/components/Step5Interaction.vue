@@ -8,7 +8,7 @@
           <!-- Report Header -->
           <div class="report-header-block">
             <div class="report-meta">
-              <span class="report-tag">Prediction Report</span>
+              <span class="report-tag">{{ $t('studio.reportTitle') }}</span>
               <span class="report-id">ID: {{ reportId || 'REF-2024-X92' }}</span>
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
@@ -28,7 +28,7 @@
                 'is-pending': !isSectionCompleted(idx + 1) && currentSectionIndex !== idx + 1
               }"
             >
-              <div class="section-header-row" @click="toggleSectionCollapse(idx)" :class="{ 'clickable': isSectionCompleted(idx + 1) }">
+              <div class="section-header-row" :role="isSectionCompleted(idx + 1) ? 'button' : undefined" :tabindex="isSectionCompleted(idx + 1) ? 0 : undefined" :aria-expanded="isSectionCompleted(idx + 1) ? !collapsedSections.has(idx) : undefined" @keydown.enter="toggleSectionCollapse(idx)" @keydown.space.prevent="toggleSectionCollapse(idx)" @click="toggleSectionCollapse(idx)" :class="{ 'clickable': isSectionCompleted(idx + 1) }">
                 <span class="section-number">{{ String(idx + 1).padStart(2, '0') }}</span>
                 <h3 class="section-title">{{ section.title }}</h3>
                 <svg 
@@ -54,8 +54,8 @@
                 <div v-else-if="currentSectionIndex === idx + 1" class="loading-state">
                   <div class="loading-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <circle cx="12" cy="12" r="10" stroke-width="4" stroke="#E5E7EB"></circle>
-                      <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke="#4B5563" stroke-linecap="round"></path>
+                <circle cx="12" cy="12" r="10" stroke-width="4" stroke="var(--theme-line)"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke="var(--studio-accent)" stroke-linecap="round"></path>
                     </svg>
                   </div>
                   <span class="loading-text">{{ $t('step4.generatingSection', { title: section.title }) }}</span>
@@ -72,7 +72,7 @@
             <div class="waiting-ring"></div>
             <div class="waiting-ring"></div>
           </div>
-          <span class="waiting-text">Waiting for Report Agent...</span>
+          <span class="waiting-text">{{ $t('studio.waitingReport') }}</span>
         </div>
       </div>
 
@@ -86,13 +86,15 @@
           </svg>
           <div class="action-bar-text">
             <span class="action-bar-title">{{ $t('step5.interactiveTools') }}</span>
-            <span class="action-bar-subtitle mono">{{ $t('step5.agentsAvailable', { count: profiles.length }) }}</span>
+            <span class="action-bar-subtitle mono">{{ canInterview ? $t('step5.agentsAvailable', { count: profiles.length }) : interviewCopy.savedRoles.replace('{count}', profiles.length) }}</span>
           </div>
         </div>
           <div class="action-bar-tabs">
             <button 
               class="tab-pill"
               :class="{ active: activeTab === 'chat' && chatTarget === 'report_agent' }"
+              :disabled="isSending"
+              :aria-pressed="activeTab === 'chat' && chatTarget === 'report_agent'"
               @click="selectReportAgentChat"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,6 +106,9 @@
               <button 
                 class="tab-pill agent-pill"
                 :class="{ active: activeTab === 'chat' && chatTarget === 'agent' }"
+                :disabled="isSending"
+                :aria-expanded="showAgentDropdown"
+                @keydown.esc.stop="showAgentDropdown = false"
                 @click="toggleAgentDropdown"
               >
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -115,12 +120,16 @@
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
-              <div v-if="showAgentDropdown" class="dropdown-menu">
+              <div v-if="showAgentDropdown" class="dropdown-menu" @keydown.esc.stop="showAgentDropdown = false">
                 <div class="dropdown-header">{{ $t('step5.selectChatTarget') }}</div>
                 <div 
                   v-for="(agent, idx) in profiles" 
                   :key="idx"
                   class="dropdown-item"
+                  role="button"
+                  tabindex="0"
+                  @keydown.enter="selectAgent(agent, idx)"
+                  @keydown.space.prevent="selectAgent(agent, idx)"
                   @click="selectAgent(agent, idx)"
                 >
                   <div class="agent-avatar">{{ (agent.username || 'A')[0] }}</div>
@@ -135,6 +144,8 @@
             <button
               class="tab-pill survey-pill"
               :class="{ active: activeTab === 'survey' }"
+              :disabled="isSending"
+              :aria-pressed="activeTab === 'survey'"
               @click="selectSurveyTab"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -145,6 +156,21 @@
             </button>
           </div>
         </div>
+
+        <div class="interview-status" role="status">
+          <p>{{ interviewCopy[interviewAvailability] }}</p>
+          <button type="button" :disabled="interviewAvailability === 'checking' || isSending || isSurveying" @click="refreshInterviewAvailability">{{ interviewCopy.refresh }}</button>
+        </div>
+        <details class="interview-history">
+          <summary>{{ interviewCopy.history }} ({{ savedInterviews.length }})</summary>
+          <p v-if="interviewHistoryError">{{ interviewCopy.historyError }}</p>
+          <p v-else-if="!savedInterviews.length">{{ interviewCopy.emptyHistory }}</p>
+          <article v-for="(item, idx) in savedInterviews" :key="idx">
+            <small>{{ item.timestamp }} · {{ item.platform }} · {{ item.agent_id }}</small>
+            <p>{{ item.prompt }}</p>
+            <pre>{{ typeof item.response === 'string' ? item.response : JSON.stringify(item.response, null, 2) }}</pre>
+          </article>
+        </details>
 
         <!-- Chat Mode -->
         <div v-if="activeTab === 'chat'" class="chat-container">
@@ -157,7 +183,7 @@
                 <div class="tools-card-name">{{ $t('step5.reportAgentChat') }}</div>
                 <div class="tools-card-subtitle">{{ $t('step5.reportAgentDesc') }}</div>
               </div>
-              <button class="tools-card-toggle" @click="showToolsDetail = !showToolsDetail">
+              <button class="tools-card-toggle" :aria-label="$t('quality.assistantDetails')" :aria-expanded="showToolsDetail" @click="showToolsDetail = !showToolsDetail">
                 <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
@@ -227,7 +253,7 @@
                   <span class="profile-card-profession">{{ selectedAgent.profession || $t('step2.unknownProfession') }}</span>
                 </div>
               </div>
-              <button class="profile-card-toggle" @click="showFullProfile = !showFullProfile">
+              <button class="profile-card-toggle" :aria-label="$t('quality.roleDetails')" :aria-expanded="showFullProfile" @click="showFullProfile = !showFullProfile">
                 <svg :class="{ 'is-expanded': showFullProfile }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
@@ -266,7 +292,7 @@
               <div class="message-content">
                 <div class="message-header">
                   <span class="sender-name">
-                    {{ msg.role === 'user' ? 'You' : (chatTarget === 'report_agent' ? 'Report Agent' : (selectedAgent?.username || 'Agent')) }}
+                    {{ msg.role === 'user' ? $t('quality.you') : (chatTarget === 'report_agent' ? $t('step5.reportAgentChat') : (selectedAgent?.username || $t('step5.chatWithAgent'))) }}
                   </span>
                   <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                 </div>
@@ -292,16 +318,18 @@
             <textarea 
               v-model="chatInput"
               class="chat-input"
+              :aria-label="$t('studio.chatQuestion')"
               :placeholder="$t('step5.chatInputPlaceholder')"
-              @keydown.enter.exact.prevent="sendMessage"
-              :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
+              @keydown.enter.exact="handleChatEnter"
+              :disabled="isSending || (chatTarget === 'agent' && (!selectedAgent || !canInterview))"
               rows="1"
               ref="chatInputRef"
             ></textarea>
             <button 
               class="send-btn"
+              :aria-label="$t('studio.sendQuestion')"
               @click="sendMessage"
-              :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
+              :disabled="!chatInput.trim() || isSending || (chatTarget === 'agent' && (!selectedAgent || !canInterview))"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -330,6 +358,7 @@
                   <input 
                     type="checkbox" 
                     :checked="selectedAgents.has(idx)"
+                    :disabled="isSurveying"
                     @change="toggleAgentSelection(idx)"
                   >
                   <div class="checkbox-avatar">{{ (agent.username || 'A')[0] }}</div>
@@ -345,9 +374,9 @@
                 </label>
               </div>
               <div class="selection-actions">
-                <button class="action-link" @click="selectAllAgents">{{ $t('step5.selectAll') }}</button>
+                <button class="action-link" :disabled="isSurveying" @click="selectAllAgents">{{ $t('step5.selectAll') }}</button>
                 <span class="action-divider">|</span>
-                <button class="action-link" @click="clearAgentSelection">{{ $t('step5.clearSelection') }}</button>
+                <button class="action-link" :disabled="isSurveying" @click="clearAgentSelection">{{ $t('step5.clearSelection') }}</button>
               </div>
             </div>
 
@@ -358,17 +387,21 @@
               <textarea 
                 v-model="surveyQuestion"
                 class="survey-input"
+                :aria-label="$t('step5.surveyQuestions')"
+                :disabled="isSurveying || !canInterview"
                 :placeholder="$t('step5.surveyInputPlaceholder')"
                 rows="3"
               ></textarea>
             </div>
 
+            <p v-if="surveyError" class="workflow-error" role="alert">{{ surveyError }}</p>
             <button 
               class="survey-submit-btn"
-              :disabled="selectedAgents.size === 0 || !surveyQuestion.trim() || isSurveying"
+              :disabled="selectedAgents.size === 0 || !surveyQuestion.trim() || isSurveying || !canInterview"
               @click="submitSurvey"
             >
-              <span v-if="isSurveying" class="loading-spinner"></span>
+              <span v-if="isSurveying" class="loading-spinner" aria-hidden="true"></span>
+              <span v-if="isSurveying">{{ $t('common.processing') }}</span>
               <span v-else>{{ $t('step5.submitSurvey') }}</span>
             </button>
           </div>
@@ -414,9 +447,9 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { chatWithReport, getReport, getAgentLog } from '../api/report'
-import { interviewAgents, getSimulationProfilesRealtime } from '../api/simulation'
+import { interviewAgents, getSimulationProfilesRealtime, getEnvStatus, getInterviewHistory } from '../api/simulation'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const props = defineProps({
   reportId: String,
@@ -432,7 +465,7 @@ const showAgentDropdown = ref(false)
 const selectedAgent = ref(null)
 const selectedAgentIndex = ref(null)
 const showFullProfile = ref(true)
-const showToolsDetail = ref(true)
+const showToolsDetail = ref(false)
 
 // Chat State
 const chatInput = ref('')
@@ -447,6 +480,7 @@ const selectedAgents = ref(new Set())
 const surveyQuestion = ref('')
 const surveyResults = ref([])
 const isSurveying = ref(false)
+const surveyError = ref('')
 
 // Report Data
 const reportOutline = ref(null)
@@ -454,6 +488,77 @@ const generatedSections = ref({})
 const collapsedSections = ref(new Set())
 const currentSectionIndex = ref(null)
 const profiles = ref([])
+const interviewAvailability = ref('checking')
+const savedInterviews = ref([])
+const interviewHistoryError = ref(false)
+const canInterview = computed(() => interviewAvailability.value === 'available')
+let simulationScope = 0
+const interviewCopy = computed(() => ({
+  'zh-TW': {
+    checking: '正在核對訪談程序；已保存紀錄仍可查看。',
+    available: '上次核對時訪談程序仍在運作；送出前會再次核對。',
+    closed: '訪談程序已結束或無法核對；已保存紀錄仍可查看。',
+    unverified: '目前無法核對訪談程序；已保存紀錄仍可查看。',
+    refresh: '重新核對', history: '已保存的訪談紀錄（最近 100 筆）',
+    emptyHistory: '尚無已保存的訪談紀錄。', historyError: '目前無法讀取已保存紀錄。', savedRoles: '{count} 個已保存的角色'
+  },
+  zh: {
+    checking: '正在核对访谈程序；已保存记录仍可查看。',
+    available: '上次核对时访谈程序仍在运行；发送前会再次核对。',
+    closed: '访谈程序已结束或无法核对；已保存记录仍可查看。',
+    unverified: '目前无法核对访谈程序；已保存记录仍可查看。',
+    refresh: '重新核对', history: '已保存的访谈记录（最近 100 条）',
+    emptyHistory: '尚无已保存的访谈记录。', historyError: '目前无法读取已保存记录。', savedRoles: '{count} 个已保存的角色'
+  },
+  en: {
+    checking: 'Checking the interview process. Saved history remains readable.',
+    available: 'The interview process was running at the last check. It will be checked again before sending.',
+    closed: 'The interview process has ended or cannot be verified. Saved history remains readable.',
+    unverified: 'The interview process cannot currently be verified. Saved history remains readable.',
+    refresh: 'Check again', history: 'Saved interviews (latest 100)',
+    emptyHistory: 'No saved interviews yet.', historyError: 'Saved history could not be loaded.', savedRoles: '{count} saved characters'
+  }
+}[locale.value] || {
+  checking: 'Checking the interview process.', available: 'The interview process is running.',
+  closed: 'The interview process has ended. Saved history remains readable.', unverified: 'The interview process cannot be verified.',
+  refresh: 'Check again', history: 'Saved interviews (latest 100)', emptyHistory: 'No saved interviews yet.',
+  historyError: 'Saved history could not be loaded.', savedRoles: '{count} saved characters'
+}))
+
+const refreshInterviewAvailability = async () => {
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  interviewAvailability.value = 'checking'
+  if (!simulationId) {
+    interviewAvailability.value = 'unverified'
+    return false
+  }
+  try {
+    const result = await getEnvStatus({ simulation_id: simulationId })
+    if (scope !== simulationScope || simulationId !== props.simulationId) return false
+    interviewAvailability.value = result.success && typeof result.data?.env_alive === 'boolean'
+      ? (result.data.env_alive ? 'available' : 'closed') : 'unverified'
+  } catch {
+    if (scope !== simulationScope || simulationId !== props.simulationId) return false
+    interviewAvailability.value = 'unverified'
+  }
+  return canInterview.value
+}
+
+const loadInterviewHistory = async () => {
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  if (!simulationId) return
+  try {
+    const result = await getInterviewHistory({ simulation_id: simulationId, limit: 100 })
+    if (scope !== simulationScope || simulationId !== props.simulationId) return
+    if (!result.success || !Array.isArray(result.data?.history)) throw new Error('history unavailable')
+    savedInterviews.value = result.data.history
+    interviewHistoryError.value = false
+  } catch {
+    if (scope === simulationScope && simulationId === props.simulationId) interviewHistoryError.value = true
+  }
+}
 
 // Helper Methods
 const isSectionCompleted = (sectionIndex) => {
@@ -499,6 +604,7 @@ const saveChatHistory = () => {
 }
 
 const selectReportAgentChat = () => {
+  if (isSending.value) return
   // 保存当前对话记录
   saveChatHistory()
   
@@ -513,21 +619,20 @@ const selectReportAgentChat = () => {
 }
 
 const selectSurveyTab = () => {
+  if (isSending.value) return
+  saveChatHistory()
   activeTab.value = 'survey'
-  selectedAgent.value = null
-  selectedAgentIndex.value = null
   showAgentDropdown.value = false
 }
 
 const toggleAgentDropdown = () => {
+  if (isSending.value) return
   showAgentDropdown.value = !showAgentDropdown.value
-  if (showAgentDropdown.value) {
-    activeTab.value = 'chat'
-    chatTarget.value = 'agent'
-  }
 }
 
 const selectAgent = (agent, idx) => {
+  if (isSending.value) return
+  activeTab.value = 'chat'
   // 保存当前对话记录
   saveChatHistory()
   
@@ -557,14 +662,14 @@ const formatTime = (timestamp) => {
 const renderMarkdown = (content) => {
   if (!content) return ''
   
-  let processedContent = content.replace(/^##\s+.+\n+/, '')
+  let processedContent = String(content).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/^##\s+.+\n+/, '')
   let html = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
   html = html.replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  html = html.replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
   
   // 处理列表 - 支持子列表
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
@@ -641,9 +746,23 @@ const renderMarkdown = (content) => {
   return html
 }
 
+// Enter confirms composition in Chinese input methods; it must not submit.
+const handleChatEnter = (event) => {
+  if (event.isComposing || event.keyCode === 229) return
+  event.preventDefault()
+  sendMessage()
+}
+
 // Chat Methods
 const sendMessage = async () => {
-  if (!chatInput.value.trim() || isSending.value) return
+  if (!chatInput.value.trim() || isSending.value || (chatTarget.value === 'agent' && !selectedAgent.value)) return
+  if (chatTarget.value === 'agent') {
+    if (!canInterview.value) return
+    isSending.value = true
+    const alive = await refreshInterviewAvailability()
+    isSending.value = false
+    if (!alive) return
+  }
   
   const message = chatInput.value.trim()
   chatInput.value = ''
@@ -803,7 +922,15 @@ const clearAgentSelection = () => {
 }
 
 const submitSurvey = async () => {
-  if (selectedAgents.value.size === 0 || !surveyQuestion.value.trim()) return
+  if (isSurveying.value || selectedAgents.value.size === 0 || !surveyQuestion.value.trim() || !canInterview.value) return
+  isSurveying.value = true
+  const alive = await refreshInterviewAvailability()
+  if (!alive) {
+    isSurveying.value = false
+    return
+  }
+  const question = surveyQuestion.value.trim()
+  surveyError.value = ''
   
   isSurveying.value = true
   addLog(t('log.sendSurvey', { count: selectedAgents.value.size }))
@@ -811,7 +938,7 @@ const submitSurvey = async () => {
   try {
     const interviews = Array.from(selectedAgents.value).map(idx => ({
       agent_id: idx,
-      prompt: surveyQuestion.value.trim()
+      prompt: question
     }))
     
     const res = await interviewAgents({
@@ -854,7 +981,7 @@ const submitSurvey = async () => {
           agent_id: agentIdx,
           agent_name: agent?.username || `Agent ${agentIdx}`,
           profession: agent?.profession,
-          question: surveyQuestion.value.trim(),
+          question,
           answer: responseContent
         })
       }
@@ -865,7 +992,8 @@ const submitSurvey = async () => {
       throw new Error(res.error || t('step5.requestFailed'))
     }
   } catch (err) {
-    addLog(t('log.surveySendFailed', { error: err.message }))
+    surveyError.value = t('log.surveySendFailed', { error: err.message })
+    addLog(surveyError.value)
   } finally {
     isSurveying.value = false
   }
@@ -915,10 +1043,13 @@ const loadAgentLogs = async () => {
 }
 
 const loadProfiles = async () => {
-  if (!props.simulationId) return
+  const simulationId = props.simulationId
+  const scope = simulationScope
+  if (!simulationId) return
   
   try {
-    const res = await getSimulationProfilesRealtime(props.simulationId)
+    const res = await getSimulationProfilesRealtime(simulationId)
+    if (scope !== simulationScope || simulationId !== props.simulationId) return
     if (res.success && res.data) {
       profiles.value = res.data.profiles || []
       addLog(t('log.loadedProfiles', { count: profiles.value.length }))
@@ -939,12 +1070,11 @@ const handleClickOutside = (e) => {
 // Lifecycle
 onMounted(() => {
   addLog(t('log.step5Init'))
-  loadReportData()
-  loadProfiles()
   document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
+  simulationScope++
   document.removeEventListener('click', handleClickOutside)
 })
 
@@ -955,18 +1085,66 @@ watch(() => props.reportId, (newId) => {
 }, { immediate: true })
 
 watch(() => props.simulationId, (newId) => {
+  simulationScope++
+  interviewAvailability.value = 'checking'
+  savedInterviews.value = []
+  interviewHistoryError.value = false
+  profiles.value = []
+  selectedAgent.value = null
+  selectedAgentIndex.value = null
+  selectedAgents.value = new Set()
+  chatHistory.value = []
+  chatHistoryCache.value = {}
+  surveyResults.value = []
   if (newId) {
     loadProfiles()
+    refreshInterviewAvailability()
+    loadInterviewHistory()
+  } else {
+    interviewAvailability.value = 'unverified'
   }
 }, { immediate: true })
 </script>
 
 <style scoped>
+
+.interview-status, .interview-history {
+  flex-shrink: 0;
+  margin: 8px 24px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--theme-line);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.interview-status { display: flex; gap: 12px; align-items: center; }
+.interview-status p { flex: 1; margin: 0; }
+.interview-status button { min-height: 44px; flex-shrink: 0; padding: 6px 12px; }
+.interview-history { max-height: 220px; overflow: auto; }
+.interview-history summary { min-height: 44px; align-content: center; cursor: pointer; }
+.interview-history article + article { border-top: 1px solid var(--theme-line); margin-top: 12px; padding-top: 12px; }
+.interview-history pre { white-space: pre-wrap; font: inherit; }
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .interaction-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #F8F9FA;
+  background: var(--theme-surface-soft, #F8F9FA);
   font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
   overflow: hidden;
 }
@@ -987,8 +1165,8 @@ watch(() => props.simulationId, (newId) => {
 .left-panel.report-style {
   width: 45%;
   min-width: 450px;
-  background: #FFFFFF;
-  border-right: 1px solid #E5E7EB;
+  background: var(--theme-surface, #FFFFFF);
+  border-right: 1px solid var(--theme-line, #E5E7EB);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1036,8 +1214,8 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .report-tag {
-  background: #000000;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #000000);
+  color: var(--theme-on-filled, #FFFFFF);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 8px;
@@ -1047,7 +1225,7 @@ watch(() => props.simulationId, (newId) => {
 
 .report-id {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -1056,7 +1234,7 @@ watch(() => props.simulationId, (newId) => {
   font-family: 'Times New Roman', Times, serif;
   font-size: 36px;
   font-weight: 700;
-  color: #111827;
+  color: var(--theme-ink, #111827);
   line-height: 1.2;
   margin: 0 0 16px 0;
   letter-spacing: -0.02em;
@@ -1065,7 +1243,7 @@ watch(() => props.simulationId, (newId) => {
 .sub-title {
   font-family: 'Times New Roman', Times, serif;
   font-size: 16px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   font-style: italic;
   line-height: 1.6;
   margin: 0 0 30px 0;
@@ -1074,7 +1252,7 @@ watch(() => props.simulationId, (newId) => {
 
 .header-divider {
   height: 1px;
-  background: #E5E7EB;
+  background: var(--theme-surface-soft, #E5E7EB);
   width: 100%;
 }
 
@@ -1106,12 +1284,12 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .section-header-row.clickable:hover {
-  background-color: #F9FAFB;
+  background-color: var(--theme-surface-soft, #F9FAFB);
 }
 
 .collapse-icon {
   margin-left: auto;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   transition: transform 0.3s ease;
   flex-shrink: 0;
   align-self: center;
@@ -1124,7 +1302,7 @@ watch(() => props.simulationId, (newId) => {
 .section-number {
   font-family: 'JetBrains Mono', monospace;
   font-size: 16px;
-  color: #E5E7EB;
+  color: var(--theme-on-filled, #E5E7EB);
   font-weight: 500;
   transition: color 0.3s ease;
 }
@@ -1133,27 +1311,27 @@ watch(() => props.simulationId, (newId) => {
   font-family: 'Times New Roman', Times, serif;
   font-size: 24px;
   font-weight: 600;
-  color: #111827;
+  color: var(--theme-ink, #111827);
   margin: 0;
   transition: color 0.3s ease;
 }
 
 /* States */
 .report-section-item.is-pending .section-number {
-  color: #E5E7EB;
+  color: var(--theme-on-filled, #E5E7EB);
 }
 .report-section-item.is-pending .section-title {
-  color: #D1D5DB;
+  color: var(--theme-faint, #D1D5DB);
 }
 
 .report-section-item.is-active .section-number,
 .report-section-item.is-completed .section-number {
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .report-section-item.is-active .section-title,
 .report-section-item.is-completed .section-title {
-  color: #111827;
+  color: var(--theme-ink, #111827);
 }
 
 .section-body {
@@ -1166,7 +1344,7 @@ watch(() => props.simulationId, (newId) => {
   font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.8;
-  color: #374151;
+  color: var(--theme-ink, #374151);
 }
 
 .generated-content :deep(p) {
@@ -1177,13 +1355,13 @@ watch(() => props.simulationId, (newId) => {
 .generated-content :deep(.md-h3),
 .generated-content :deep(.md-h4) {
   font-family: 'Times New Roman', Times, serif;
-  color: #111827;
+  color: var(--theme-ink, #111827);
   margin-top: 1.5em;
   margin-bottom: 0.8em;
   font-weight: 700;
 }
 
-.generated-content :deep(.md-h2) { font-size: 20px; border-bottom: 1px solid #F3F4F6; padding-bottom: 8px; }
+.generated-content :deep(.md-h2) { font-size: 20px; border-bottom: 1px solid var(--theme-line, #F3F4F6); padding-bottom: 8px; }
 .generated-content :deep(.md-h3) { font-size: 18px; }
 .generated-content :deep(.md-h4) { font-size: 16px; }
 
@@ -1198,28 +1376,28 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .generated-content :deep(.md-quote) {
-  border-left: 3px solid #E5E7EB;
+  border-left: 3px solid var(--theme-line, #E5E7EB);
   padding-left: 16px;
   margin: 1.5em 0;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   font-style: italic;
   font-family: 'Times New Roman', Times, serif;
 }
 
 .generated-content :deep(.code-block) {
-  background: #F9FAFB;
+  background: var(--theme-surface-soft, #F9FAFB);
   padding: 12px;
   border-radius: 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   overflow-x: auto;
   margin: 1em 0;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
 }
 
 .generated-content :deep(strong) {
   font-weight: 600;
-  color: #111827;
+  color: var(--theme-ink, #111827);
 }
 
 /* Loading State */
@@ -1227,7 +1405,7 @@ watch(() => props.simulationId, (newId) => {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   font-size: 14px;
   margin-top: 4px;
 }
@@ -1244,7 +1422,7 @@ watch(() => props.simulationId, (newId) => {
 .loading-text {
   font-family: 'Times New Roman', Times, serif;
   font-size: 15px;
-  color: #4B5563;
+  color: var(--theme-ink, #4B5563);
 }
 
 @keyframes spin {
@@ -1267,7 +1445,7 @@ watch(() => props.simulationId, (newId) => {
   justify-content: center;
   gap: 20px;
   padding: 40px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .waiting-animation {
@@ -1280,7 +1458,7 @@ watch(() => props.simulationId, (newId) => {
   position: absolute;
   width: 100%;
   height: 100%;
-  border: 2px solid #E5E7EB;
+  border: 2px solid var(--theme-line, #E5E7EB);
   border-radius: 50%;
   animation: ripple 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
@@ -1307,7 +1485,7 @@ watch(() => props.simulationId, (newId) => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #FFFFFF;
+  background: var(--theme-surface, #FFFFFF);
   overflow: hidden;
 }
 
@@ -1317,8 +1495,8 @@ watch(() => props.simulationId, (newId) => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 20px;
-  border-bottom: 1px solid #E5E7EB;
-  background: linear-gradient(180deg, #FFFFFF 0%, #FAFBFC 100%);
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
+  background: linear-gradient(180deg, var(--theme-surface, #FFFFFF) 0%, #FAFBFC 100%);
   gap: 16px;
 }
 
@@ -1330,7 +1508,7 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .action-bar-icon {
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   flex-shrink: 0;
 }
 
@@ -1343,13 +1521,13 @@ watch(() => props.simulationId, (newId) => {
 .action-bar-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   letter-spacing: -0.01em;
 }
 
 .action-bar-subtitle {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .action-bar-subtitle.mono {
@@ -1371,8 +1549,8 @@ watch(() => props.simulationId, (newId) => {
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 500;
-  color: #6B7280;
-  background: #F3F4F6;
+  color: var(--theme-muted, #6B7280);
+  background: var(--theme-surface-soft, #F3F4F6);
   border: 1px solid transparent;
   border-radius: 20px;
   cursor: pointer;
@@ -1381,13 +1559,13 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .tab-pill:hover {
-  background: #E5E7EB;
-  color: #374151;
+  background: var(--theme-surface-soft, #E5E7EB);
+  color: var(--theme-ink, #374151);
 }
 
 .tab-pill.active {
-  background: #1F2937;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
   box-shadow: 0 2px 8px rgba(31, 41, 55, 0.15);
 }
 
@@ -1403,7 +1581,7 @@ watch(() => props.simulationId, (newId) => {
 .tab-divider {
   width: 1px;
   height: 24px;
-  background: #E5E7EB;
+  background: var(--theme-surface-soft, #E5E7EB);
   margin: 0 6px;
 }
 
@@ -1421,26 +1599,26 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .survey-pill {
-  background: #ECFDF5;
-  color: #047857;
+  background: var(--theme-success-surface, #ECFDF5);
+  color: var(--theme-success-ink, #047857);
 }
 
 .survey-pill:hover {
-  background: #D1FAE5;
-  color: #065F46;
+  background: var(--theme-success-surface, #D1FAE5);
+  color: var(--theme-success-ink, #065F46);
 }
 
 .survey-pill.active {
-  background: #047857;
-  color: #FFFFFF;
+  background: var(--studio-button);
+  color: var(--theme-on-filled, #FFFFFF);
   box-shadow: 0 2px 8px rgba(4, 120, 87, 0.2);
 }
 
 /* Interaction Header */
 .interaction-header {
   padding: 16px 24px;
-  border-bottom: 1px solid #E5E7EB;
-  background: #FAFAFA;
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
+  background: var(--theme-surface-soft, #FAFAFA);
 }
 
 .tab-switcher {
@@ -1455,23 +1633,23 @@ watch(() => props.simulationId, (newId) => {
   padding: 10px 20px;
   font-size: 13px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   background: transparent;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tab-btn:hover {
-  background: #F9FAFB;
-  border-color: #D1D5DB;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border-color: var(--theme-line, #D1D5DB);
 }
 
 .tab-btn.active {
-  background: #1F2937;
-  color: #FFFFFF;
-  border-color: #1F2937;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
+  border-color: var(--theme-ink, #1F2937);
 }
 
 .tab-btn svg {
@@ -1488,8 +1666,8 @@ watch(() => props.simulationId, (newId) => {
 
 /* Report Agent Tools Card */
 .report-agent-tools-card {
-  border-bottom: 1px solid #E5E7EB;
-  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
+  background: linear-gradient(135deg, var(--theme-surface-soft, #F8FAFC) 0%, var(--theme-surface-soft, #F1F5F9) 100%);
 }
 
 .tools-card-header {
@@ -1504,8 +1682,8 @@ watch(() => props.simulationId, (newId) => {
   height: 44px;
   min-width: 44px;
   min-height: 44px;
-  background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--theme-surface-filled, #1F2937) 0%, var(--theme-surface-filled, #374151) 100%);
+  color: var(--theme-on-filled, #FFFFFF);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1524,33 +1702,33 @@ watch(() => props.simulationId, (newId) => {
 .tools-card-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   margin-bottom: 2px;
 }
 
 .tools-card-subtitle {
   font-size: 12px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
 }
 
 .tools-card-toggle {
   width: 28px;
   height: 28px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: var(--theme-surface, #FFFFFF);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .tools-card-toggle:hover {
-  background: #F9FAFB;
-  border-color: #D1D5DB;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border-color: var(--theme-line, #D1D5DB);
 }
 
 .tools-card-toggle svg {
@@ -1575,9 +1753,9 @@ watch(() => props.simulationId, (newId) => {
   display: flex;
   gap: 10px;
   padding: 12px;
-  background: #FFFFFF;
+  background: var(--theme-surface, #FFFFFF);
   border-radius: 10px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
   transition: all 0.2s ease;
 }
 
@@ -1597,23 +1775,23 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .tool-purple .tool-icon-wrapper {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8B5CF6;
+  background: var(--theme-purple-surface);
+  color: var(--theme-purple-ink, #8B5CF6);
 }
 
 .tool-blue .tool-icon-wrapper {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3B82F6;
+  background: var(--theme-info-surface);
+  color: var(--theme-info-ink, #3B82F6);
 }
 
 .tool-orange .tool-icon-wrapper {
-  background: rgba(249, 115, 22, 0.1);
-  color: #F97316;
+  background: var(--theme-accent-surface);
+  color: var(--theme-accent-ink);
 }
 
 .tool-green .tool-icon-wrapper {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22C55E;
+  background: var(--theme-success-surface);
+  color: var(--theme-success-ink);
 }
 
 .tool-content {
@@ -1624,13 +1802,13 @@ watch(() => props.simulationId, (newId) => {
 .tool-name {
   font-size: 12px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   margin-bottom: 4px;
 }
 
 .tool-desc {
   font-size: 11px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1640,8 +1818,8 @@ watch(() => props.simulationId, (newId) => {
 
 /* Agent Profile Card */
 .agent-profile-card {
-  border-bottom: 1px solid #E5E7EB;
-  background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
+  background: linear-gradient(135deg, var(--theme-surface-soft, #F8FAFC) 0%, var(--theme-surface-soft, #F1F5F9) 100%);
 }
 
 .profile-card-header {
@@ -1656,8 +1834,8 @@ watch(() => props.simulationId, (newId) => {
   height: 44px;
   min-width: 44px;
   min-height: 44px;
-  background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--theme-surface-filled, #1F2937) 0%, var(--theme-surface-filled, #374151) 100%);
+  color: var(--theme-on-filled, #FFFFFF);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1676,7 +1854,7 @@ watch(() => props.simulationId, (newId) => {
 .profile-card-name {
   font-size: 15px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   margin-bottom: 2px;
 }
 
@@ -1685,16 +1863,16 @@ watch(() => props.simulationId, (newId) => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
 }
 
 .profile-card-handle {
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .profile-card-profession {
   padding: 2px 8px;
-  background: #E5E7EB;
+  background: var(--theme-surface-soft, #E5E7EB);
   border-radius: 4px;
   font-size: 11px;
   font-weight: 500;
@@ -1703,21 +1881,21 @@ watch(() => props.simulationId, (newId) => {
 .profile-card-toggle {
   width: 28px;
   height: 28px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: var(--theme-surface, #FFFFFF);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 .profile-card-toggle:hover {
-  background: #F9FAFB;
-  border-color: #D1D5DB;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border-color: var(--theme-line, #D1D5DB);
 }
 
 .profile-card-toggle svg {
@@ -1738,36 +1916,36 @@ watch(() => props.simulationId, (newId) => {
 .profile-card-label {
   font-size: 11px;
   font-weight: 600;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 6px;
 }
 
 .profile-card-bio {
-  background: #FFFFFF;
+  background: var(--theme-surface, #FFFFFF);
   padding: 12px 14px;
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
 }
 
 .profile-card-bio p {
   margin: 0;
   font-size: 13px;
   line-height: 1.6;
-  color: #4B5563;
+  color: var(--theme-ink, #4B5563);
 }
 
 /* Target Selector */
 .target-selector {
   padding: 16px 24px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
 }
 
 .selector-label {
   font-size: 11px;
   font-weight: 600;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 10px;
@@ -1785,22 +1963,22 @@ watch(() => props.simulationId, (newId) => {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: #374151;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  color: var(--theme-ink, #374151);
+  background: var(--theme-surface-soft, #F9FAFB);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .target-option:hover {
-  border-color: #D1D5DB;
+  border-color: var(--theme-line, #D1D5DB);
 }
 
 .target-option.active {
-  background: #1F2937;
-  color: #FFFFFF;
-  border-color: #1F2937;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
+  border-color: var(--theme-ink, #1F2937);
 }
 
 /* Agent Dropdown */
@@ -1824,8 +2002,8 @@ watch(() => props.simulationId, (newId) => {
   left: 50%;
   transform: translateX(-50%);
   min-width: 240px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: var(--theme-surface, #FFFFFF);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
   max-height: 320px;
@@ -1837,10 +2015,10 @@ watch(() => props.simulationId, (newId) => {
   padding: 12px 16px 8px;
   font-size: 11px;
   font-weight: 600;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid #F3F4F6;
+  border-bottom: 1px solid var(--theme-line, #F3F4F6);
 }
 
 .dropdown-item {
@@ -1854,8 +2032,8 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .dropdown-item:hover {
-  background: #F9FAFB;
-  border-left-color: #1F2937;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border-left-color: var(--theme-ink, #1F2937);
 }
 
 .dropdown-item:first-of-type {
@@ -1871,8 +2049,8 @@ watch(() => props.simulationId, (newId) => {
   height: 32px;
   min-width: 32px;
   min-height: 32px;
-  background: linear-gradient(135deg, #1F2937 0%, #374151 100%);
-  color: #FFFFFF;
+  background: linear-gradient(135deg, var(--theme-surface-filled, #1F2937) 0%, var(--theme-surface-filled, #374151) 100%);
+  color: var(--theme-on-filled, #FFFFFF);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -1894,7 +2072,7 @@ watch(() => props.simulationId, (newId) => {
 .agent-name {
   font-size: 13px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1902,7 +2080,7 @@ watch(() => props.simulationId, (newId) => {
 
 .agent-role {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1925,7 +2103,7 @@ watch(() => props.simulationId, (newId) => {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .empty-icon {
@@ -1963,13 +2141,13 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .chat-message.user .message-avatar {
-  background: #1F2937;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
 }
 
 .chat-message.assistant .message-avatar {
-  background: #F3F4F6;
-  color: #374151;
+  background: var(--theme-surface-soft, #F3F4F6);
+  color: var(--theme-ink, #374151);
 }
 
 .message-content {
@@ -1996,12 +2174,12 @@ watch(() => props.simulationId, (newId) => {
 .sender-name {
   font-size: 12px;
   font-weight: 600;
-  color: #374151;
+  color: var(--theme-ink, #374151);
 }
 
 .message-time {
   font-size: 11px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .message-text {
@@ -2012,14 +2190,14 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .chat-message.user .message-text {
-  background: #1F2937;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
   border-bottom-right-radius: 4px;
 }
 
 .chat-message.assistant .message-text {
-  background: #F3F4F6;
-  color: #374151;
+  background: var(--theme-surface-soft, #F3F4F6);
+  color: var(--theme-ink, #374151);
   border-bottom-left-radius: 4px;
 }
 
@@ -2052,7 +2230,7 @@ watch(() => props.simulationId, (newId) => {
 .message-text :deep(.md-oli)::before {
   content: counter(list-counter) ".";
   font-weight: 600;
-  color: #374151;
+  color: var(--theme-ink, #374151);
   min-width: 20px;
   flex-shrink: 0;
 }
@@ -2072,7 +2250,7 @@ watch(() => props.simulationId, (newId) => {
   display: flex;
   gap: 4px;
   padding: 10px 14px;
-  background: #F3F4F6;
+  background: var(--theme-surface-soft, #F3F4F6);
   border-radius: 12px;
   border-bottom-left-radius: 4px;
 }
@@ -2080,7 +2258,7 @@ watch(() => props.simulationId, (newId) => {
 .typing-indicator span {
   width: 8px;
   height: 8px;
-  background: #9CA3AF;
+  background: var(--theme-surface-raised, #9CA3AF);
   border-radius: 50%;
   animation: typing 1.4s infinite ease-in-out;
 }
@@ -2097,7 +2275,7 @@ watch(() => props.simulationId, (newId) => {
 /* Chat Input */
 .chat-input-area {
   padding: 16px 24px;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--theme-line, #E5E7EB);
   display: flex;
   gap: 12px;
   align-items: flex-end;
@@ -2107,7 +2285,7 @@ watch(() => props.simulationId, (newId) => {
   flex: 1;
   padding: 12px 16px;
   font-size: 14px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 8px;
   resize: none;
   font-family: inherit;
@@ -2117,19 +2295,19 @@ watch(() => props.simulationId, (newId) => {
 
 .chat-input:focus {
   outline: none;
-  border-color: #1F2937;
+  border-color: var(--theme-ink, #1F2937);
 }
 
 .chat-input:disabled {
-  background: #F9FAFB;
+  background: var(--theme-surface-soft, #F9FAFB);
   cursor: not-allowed;
 }
 
 .send-btn {
   width: 44px;
   height: 44px;
-  background: #1F2937;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -2140,12 +2318,12 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .send-btn:hover:not(:disabled) {
-  background: #374151;
+  background: var(--theme-surface-filled, #374151);
 }
 
 .send-btn:disabled {
-  background: #E5E7EB;
-  color: #9CA3AF;
+  background: var(--theme-surface-soft, #E5E7EB);
+  color: var(--theme-faint, #9CA3AF);
   cursor: not-allowed;
 }
 
@@ -2162,7 +2340,7 @@ watch(() => props.simulationId, (newId) => {
   display: flex;
   flex-direction: column;
   padding: 24px;
-  border-bottom: 1px solid #E5E7EB;
+  border-bottom: 1px solid var(--theme-line, #E5E7EB);
   overflow: hidden;
 }
 
@@ -2192,12 +2370,12 @@ watch(() => props.simulationId, (newId) => {
 .setup-section .section-header .section-title {
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--theme-ink, #374151);
 }
 
 .selection-count {
   font-size: 12px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 /* Agents Grid */
@@ -2216,20 +2394,20 @@ watch(() => props.simulationId, (newId) => {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .agent-checkbox:hover {
-  border-color: #D1D5DB;
+  border-color: var(--theme-line, #D1D5DB);
 }
 
 .agent-checkbox.checked {
-  background: #F0FDF4;
-  border-color: #10B981;
+  background: var(--theme-success-surface, #F0FDF4);
+  border-color: var(--theme-success-line, #10B981);
 }
 
 .agent-checkbox input {
@@ -2241,8 +2419,8 @@ watch(() => props.simulationId, (newId) => {
   height: 28px;
   min-width: 28px;
   min-height: 28px;
-  background: #E5E7EB;
-  color: #374151;
+  background: var(--theme-surface-soft, #E5E7EB);
+  color: var(--theme-ink, #374151);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2253,8 +2431,8 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .agent-checkbox.checked .checkbox-avatar {
-  background: #10B981;
-  color: #FFFFFF;
+  background: var(--studio-button);
+  color: var(--theme-on-filled, #FFFFFF);
 }
 
 .checkbox-info {
@@ -2266,7 +2444,7 @@ watch(() => props.simulationId, (newId) => {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2275,7 +2453,7 @@ watch(() => props.simulationId, (newId) => {
 .checkbox-role {
   display: block;
   font-size: 10px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2284,7 +2462,7 @@ watch(() => props.simulationId, (newId) => {
 .checkbox-indicator {
   width: 20px;
   height: 20px;
-  border: 2px solid #E5E7EB;
+  border: 2px solid var(--theme-line, #E5E7EB);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -2294,9 +2472,9 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .agent-checkbox.checked .checkbox-indicator {
-  background: #10B981;
-  border-color: #10B981;
-  color: #FFFFFF;
+  background: var(--studio-button);
+  border-color: var(--theme-success-line, #10B981);
+  color: var(--theme-on-filled, #FFFFFF);
 }
 
 .checkbox-indicator svg {
@@ -2318,7 +2496,7 @@ watch(() => props.simulationId, (newId) => {
 
 .action-link {
   font-size: 12px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   background: none;
   border: none;
   cursor: pointer;
@@ -2326,12 +2504,12 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .action-link:hover {
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   text-decoration: underline;
 }
 
 .action-divider {
-  color: #E5E7EB;
+  color: var(--theme-on-filled, #E5E7EB);
 }
 
 /* Survey Input */
@@ -2339,7 +2517,7 @@ watch(() => props.simulationId, (newId) => {
   width: 100%;
   padding: 14px 16px;
   font-size: 14px;
-  border: 1px solid #E5E7EB;
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 8px;
   resize: none;
   font-family: inherit;
@@ -2349,7 +2527,7 @@ watch(() => props.simulationId, (newId) => {
 
 .survey-input:focus {
   outline: none;
-  border-color: #1F2937;
+  border-color: var(--theme-ink, #1F2937);
 }
 
 .survey-submit-btn {
@@ -2357,8 +2535,8 @@ watch(() => props.simulationId, (newId) => {
   padding: 14px 24px;
   font-size: 14px;
   font-weight: 600;
-  color: #FFFFFF;
-  background: #1F2937;
+  color: var(--theme-on-filled, #FFFFFF);
+  background: var(--theme-surface-filled, #1F2937);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -2371,12 +2549,12 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .survey-submit-btn:hover:not(:disabled) {
-  background: #374151;
+  background: var(--theme-surface-filled, #374151);
 }
 
 .survey-submit-btn:disabled {
-  background: #E5E7EB;
-  color: #9CA3AF;
+  background: var(--theme-surface-soft, #E5E7EB);
+  color: var(--theme-faint, #9CA3AF);
   cursor: not-allowed;
 }
 
@@ -2384,7 +2562,7 @@ watch(() => props.simulationId, (newId) => {
   width: 18px;
   height: 18px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #FFFFFF;
+  border-top-color: var(--theme-line, #FFFFFF);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -2410,12 +2588,12 @@ watch(() => props.simulationId, (newId) => {
 .results-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
 }
 
 .results-count {
   font-size: 12px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .results-list {
@@ -2425,8 +2603,8 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .result-card {
-  background: #F9FAFB;
-  border: 1px solid #E5E7EB;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border: 1px solid var(--theme-line, #E5E7EB);
   border-radius: 12px;
   padding: 20px;
 }
@@ -2443,8 +2621,8 @@ watch(() => props.simulationId, (newId) => {
   height: 36px;
   min-width: 36px;
   min-height: 36px;
-  background: #1F2937;
-  color: #FFFFFF;
+  background: var(--theme-surface-filled, #1F2937);
+  color: var(--theme-on-filled, #FFFFFF);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2463,12 +2641,12 @@ watch(() => props.simulationId, (newId) => {
 .result-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
 }
 
 .result-role {
   font-size: 12px;
-  color: #9CA3AF;
+  color: var(--theme-faint, #9CA3AF);
 }
 
 .result-question {
@@ -2476,11 +2654,11 @@ watch(() => props.simulationId, (newId) => {
   align-items: flex-start;
   gap: 8px;
   padding: 12px 14px;
-  background: #FFFFFF;
+  background: var(--theme-surface, #FFFFFF);
   border-radius: 8px;
   margin-bottom: 12px;
   font-size: 13px;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
 }
 
 .result-question svg {
@@ -2491,7 +2669,7 @@ watch(() => props.simulationId, (newId) => {
 .result-answer {
   font-size: 14px;
   line-height: 1.7;
-  color: #374151;
+  color: var(--theme-ink, #374151);
 }
 
 /* Markdown Styles */
@@ -2502,28 +2680,28 @@ watch(() => props.simulationId, (newId) => {
 :deep(.md-h2) {
   font-size: 20px;
   font-weight: 700;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
   margin: 24px 0 12px 0;
 }
 
 :deep(.md-h3) {
   font-size: 16px;
   font-weight: 600;
-  color: #374151;
+  color: var(--theme-ink, #374151);
   margin: 20px 0 10px 0;
 }
 
 :deep(.md-h4) {
   font-size: 14px;
   font-weight: 600;
-  color: #4B5563;
+  color: var(--theme-ink, #4B5563);
   margin: 16px 0 8px 0;
 }
 
 :deep(.md-h5) {
   font-size: 13px;
   font-weight: 600;
-  color: #6B7280;
+  color: var(--theme-muted, #6B7280);
   margin: 12px 0 6px 0;
 }
 
@@ -2541,15 +2719,15 @@ watch(() => props.simulationId, (newId) => {
 .result-answer :deep(.md-quote) {
   margin: 12px 0;
   padding: 12px 16px;
-  background: #F9FAFB;
-  border-left: 3px solid #1F2937;
-  color: #4B5563;
+  background: var(--theme-surface-soft, #F9FAFB);
+  border-left: 3px solid var(--theme-ink, #1F2937);
+  color: var(--theme-ink, #4B5563);
 }
 
 :deep(.code-block) {
   margin: 12px 0;
   padding: 12px 16px;
-  background: #1F2937;
+  background: var(--theme-surface-filled, #1F2937);
   border-radius: 6px;
   overflow-x: auto;
 }
@@ -2557,21 +2735,21 @@ watch(() => props.simulationId, (newId) => {
 :deep(.code-block code) {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
-  color: #E5E7EB;
+  color: var(--theme-on-filled, #E5E7EB);
 }
 
 :deep(.inline-code) {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
-  background: #F3F4F6;
+  background: var(--theme-surface-soft, #F3F4F6);
   padding: 2px 6px;
   border-radius: 4px;
-  color: #1F2937;
+  color: var(--theme-ink, #1F2937);
 }
 
 :deep(.md-hr) {
   border: none;
-  border-top: 1px solid #E5E7EB;
+  border-top: 1px solid var(--theme-line, #E5E7EB);
   margin: 24px 0;
 }
 </style>

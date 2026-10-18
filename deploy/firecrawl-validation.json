@@ -1,0 +1,135 @@
+{
+  "checked_at": "2026-10-02T14:24:57.3659413+10:00",
+  "status": "passed",
+  "automated_tests": {
+    "source_frontend": 12,
+    "source_backend": 35,
+    "backend": 201,
+    "frontend": 58
+  },
+  "before_collection": {
+    "budget": {
+      "daily_limit": 10,
+      "day": "2026-10-02",
+      "remaining": 10,
+      "reserved": 0,
+      "resets_at": "2026-10-03T00:00:00+10:00",
+      "timezone": "Australia/Sydney",
+      "used": 0
+    },
+    "cache_hours": 24,
+    "cloud_credits": 0,
+    "configured": true,
+    "enabled": true,
+    "max_chars_per_page": 8000,
+    "max_pages_per_job": 3,
+    "mode": "local",
+    "online": true
+  },
+  "telemetry": {
+    "browser": true,
+    "service": true
+  },
+  "scope": "MiroFish to existing self-hosted Firecrawl only; no hosted MCP calls or Cloud fallback",
+  "free_review": {
+    "url": "https://docs.firecrawl.dev/features/scrape",
+    "actual_scrape_requests": 0,
+    "verified": true
+  },
+  "actual_collection": {
+    "added_as_markdown": true,
+    "source_chars": 8000,
+    "url": "https://docs.firecrawl.dev/features/scrape",
+    "new_scrape_requests": 1,
+    "cloud_credits": 0,
+    "truncated": true,
+    "model_analysis_started": false
+  },
+  "cache_reuse": {
+    "verified": true,
+    "total_scrape_requests": 1,
+    "additional_scrape_requests": 0
+  },
+  "after_cache": {
+    "budget": {
+      "daily_limit": 10,
+      "day": "2026-10-02",
+      "remaining": 9,
+      "reserved": 0,
+      "resets_at": "2026-10-03T00:00:00+10:00",
+      "timezone": "Australia/Sydney",
+      "used": 1
+    },
+    "cache_hours": 24,
+    "cloud_credits": 0,
+    "configured": true,
+    "enabled": true,
+    "max_chars_per_page": 8000,
+    "max_pages_per_job": 3,
+    "mode": "local",
+    "online": true
+  },
+  "after_backend_restart": {
+    "budget": {
+      "daily_limit": 10,
+      "day": "2026-10-02",
+      "remaining": 9,
+      "reserved": 0,
+      "resets_at": "2026-10-03T00:00:00+10:00",
+      "timezone": "Australia/Sydney",
+      "used": 1
+    },
+    "cache_hours": 24,
+    "cloud_credits": 0,
+    "configured": true,
+    "enabled": true,
+    "max_chars_per_page": 8000,
+    "max_pages_per_job": 3,
+    "mode": "local",
+    "online": true
+  },
+  "original_services_ready": {
+    "embedding": "local",
+    "graph_configured": true,
+    "graph_provider": "graphiti",
+    "llm_configured": true,
+    "missing": [],
+    "ready": true
+  },
+  "restart_preserved_usage": true,
+  "restart_cache_verified": true,
+  "existing_file_parser": {
+    "supported": true,
+    "source_preserved": true,
+    "fetched_time_preserved": true,
+    "text_chars": 8224,
+    "model_called": false
+  },
+  "final_usage": {
+    "budget": {
+      "daily_limit": 10,
+      "day": "2026-10-02",
+      "remaining": 9,
+      "reserved": 0,
+      "resets_at": "2026-10-03T00:00:00+10:00",
+      "timezone": "Australia/Sydney",
+      "used": 1
+    },
+    "cache_hours": 24,
+    "cloud_credits": 0,
+    "configured": true,
+    "enabled": true,
+    "max_chars_per_page": 8000,
+    "max_pages_per_job": 3,
+    "mode": "local",
+    "online": true
+  },
+  "services_preserved": {
+    "neo4j": "bb28dfc66c97",
+    "graphiti": "97cc89859f8b",
+    "firecrawl_api": "a93009dde219"
+  },
+  "completed_at": "2026-10-02T15:00:05.8296815+10:00",
+  "browser_checks": 11,
+  "browser_console_errors": 0
+}

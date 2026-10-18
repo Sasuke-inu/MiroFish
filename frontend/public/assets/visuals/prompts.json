@@ -1,0 +1,33 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "date": "2026-10-03",
+  "revision": "charcoal-warm-stone-amber",
+  "previous_assets_archive": "deploy/visual-assets-before-charcoal-20261003",
+  "assets": [
+    {
+      "source": "exploration-studio.png",
+      "optimized": "exploration-studio.webp",
+      "width": 1536,
+      "height": 1024,
+      "source_bytes": 1757514,
+      "optimized_width": 768,
+      "optimized_height": 512,
+      "optimized_bytes": 61426,
+      "edit_target": "previous exploration-studio.png",
+      "prompt": "Use case: precise-object-edit\nAsset type: production website hero illustration, 3:2 landscape with transparent background.\nInput image 1: EDIT TARGET. Preserve the exact existing arrangement of three overlapping paper cards at lower left connected to the seven round network nodes and two speech bubbles at upper right, the original proportions, orthographic camera, matte ceramic and textured paper craftsmanship.\nPrimary request: change ONLY the color palette of this illustration to match a high-contrast charcoal / warm stone / amber interface. Replace ALL navy, blue, powder-blue and cool bluish highlights on nodes, symbols, speech bubbles and shadows with warm-neutral charcoal #28251F or warm stone-grey #A69E8F. Change orange focal node and the orange symbol to rich golden amber #DDA653. Keep the paper and connecting rods muted warm parchment #D8CEBC, not brilliant white. Retain distinction between charcoal and stone nodes. Retain the existing blank abstract document symbols without adding readable text.\nLighting: soft neutral-warm studio lighting, no cool reflected light. Preserve subtle object shading and the premium tactile appearance.\nBackground: genuinely transparent alpha, no black/white backdrop, no opaque ground plane, no broad colored halo. Keep complete shapes and existing generous transparent padding on all sides.\nConstraints: preserve all object counts, all silhouettes, connections, composition and relative scale; color change only. Absolutely no blue, navy, cyan, teal, purple, or cool-grey tint anywhere. No text, lettering, new objects, logos, watermark, frame or checkerboard pixels."
+    },
+    {
+      "source": "first-connection.png",
+      "optimized": "first-connection.webp",
+      "width": 1536,
+      "height": 1024,
+      "source_bytes": 1546854,
+      "optimized_width": 480,
+      "optimized_height": 320,
+      "optimized_bytes": 17498,
+      "edit_target": "previous first-connection.png",
+      "prompt": "Use case: precise-object-edit\nAsset type: production empty-history website illustration, wide 3:2 landscape with transparent background.\nInput image 1: EDIT TARGET. Preserve the existing composition exactly: shallow rectangular document tray with three blank paper sheets, two spherical nodes joined by one short rod alongside its front-right corner, orthographic three-quarter camera, original object proportions and matte tactile ceramic/paper material.\nPrimary request: change ONLY the color palette to charcoal, warm stone-grey and amber. Replace the entire navy-blue tray with warm-neutral charcoal #28251F. Replace the pale-blue sphere with warm stone-grey #A69E8F. Change the orange sphere to rich golden amber #DDA653. Keep the sheets and connecting rod muted warm parchment #D8CEBC, not bright white. All shadows and reflected light must stay warm neutral.\nBackground: genuinely transparent alpha, not a black/white opaque background, no floor or horizon, no broad colored halo. Keep complete uncropped shapes with generous transparent breathing space.\nConstraints: preserve all geometry, placement, scale, silhouettes, three blank paper sheets, two nodes, one rod and tactile surface textures. Color change only, no new objects. Absolutely no blue, navy, cyan, teal, purple, cool-grey or cool reflections anywhere. No text, logos, watermarks, checkerboard pixels, UI panels, or decorative additions."
+    }
+  ],
+  "processing": "Color changes were generated with the built-in image_gen tool, one referenced-image edit per asset. Prior PNGs, WebPs and prompt manifest preserved in the deploy archive. Both full-resolution 1536x1024 generated PNG files are copied unchanged to the source paths, with alpha retained. Pillow was used only to resize and encode the optimized WebP copies; no pixel recoloring, compositing or image retouching was performed. Width and height describe the source PNG; optimized_width and optimized_height describe the web image."
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "Service": "backend",
+    "ID": "18a256f83d43",
+    "Health": "healthy",
+    "State": "running"
+  },
+  {
+    "Service": "frontend",
+    "ID": "89cc73cd28ba",
+    "Health": "healthy",
+    "State": "running"
+  },
+  {
+    "Service": "graphiti",
+    "ID": "97cc89859f8b",
+    "Health": "healthy",
+    "State": "running"
+  },
+  {
+    "Service": "neo4j",
+    "ID": "bb28dfc66c97",
+    "Health": "healthy",
+    "State": "running"
+  }
+]

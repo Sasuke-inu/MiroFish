@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-10-03T10:41:14.1867802+10:00",
+  "desktop_dark": true,
+  "desktop_light": true,
+  "mobile_css_width": 428,
+  "mobile_horizontal_overflow": false,
+  "keyboard_details_toggle": true,
+  "invalid_private_url_blocked": true,
+  "invalid_url_kept_draft": true,
+  "invalid_url_error_focused": true,
+  "expected_console_errors": 1,
+  "unexpected_console_errors": 0,
+  "provider_settings_unchanged": true,
+  "one_primary_start_action": true,
+  "screenshots": [
+    "seamless-home-dark.png",
+    "seamless-home-light.png",
+    "seamless-home-mobile.png"
+  ]
+}

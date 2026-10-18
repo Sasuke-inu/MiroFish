@@ -174,6 +174,10 @@ def split_text_into_chunks(
     Returns:
         文本块列表
     """
+    if not isinstance(chunk_size, int) or isinstance(chunk_size, bool) or chunk_size <= 0:
+        raise ValueError('chunk_size must be a positive integer')
+    if not isinstance(overlap, int) or isinstance(overlap, bool) or overlap < 0 or overlap >= chunk_size:
+        raise ValueError('overlap must satisfy 0 <= overlap < chunk_size')
     if len(text) <= chunk_size:
         return [text] if text.strip() else []
     
@@ -181,7 +185,7 @@ def split_text_into_chunks(
     start = 0
     
     while start < len(text):
-        end = start + chunk_size
+        end = min(start + chunk_size, len(text))
         
         # 尝试在句子边界处分割
         if end < len(text):
@@ -189,14 +193,17 @@ def split_text_into_chunks(
             for sep in ['。', '！', '？', '.\n', '!\n', '?\n', '\n\n', '. ', '! ', '? ']:
                 last_sep = text[start:end].rfind(sep)
                 if last_sep != -1 and last_sep > chunk_size * 0.3:
-                    end = start + last_sep + len(sep)
+                    # Only accept the boundary when the next start still moves
+                    # forward: end - overlap must stay strictly ahead of start.
+                    if start + last_sep + len(sep) - overlap > start:
+                        end = start + last_sep + len(sep)
                     break
         
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
         
-        # 下一个块从重叠位置开始
+        # 下一个块从重叠位置开始（严格前进，保证有限结束）
         start = end - overlap if end < len(text) else len(text)
     
     return chunks

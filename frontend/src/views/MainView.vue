@@ -1,9 +1,9 @@
 <template>
-  <div class="main-view">
+  <div class="main-view" :data-layout="viewMode">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH</div>
+        <div class="brand" role="button" tabindex="0" @click="router.push('/')" @keydown.enter="router.push('/')" @keydown.space.prevent="router.push('/')">MIROFISH</div>
       </div>
       
       <div class="header-center">
@@ -12,7 +12,7 @@
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
             class="switch-btn"
-            :class="{ active: viewMode === mode }"
+            :class="{ active: viewMode === mode }" :aria-pressed="viewMode === mode"
             @click="viewMode = mode"
           >
             {{ { graph: $t('main.layoutGraph'), split: $t('main.layoutSplit'), workbench: $t('main.layoutWorkbench') }[mode] }}
@@ -21,39 +21,48 @@
       </div>
 
       <div class="header-right">
+        <RouterLink class="research-return" :to="returnToResearch">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
+        <PreferenceControls />
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num">Step {{ currentStep }}/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[currentStep - 1] }}</span>
         </div>
         <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
+        <span class="status-indicator" :class="statusClass" role="status">
           <span class="dot"></span>
           {{ statusText }}
         </span>
       </div>
     </header>
+    <WorkflowProgress :current="currentStep" />
+
+    <p v-if="error" class="workflow-error" role="alert">{{ error }} <button class="generation-button" @click="initProject">{{ $t('workbench.refresh') }}</button></p>
+    <section v-if="canGenerate" class="generation-controls"><p>{{ $t('workbench.costNotice') }}</p><button class="generation-button" data-testid="start-project" :disabled="generationBusy || loading" @click="startGeneration">{{ $t(currentProjectId === 'new' || projectData?.status === 'created' ? 'workbench.analyze' : 'workbench.build') }}</button></section>
 
     <!-- Main Content Area -->
-    <main class="content-area">
+    <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
-        <GraphPanel 
+      <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
+        <GraphPanel
+          :project-id="currentProjectId === 'new' ? undefined : currentProjectId"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="currentPhase"
+          :awaitingGraphSetup="awaitingGraphSetup"
           @refresh="refreshGraph"
           @toggle-maximize="toggleMaximize('graph')"
         />
       </div>
 
       <!-- Right Panel: Step Components -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
+      <div class="panel-wrapper right" v-show="viewMode !== 'graph'" :inert="viewMode === 'graph'" :aria-hidden="viewMode === 'graph'" :style="rightPanelStyle">
         <!-- Step 1: 图谱构建 -->
         <Step1GraphBuild 
           v-if="currentStep === 1"
           :currentPhase="currentPhase"
+          :awaitingGraphSetup="awaitingGraphSetup"
           :projectData="projectData"
           :ontologyProgress="ontologyProgress"
           :buildProgress="buildProgress"
@@ -77,7 +86,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import {safeWorkbenchReturn} from '../utils/workbenchJourney'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -86,7 +96,11 @@ import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import PreferenceControls from '../components/PreferenceControls.vue'
+import WorkflowProgress from '../components/WorkflowProgress.vue'
+import service from '../api'
 
+const returnToResearch=computed(()=>safeWorkbenchReturn(route.query.from,currentProjectId.value !== 'new' ? '/workbench/' + currentProjectId.value : '/workbench'))
 const route = useRoute()
 const router = useRouter()
 const { t, tm } = useI18n()
@@ -100,6 +114,12 @@ const stepNames = computed(() => tm('main.stepNames'))
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
+let mounted = true
+let generation = 0
+let taskBusy = false
+let graphBusy = false
+const valid = token => mounted && token === generation
+const generationBusy = ref(false)
 const loading = ref(false)
 const graphLoading = ref(false)
 const error = ref('')
@@ -109,6 +129,8 @@ const currentPhase = ref(-1) // -1: Upload, 0: Ontology, 1: Build, 2: Complete
 const ontologyProgress = ref(null)
 const buildProgress = ref(null)
 const systemLogs = ref([])
+const awaitingGraphSetup = ref(false)
+const canGenerate = computed(() => !error.value && (currentProjectId.value === 'new' ? getPendingUpload().isPending : ['created', 'ontology_generated'].includes(projectData.value?.status)))
 
 // Polling timers
 let pollTimer = null
@@ -135,11 +157,12 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Error'
-  if (currentPhase.value >= 2) return 'Ready'
-  if (currentPhase.value === 1) return 'Building Graph'
-  if (currentPhase.value === 0) return 'Generating Ontology'
-  return 'Initializing'
+  if (error.value) return t('common.error')
+  if (awaitingGraphSetup.value) return '等待圖譜服務設定'
+  if (currentPhase.value >= 2) return t('common.ready')
+  if (currentPhase.value === 1) return t('step1.graphRagBuild')
+  if (currentPhase.value === 0) return generationBusy.value ? t('step1.ontologyGenerating') : t('common.pending')
+  return t('step2.initializing')
 })
 
 // --- Helpers ---
@@ -183,247 +206,175 @@ const handleGoBack = () => {
 // --- Data Logic ---
 
 const initProject = async () => {
-  addLog('Project view initialized.')
+  if (!mounted) return
+  error.value = ''
   if (currentProjectId.value === 'new') {
-    await handleNewProject()
-  } else {
-    await loadProject()
-  }
+    const pending = getPendingUpload()
+    if (!pending.isPending || !pending.files.length) error.value = t('workbench.noDraft')
+    currentPhase.value = -1
+  } else await loadProject()
 }
-
-const handleNewProject = async () => {
-  const pending = getPendingUpload()
-  if (!pending.isPending || pending.files.length === 0) {
-    error.value = 'No pending files found.'
-    addLog('Error: No pending files found for new project.')
-    return
-  }
-  
+const startGeneration = async () => {
+  if (!mounted || generationBusy.value || loading.value || !canGenerate.value) return
+  const token = generation
+  generationBusy.value = true
+  error.value = ''
   try {
-    loading.value = true
-    currentPhase.value = 0
-    ontologyProgress.value = { message: 'Uploading and analyzing docs...' }
-    addLog('Starting ontology generation: Uploading files...')
-    
+    if (currentProjectId.value === 'new') await handleNewProject()
+    else if (projectData.value?.status === 'created') await analyzeSavedProject()
+    else await startBuildGraph()
+  } finally { if (valid(token)) generationBusy.value = false }
+}
+const analyzeSavedProject = async () => {
+  const token = generation
+  try {
+    ontologyProgress.value = { message: t('workbench.analyzing') }
     const formData = new FormData()
-    pending.files.forEach(f => formData.append('files', f))
-    formData.append('simulation_requirement', pending.simulationRequirement)
-    
+    formData.append('project_id', currentProjectId.value)
+    formData.append('simulation_requirement', projectData.value?.simulation_requirement || '')
     const res = await generateOntology(formData)
-    if (res.success) {
-      clearPendingUpload()
-      currentProjectId.value = res.data.project_id
-      projectData.value = res.data
-      
-      router.replace({ name: 'Process', params: { projectId: res.data.project_id } })
-      ontologyProgress.value = null
-      addLog(`Ontology generated successfully for project ${res.data.project_id}`)
-      await startBuildGraph()
-    } else {
-      error.value = res.error || 'Ontology generation failed'
-      addLog(`Error generating ontology: ${error.value}`)
-    }
-  } catch (err) {
-    error.value = err.message
-    addLog(`Exception in handleNewProject: ${err.message}`)
-  } finally {
-    loading.value = false
-  }
+    if (!valid(token)) return
+    if (!res.success || !res.data?.project_id) throw new Error(res.error || t('common.unknownError'))
+    await loadProject()
+  } catch (err) { if (valid(token)) error.value = err.message }
+  finally { if (valid(token)) ontologyProgress.value = null }
 }
-
+const handleNewProject = async () => {
+  const token = generation
+  const pending = getPendingUpload()
+  if (!pending.isPending || !pending.files.length) { error.value = t('workbench.noDraft'); return }
+  try {
+    currentPhase.value = 0
+    ontologyProgress.value = { message: t('workbench.analyzing') }
+    const formData = new FormData()
+    pending.files.forEach(file => formData.append('files', file))
+    formData.append('simulation_requirement', pending.simulationRequirement)
+    const res = await generateOntology(formData)
+    if (!valid(token)) return
+    if (!res.success || !res.data?.project_id) throw new Error(res.error || t('common.unknownError'))
+    clearPendingUpload()
+    projectData.value = res.data
+    ontologyProgress.value = null
+    // Creation and graph building are distinct explicit actions.
+    await router.replace({ name: 'Process', params: { projectId: res.data.project_id } })
+  } catch (err) { if (valid(token)) error.value = err.message }
+}
 const loadProject = async () => {
+  const token = generation
+  loading.value = true
   try {
-    loading.value = true
-    addLog(`Loading project ${currentProjectId.value}...`)
     const res = await getProject(currentProjectId.value)
-    if (res.success) {
-      projectData.value = res.data
-      updatePhaseByStatus(res.data.status)
-      addLog(`Project loaded. Status: ${res.data.status}`)
-      
-      if (res.data.status === 'ontology_generated' && !res.data.graph_id) {
-        await startBuildGraph()
-      } else if (res.data.status === 'graph_building' && res.data.graph_build_task_id) {
-        currentPhase.value = 1
-        startPollingTask(res.data.graph_build_task_id)
-      } else if (res.data.status === 'graph_completed' && res.data.graph_id) {
-        currentPhase.value = 2
-        await loadGraph(res.data.graph_id)
-      }
-    } else {
-      error.value = res.error
-      addLog(`Error loading project: ${res.error}`)
-    }
-  } catch (err) {
-    error.value = err.message
-    addLog(`Exception in loadProject: ${err.message}`)
-  } finally {
-    loading.value = false
-  }
+    if (!valid(token)) return
+    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+    projectData.value = res.data
+    const status = res.data.status
+    currentPhase.value = status === 'graph_completed' ? 2 : status === 'graph_building' ? 1 : 0
+    if (['failed', 'interrupted', 'needs_review'].includes(status)) error.value = res.data.error || t('workbench.' + status)
+    if (status === 'graph_building' && res.data.graph_build_task_id) startPollingTask(res.data.graph_build_task_id)
+    if (res.data.graph_id) await loadGraph(res.data.graph_id)
+  } catch (err) { if (valid(token)) error.value = t('workbench.readFailed', { error: err.message }) }
+  finally { if (valid(token)) loading.value = false }
 }
-
-const updatePhaseByStatus = (status) => {
-  switch (status) {
-    case 'created':
-    case 'ontology_generated': currentPhase.value = 0; break;
-    case 'graph_building': currentPhase.value = 1; break;
-    case 'graph_completed': currentPhase.value = 2; break;
-    case 'failed': error.value = 'Project failed'; break;
-  }
-}
-
 const startBuildGraph = async () => {
+  const token = generation
   try {
+    const configuration = await service.get('/api/system/status')
+    if (!valid(token)) return
+    if (!configuration.data?.graph_configured) {
+      awaitingGraphSetup.value = true
+      return
+    }
+    awaitingGraphSetup.value = false
     currentPhase.value = 1
-    buildProgress.value = { progress: 0, message: 'Starting build...' }
-    addLog('Initiating graph build...')
-    
-    const res = await buildGraph({ project_id: currentProjectId.value })
-    if (res.success) {
-      if (res.data.reused && res.data.graph_id) {
-        currentPhase.value = 2
-        buildProgress.value = null
-        const projectRes = await getProject(currentProjectId.value)
-        if (projectRes.success) {
-          projectData.value = projectRes.data
-        }
-        await loadGraph(res.data.graph_id)
-        return
-      }
-
-      addLog(`Graph build task started. Task ID: ${res.data.task_id}`)
-      startPollingTask(res.data.task_id)
-    } else {
-      error.value = res.error
-      addLog(`Error starting build: ${res.error}`)
-    }
-  } catch (err) {
-    error.value = err.message
-    addLog(`Exception in startBuildGraph: ${err.message}`)
-  }
+    buildProgress.value = { progress: 0, message: t('workbench.building') }
+    const res = await buildGraph({ project_id: currentProjectId.value, force: false })
+    if (!valid(token)) return
+    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+    if (res.data.reused && res.data.graph_id) await loadProject()
+    else if (res.data.task_id) startPollingTask(res.data.task_id)
+    else throw new Error(t('workbench.unknownState'))
+  } catch (err) { if (valid(token)) error.value = err.message }
 }
-
-const startGraphPolling = () => {
-  addLog('Started polling for graph data...')
-  fetchGraphData()
-  graphPollTimer = setInterval(fetchGraphData, 10000)
-}
-
-const fetchGraphData = async () => {
-  try {
-    // Refresh project info to check for graph_id
-    const projRes = await getProject(currentProjectId.value)
-    if (projRes.success && projRes.data.graph_id) {
-      const gRes = await getGraphData(projRes.data.graph_id)
-      if (gRes.success) {
-        graphData.value = gRes.data
-        const nodeCount = gRes.data.node_count || gRes.data.nodes?.length || 0
-        const edgeCount = gRes.data.edge_count || gRes.data.edges?.length || 0
-        addLog(`Graph data refreshed. Nodes: ${nodeCount}, Edges: ${edgeCount}`)
-      }
-    }
-  } catch (err) {
-    console.warn('Graph fetch error:', err)
-  }
-}
-
-const startPollingTask = (taskId) => {
-  pollTaskStatus(taskId)
+const startPollingTask = taskId => {
+  if (!mounted) return
+  stopPolling()
   pollTimer = setInterval(() => pollTaskStatus(taskId), 2000)
+  pollTaskStatus(taskId)
 }
-
-const pollTaskStatus = async (taskId) => {
+const pollTaskStatus = async taskId => {
+  if (!mounted || taskBusy) return
+  const token = generation
+  taskBusy = true
   try {
     const res = await getTaskStatus(taskId)
-    if (res.success) {
-      const task = res.data
-      
-      // Log progress message if it changed
-      if (task.message && task.message !== buildProgress.value?.message) {
-        addLog(task.message)
-      }
-      
-      buildProgress.value = { progress: task.progress || 0, message: task.message }
-      
-      if (task.status === 'completed') {
-        addLog('Graph build task completed.')
-        stopPolling()
-        stopGraphPolling() // Stop polling, do final load
-        currentPhase.value = 2
-        
-        // Final load
-        const projRes = await getProject(currentProjectId.value)
-        if (projRes.success && projRes.data.graph_id) {
-            projectData.value = projRes.data
-            await loadGraph(projRes.data.graph_id)
-        }
-      } else if (task.status === 'failed') {
-        stopPolling()
-        error.value = task.error
-        addLog(`Graph build task failed: ${task.error}`)
-      }
+    if (!valid(token)) return
+    if (!res.success || !res.data) throw new Error(res.error || t('common.unknownError'))
+    const task = res.data
+    buildProgress.value = { progress: task.progress || 0, message: task.message }
+    error.value = ''
+    if (task.status === 'completed') {
+      stopPolling()
+      await loadProject()
+    } else if (['failed', 'interrupted', 'needs_review', 'cancelled'].includes(task.status)) {
+      stopPolling()
+      error.value = task.error || t('workbench.needs_review')
     }
-  } catch (e) {
-    console.error(e)
-  }
+  } catch (err) { if (valid(token)) error.value = t('workbench.readFailed', { error: err.message }) }
+  finally { if (valid(token)) taskBusy = false }
 }
-
-const loadGraph = async (graphId) => {
+const loadGraph = async graphId => {
+  if (!mounted || graphBusy) return
+  const token = generation
+  graphBusy = true
   graphLoading.value = true
-  addLog(`Loading full graph data: ${graphId}`)
   try {
     const res = await getGraphData(graphId)
-    if (res.success) {
-      graphData.value = res.data
-      addLog('Graph data loaded successfully.')
-    } else {
-      addLog(`Failed to load graph data: ${res.error}`)
-    }
-  } catch (e) {
-    addLog(`Exception loading graph: ${e.message}`)
-  } finally {
-    graphLoading.value = false
-  }
+    if (!valid(token)) return
+    if (!res.success) throw new Error(res.error || t('common.unknownError'))
+    graphData.value = res.data
+  } catch (err) { if (valid(token)) error.value = t('workbench.readFailed', { error: err.message }) }
+  finally { if (valid(token)) { graphBusy = false; graphLoading.value = false } }
 }
-
-const refreshGraph = () => {
-  if (projectData.value?.graph_id) {
-    addLog('Manual graph refresh triggered.')
-    loadGraph(projectData.value.graph_id)
-  }
-}
-
-const stopPolling = () => {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-const stopGraphPolling = () => {
-  if (graphPollTimer) {
-    clearInterval(graphPollTimer)
-    graphPollTimer = null
-    addLog('Graph polling stopped.')
-  }
-}
-
-onMounted(() => {
+const refreshGraph = () => { if (projectData.value?.graph_id) loadGraph(projectData.value.graph_id) }
+const stopPolling = () => { clearInterval(pollTimer); pollTimer = null }
+const stopGraphPolling = () => { clearInterval(graphPollTimer); graphPollTimer = null }
+onMounted(initProject)
+watch(() => route.params.projectId, id => {
+  if (!id || id === currentProjectId.value) return
+  generation++
+  stopPolling(); stopGraphPolling()
+  currentProjectId.value = id
+  projectData.value = graphData.value = null
+  graphBusy = taskBusy = generationBusy.value = loading.value = false
   initProject()
 })
-
-onUnmounted(() => {
-  stopPolling()
-  stopGraphPolling()
-})
+onUnmounted(() => { mounted = false; generation++; stopPolling(); stopGraphPolling() })
 </script>
 
 <style scoped>
+.research-return { color: var(--studio-muted); font-size: .875rem; text-decoration: none; padding: 8px; min-height: 44px; display: inline-flex; align-items: center; }
+.generation-controls { padding: 12px 24px; border-bottom: 1px solid var(--studio-line); color: var(--studio-muted); background: var(--studio-surface); font-size: 14px; line-height: 1.7; }
+.generation-button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--studio-line); border-radius: 8px; background: var(--studio-button); color: var(--theme-on-filled); font: inherit; }
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .main-view {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   overflow: hidden;
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
 }
@@ -431,12 +382,12 @@ onUnmounted(() => {
 /* Header */
 .app-header {
   height: 60px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   z-index: 100;
   position: relative;
 }
@@ -457,7 +408,7 @@ onUnmounted(() => {
 
 .view-switcher {
   display: flex;
-  background: #F5F5F5;
+  background: var(--theme-surface-soft, #F5F5F5);
   padding: 4px;
   border-radius: 6px;
   gap: 4px;
@@ -469,15 +420,15 @@ onUnmounted(() => {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--theme-muted, #666);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .switch-btn.active {
-  background: #FFF;
-  color: #000;
+  background: var(--theme-surface, #FFF);
+  color: var(--theme-ink, #000);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
@@ -486,7 +437,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
   font-weight: 500;
 }
 
@@ -506,25 +457,25 @@ onUnmounted(() => {
 .step-num {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 
 .step-name {
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .step-divider {
   width: 1px;
   height: 14px;
-  background-color: #E0E0E0;
+  background-color: var(--theme-surface-raised, #E0E0E0);
 }
 
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
 }
 
 .status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
@@ -549,6 +500,6 @@ onUnmounted(() => {
 }
 
 .panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+  border-right: 1px solid var(--theme-line, #EAEAEA);
 }
 </style>

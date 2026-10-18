@@ -1,0 +1,22 @@
+[
+  {
+    "url": "http://127.0.0.1:3100/settings",
+    "status": 200,
+    "content_type": "text/html"
+  },
+  {
+    "url": "http://127.0.0.1:3100/api/settings/providers",
+    "status": 200,
+    "content_type": "application/json"
+  },
+  {
+    "url": "http://127.0.0.1:3000/settings",
+    "status": 200,
+    "content_type": "text/html"
+  },
+  {
+    "url": "http://127.0.0.1:5001/health",
+    "status": 200,
+    "content_type": "application/json"
+  }
+]

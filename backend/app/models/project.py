@@ -7,11 +7,14 @@ import os
 import json
 import uuid
 import shutil
+import re
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from ..config import Config
+from ..utils.atomic import write_json
 
 
 class ProjectStatus(str, Enum):
@@ -53,6 +56,7 @@ class Project:
     
     # 错误信息
     error: Optional[str] = None
+    source_versions: List[Dict[str, str]] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
@@ -73,7 +77,8 @@ class Project:
             "simulation_requirement": self.simulation_requirement,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
-            "error": self.error
+            "error": self.error,
+            "source_versions": self.source_versions
         }
     
     @classmethod
@@ -100,7 +105,8 @@ class Project:
             simulation_requirement=data.get('simulation_requirement'),
             chunk_size=data.get('chunk_size', 500),
             chunk_overlap=data.get('chunk_overlap', 50),
-            error=data.get('error')
+            error=data.get('error'),
+            source_versions=data.get('source_versions', [])
         )
 
 
@@ -118,7 +124,39 @@ class ProjectManager:
     @classmethod
     def _get_project_dir(cls, project_id: str) -> str:
         """获取项目目录路径"""
+        if not isinstance(project_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', project_id):
+            raise ValueError('Invalid project identity')
         return os.path.join(cls.PROJECTS_DIR, project_id)
+
+    @classmethod
+    @contextmanager
+    def input_mutation_lock(cls, project_id: str):
+        """Serialize draft materialization with ontology claim/freeze across processes.
+
+        The OS releases this advisory lock if a worker exits. Model generation
+        runs outside the gate, so preserving later evidence remains possible.
+        """
+        path = os.path.join(cls._get_project_dir(project_id), '.input.lock')
+        with open(path, 'a+b') as handle:
+            if os.name == 'nt':
+                import msvcrt
+                if os.fstat(handle.fileno()).st_size == 0:
+                    handle.write(b'0')
+                    handle.flush()
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     
     @classmethod
     def _get_project_meta_path(cls, project_id: str) -> str:
@@ -176,8 +214,7 @@ class ProjectManager:
         project.updated_at = datetime.now().isoformat()
         meta_path = cls._get_project_meta_path(project.project_id)
         
-        with open(meta_path, 'w', encoding='utf-8') as f:
-            json.dump(project.to_dict(), f, ensure_ascii=False, indent=2)
+        write_json(meta_path, project.to_dict())
     
     @classmethod
     def get_project(cls, project_id: str) -> Optional[Project]:
@@ -215,6 +252,8 @@ class ProjectManager:
         
         projects = []
         for project_id in os.listdir(cls.PROJECTS_DIR):
+            if not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', project_id) or not os.path.isdir(os.path.join(cls.PROJECTS_DIR, project_id)):
+                continue
             project = cls.get_project(project_id)
             if project:
                 projects.append(project)
@@ -293,10 +332,34 @@ class ProjectManager:
         text_path = cls._get_project_text_path(project_id)
         with open(text_path, 'w', encoding='utf-8') as f:
             f.write(text)
+
+    @classmethod
+    def save_input_snapshot(cls, project_id, text, versions, *, frozen=False):
+        """Keep input bytes and their lineage together in one atomic record."""
+        name = 'frozen_input.json' if frozen else 'draft_input.json'
+        path = os.path.join(cls._get_project_dir(project_id), name)
+        if frozen and os.path.exists(path):
+            raise ValueError('The input for an existing analysis cannot be replaced')
+        write_json(path, {'text': text, 'source_versions': versions})
+
+    @classmethod
+    def get_input_snapshot(cls, project_id):
+        for name in ('frozen_input.json', 'draft_input.json'):
+            path = os.path.join(cls._get_project_dir(project_id), name)
+            if os.path.exists(path):
+                with open(path, encoding='utf-8') as stream:
+                    return json.load(stream)
+        # Historical extracted text has no proven version lineage.
+        return {'text': cls.get_extracted_text(project_id) or '', 'source_versions': []}
     
     @classmethod
     def get_extracted_text(cls, project_id: str) -> Optional[str]:
         """获取提取的文本"""
+        for name in ('frozen_input.json', 'draft_input.json'):
+            path = os.path.join(cls._get_project_dir(project_id), name)
+            if os.path.exists(path):
+                with open(path, encoding='utf-8') as stream:
+                    return json.load(stream)['text']
         text_path = cls._get_project_text_path(project_id)
         
         if not os.path.exists(text_path):

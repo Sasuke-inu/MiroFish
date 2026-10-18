@@ -15,8 +15,28 @@ from app.services.simulation_runner import (
 )
 
 
+@pytest.fixture(autouse=True)
+def isolated_execution_store(tmp_path, monkeypatch):
+    from app.config import Config
+    from app.services.simulation_manager import SimulationManager
+    monkeypatch.setattr(Config, 'UPLOAD_FOLDER', str(tmp_path))
+    monkeypatch.setenv('MIROFISH_WORKBENCH_DB', str(tmp_path / 'ledger.sqlite3'))
+    monkeypatch.setattr(SimulationRunner, 'RUN_STATE_DIR', str(tmp_path / 'runs'))
+    monkeypatch.setattr(SimulationManager, 'SIMULATION_DATA_DIR', str(tmp_path / 'runs'))
+
+
+def _owned_run_state(**kwargs):
+    # These tests model resources owned by this live worker, not an orphaned
+    # legacy receipt. Ownership-loss cases have separate contract tests.
+    kwargs.setdefault('worker_id', runner_module.WORKER_ID)
+    kwargs.setdefault('owner', runner_module.worker_identity())
+    selected = [platform for platform in ('twitter', 'reddit') if kwargs.get(f'{platform}_running')]
+    kwargs.setdefault('enabled_platforms', selected or ['twitter', 'reddit'])
+    return SimulationRunState(**kwargs)
+
+
 def test_manual_stop_surfaces_graph_ingestion_failure(monkeypatch):
-    state = SimulationRunState(
+    state = _owned_run_state(
         simulation_id="sim-1",
         runner_status=RunnerStatus.RUNNING,
     )
@@ -44,11 +64,11 @@ def test_manual_stop_surfaces_graph_ingestion_failure(monkeypatch):
     SimulationRunner._graph_memory_enabled["sim-1"] = True
 
     try:
-        with pytest.raises(RuntimeError, match="ingestion incomplete"):
+        with pytest.raises(RuntimeError, match="圖譜寫入未完整完成.*RuntimeError"):
             SimulationRunner.stop_simulation("sim-1")
 
         assert state.runner_status == RunnerStatus.FAILED
-        assert "ingestion incomplete" in state.error
+        assert "RuntimeError" in state.error and "ingestion incomplete" not in state.error
         assert saved[-1] == RunnerStatus.FAILED
     finally:
         SimulationRunner._graph_memory_enabled.pop("sim-1", None)
@@ -67,7 +87,7 @@ def test_platform_completion_does_not_publish_terminal_success_before_barrier(
         encoding="utf-8",
     )
     monkeypatch.setattr(SimulationRunner, "RUN_STATE_DIR", str(tmp_path))
-    state = SimulationRunState(
+    state = _owned_run_state(
         simulation_id=simulation_id,
         runner_status=RunnerStatus.RUNNING,
         twitter_running=True,
@@ -79,8 +99,69 @@ def test_platform_completion_does_not_publish_terminal_success_before_barrier(
     assert state.runner_status == RunnerStatus.RUNNING
 
 
+@pytest.mark.parametrize("ingestion_fails", [False, True])
+def test_finished_platforms_drain_without_closing_interview_process(
+    monkeypatch, tmp_path, ingestion_fails
+):
+    simulation_id = "sim-interview-barrier"
+    for platform in ("twitter", "reddit"):
+        directory = tmp_path / simulation_id / platform
+        directory.mkdir(parents=True)
+        (directory / "actions.jsonl").write_text(
+            '{"event_type":"simulation_end","total_rounds":1,"total_actions":0}\n',
+            encoding="utf-8",
+        )
+    state = _owned_run_state(
+        simulation_id=simulation_id, runner_status=RunnerStatus.RUNNING,
+        twitter_running=True, reddit_running=True,
+    )
+    saved, drains = [], []
+
+    class InterviewProcess:
+        returncode = 0
+
+        def poll(self):
+            # The environment remains alive until the monitor has published
+            # the result. In production it continues accepting IPC interviews.
+            if state.runner_status in (RunnerStatus.COMPLETED, RunnerStatus.FAILED):
+                return 0
+            return None
+
+    process = InterviewProcess()
+
+    def drain(_cls, sim_id):
+        assert sim_id == simulation_id
+        assert process.poll() is None
+        assert state.runner_status == RunnerStatus.FINALIZING
+        assert state.twitter_completed and state.reddit_completed
+        drains.append(sim_id)
+        if ingestion_fails:
+            raise RuntimeError("episode failed")
+
+    monkeypatch.setattr(SimulationRunner, "RUN_STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(SimulationRunner, "get_run_state", classmethod(lambda _cls, _id: state))
+    monkeypatch.setattr(SimulationRunner, "_save_run_state", classmethod(lambda _cls, item: saved.append(item.runner_status)))
+    monkeypatch.setattr(SimulationRunner, "_sync_simulation_status", classmethod(lambda _cls, *_args: None))
+    monkeypatch.setattr(runner_module.ZepGraphMemoryManager, "stop_updater", classmethod(drain))
+    monkeypatch.setattr(runner_module.time, "sleep", lambda _seconds: None)
+    SimulationRunner._processes[simulation_id] = process
+    SimulationRunner._graph_memory_enabled[simulation_id] = True
+    try:
+        SimulationRunner._monitor_simulation(simulation_id)
+        expected = RunnerStatus.FAILED if ingestion_fails else RunnerStatus.COMPLETED
+        assert state.runner_status == expected
+        assert saved.index(RunnerStatus.FINALIZING) < saved.index(expected)
+        assert drains == [simulation_id]
+        assert (simulation_id in SimulationRunner._graph_memory_enabled) == ingestion_fails
+        assert ("RuntimeError" in state.error and "episode failed" not in state.error) if ingestion_fails else state.error is None
+    finally:
+        SimulationRunner._processes.pop(simulation_id, None)
+        SimulationRunner._graph_memory_enabled.pop(simulation_id, None)
+        SimulationRunner._manual_stop_requests.discard(simulation_id)
+
+
 def test_manual_stop_timeout_leaves_monitor_owned_state_stopping(monkeypatch):
-    state = SimulationRunState(
+    state = _owned_run_state(
         simulation_id="sim-timeout",
         runner_status=RunnerStatus.RUNNING,
     )
@@ -115,8 +196,8 @@ def test_manual_stop_timeout_leaves_monitor_owned_state_stopping(monkeypatch):
         SimulationRunner._manual_stop_requests.discard("sim-timeout")
 
 
-def test_failed_ingestion_finalization_can_be_retried(monkeypatch):
-    state = SimulationRunState(
+def test_failed_ingestion_cannot_be_stopped_into_a_successful_result(monkeypatch):
+    state = _owned_run_state(
         simulation_id="sim-retry",
         runner_status=RunnerStatus.FAILED,
         error="first drain timed out",
@@ -139,15 +220,17 @@ def test_failed_ingestion_finalization_can_be_retried(monkeypatch):
     monkeypatch.setattr(
         runner_module.ZepGraphMemoryManager,
         "stop_updater",
-        classmethod(lambda _cls, _simulation_id: None),
+        classmethod(lambda _cls, _simulation_id: pytest.fail('A failed run must not silently retry ingestion')),
     )
     SimulationRunner._graph_memory_enabled["sim-retry"] = True
     SimulationRunner._monitor_threads.pop("sim-retry", None)
 
     try:
-        result = SimulationRunner.stop_simulation("sim-retry")
-        assert result.runner_status == RunnerStatus.STOPPED
-        assert result.error is None
+        with pytest.raises(RuntimeError, match='first drain timed out'):
+            SimulationRunner.stop_simulation("sim-retry")
+        assert state.runner_status == RunnerStatus.FAILED
+        assert state.error == 'first drain timed out'
+        assert state.graph_ready is False
     finally:
         SimulationRunner._graph_memory_enabled.pop("sim-retry", None)
         SimulationRunner._manual_stop_requests.discard("sim-retry")
@@ -266,7 +349,7 @@ def test_force_restart_does_not_continue_while_old_ingestion_is_pending(monkeypa
         response, status = simulation_api.start_simulation()
 
     assert status == 409
-    assert response.get_json()["pending"] is True
+    assert response.get_json()["code"] == "immutable_execution"
     assert cleanup_called == []
 
 
@@ -276,6 +359,10 @@ def test_monitor_start_failure_terminates_the_spawned_process(monkeypatch, tmp_p
     scripts_dir = tmp_path / "scripts"
     sim_dir.mkdir(parents=True)
     scripts_dir.mkdir()
+    from app.provider_settings import get_model_settings
+    from app.models.execution import public_manifest
+    (sim_dir / 'state.json').write_text(json.dumps({'graph_namespace_status': 'ready', 'source_graph_id': 'source_graph', 'graph_id': 'run_graph',
+        'simulation_model_snapshot': public_manifest(get_model_settings())}), encoding='utf-8')
     (sim_dir / "simulation_config.json").write_text(
         json.dumps({
             "time_config": {
@@ -285,7 +372,7 @@ def test_monitor_start_failure_terminates_the_spawned_process(monkeypatch, tmp_p
         }),
         encoding="utf-8",
     )
-    (scripts_dir / "run_twitter_simulation.py").write_text("pass\n", encoding="utf-8")
+    (scripts_dir / "run_parallel_simulation.py").write_text("pass\n", encoding="utf-8")
 
     class Process:
         pid = 123
@@ -317,7 +404,7 @@ def test_monitor_start_failure_terminates_the_spawned_process(monkeypatch, tmp_p
     )
 
     try:
-        with pytest.raises(RuntimeError, match="monitor failed"):
+        with pytest.raises(RuntimeError, match="執行啟動未完成.*RuntimeError"):
             SimulationRunner.start_simulation(
                 simulation_id,
                 platform="twitter",
@@ -340,7 +427,7 @@ def test_shutdown_terminates_producer_before_tail_read_and_updater_drain(
     monkeypatch,
 ):
     simulation_id = "sim-shutdown-order"
-    state = SimulationRunState(
+    state = _owned_run_state(
         simulation_id=simulation_id,
         runner_status=RunnerStatus.RUNNING,
     )
@@ -427,7 +514,7 @@ def test_shutdown_terminates_producer_before_tail_read_and_updater_drain(
 
 def test_shutdown_drain_failure_remains_failed_and_retryable(monkeypatch):
     simulation_id = "sim-shutdown-failure"
-    state = SimulationRunState(
+    state = _owned_run_state(
         simulation_id=simulation_id,
         runner_status=RunnerStatus.RUNNING,
     )
@@ -475,7 +562,7 @@ def test_shutdown_drain_failure_remains_failed_and_retryable(monkeypatch):
     try:
         SimulationRunner.cleanup_all_simulations()
         assert state.runner_status == RunnerStatus.FAILED
-        assert "drain incomplete" in state.error
+        assert "RuntimeError" in state.error and "drain incomplete" not in state.error
         assert SimulationRunner._graph_memory_enabled[simulation_id] is True
         assert SimulationRunner._cleanup_done is False
     finally:

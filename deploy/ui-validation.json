@@ -1,0 +1,54 @@
+{
+  "verifiedAt": "2026-10-01T22:07:41.1953153+10:00",
+  "url": "http://localhost:3100/",
+  "design": "Warm off-white, navy, restrained orange",
+  "tests": {
+    "frontendPassed": 28,
+    "backendPassed": 138,
+    "backendNetworkDisabled": true,
+    "backendEnvExampleReadOnly": true,
+    "frontendKnownVulnerabilities": 0
+  },
+  "realUiUpload": {
+    "project": "proj_575f0ce1f35b",
+    "status": "ontology_generated",
+    "entityTypes": 10,
+    "relationshipTypes": 9,
+    "chineseTraditionalResult": true
+  },
+  "system": {
+    "graph_configured": false,
+    "llm_configured": true,
+    "missing": [
+      "ZEP_API_KEY"
+    ],
+    "ready": false
+  },
+  "privacy": {
+    "optOutsVerified": true,
+    "huggingfaceTelemetryThreadStarted": false,
+    "unusedUnstructuredInstalled": false,
+    "camelLangfuseEnabled": false,
+    "dockerAnalyticsEnabled": false,
+    "externalWebFontsAdded": false
+  },
+  "browser": {
+    "realFileSelectionAndAnalysis": true,
+    "reportAndInteractionUsedFictionalFixtures": true,
+    "desktopCssViewportWidth": 972,
+    "desktopPageWidth": 972,
+    "narrowCssViewportWidth": 285,
+    "narrowPageWidth": 278,
+    "graphCanvasMatchesPanelAfterModeChange": true,
+    "temporaryViewportReset": true,
+    "temporaryFixtureServerStopped": true,
+    "screenshot": "deploy/ui-home-ready.png"
+  },
+  "graphProviderReplaced": false,
+  "limits": [
+    "Zep Cloud key missing",
+    "Graphiti and graph database not installed",
+    "Graph-to-report workflow not live tested",
+    "Browser graph, report and interview checks used fictional fixtures"
+  ]
+}

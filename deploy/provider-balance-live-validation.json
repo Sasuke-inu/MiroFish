@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-10-03T10:05:32.3546954+10:00",
+  "connected": true,
+  "account_count": 7,
+  "account_selected": true,
+  "wallet_status": "stale",
+  "wallet_source": "manual_snapshot",
+  "has_wallet_record": true,
+  "wallet_record_time": "2026-09-04T14:25:10+10:00",
+  "quota_windows": 3,
+  "quota_statuses": [
+    "ok",
+    "ok",
+    "ok"
+  ],
+  "model_unchanged": true,
+  "key_not_returned": true,
+  "paid_generation_calls": 0
+}

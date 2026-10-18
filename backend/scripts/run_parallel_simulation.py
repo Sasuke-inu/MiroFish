@@ -67,6 +67,7 @@ if sys.platform == 'win32':
 import argparse
 import asyncio
 import json
+from action_logger import EnvironmentHeartbeat
 import logging
 import multiprocessing
 import random
@@ -101,6 +102,12 @@ else:
     if os.path.exists(_backend_env):
         load_dotenv(_backend_env)
         print(f"已加载环境配置: {_backend_env}")
+
+
+# Freeze the saved model settings for this whole simulation process. Existing
+# environment snapshots from SimulationRunner take precedence over later edits.
+from app.provider_settings import model_environment
+os.environ.update(model_environment())
 
 
 class MaxTokensWarningFilter(logging.Filter):
@@ -173,6 +180,9 @@ except ImportError as e:
     print("请先安装: pip install oasis-ai camel-ai")
     sys.exit(1)
 
+from app.utils.oasis_camel_compat import apply_oasis_camel_compat
+apply_oasis_camel_compat()
+
 
 # Twitter可用动作（不包含INTERVIEW，INTERVIEW只能通过ManualAction手动触发）
 TWITTER_ACTIONS = [
@@ -238,21 +248,15 @@ class ParallelIPCHandler:
         self.commands_dir = os.path.join(simulation_dir, IPC_COMMANDS_DIR)
         self.responses_dir = os.path.join(simulation_dir, IPC_RESPONSES_DIR)
         self.status_file = os.path.join(simulation_dir, ENV_STATUS_FILE)
+        self.heartbeat = EnvironmentHeartbeat(self.status_file)
         
         # 确保目录存在
         os.makedirs(self.commands_dir, exist_ok=True)
         os.makedirs(self.responses_dir, exist_ok=True)
     
     def update_status(self, status: str):
-        """更新环境状态"""
-        with open(self.status_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                "status": status,
-                "twitter_available": self.twitter_env is not None,
-                "reddit_available": self.reddit_env is not None,
-                "timestamp": datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
-    
+        self.heartbeat.update(status, twitter_available=self.twitter_env is not None, reddit_available=self.reddit_env is not None)
+
     def poll_command(self) -> Optional[Dict[str, Any]]:
         """轮询获取待处理命令"""
         if not os.path.exists(self.commands_dir):
@@ -270,7 +274,12 @@ class ParallelIPCHandler:
         for filepath, _ in command_files:
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    command = json.load(f)
+                    if (not os.environ.get('MIROFISH_RUN_ID') or
+                        command.get('run_id') != os.environ.get('MIROFISH_RUN_ID') or
+                        command.get('attempt_id') != os.environ.get('MIROFISH_ATTEMPT_ID')):
+                        continue
+                    return command
             except (json.JSONDecodeError, OSError):
                 continue
         
@@ -280,6 +289,8 @@ class ParallelIPCHandler:
         """发送响应"""
         response = {
             "command_id": command_id,
+            "run_id": os.environ.get("MIROFISH_RUN_ID"),
+            "attempt_id": os.environ.get("MIROFISH_ATTEMPT_ID"),
             "status": status,
             "result": result,
             "error": error,
@@ -818,6 +829,10 @@ def _enrich_action_context(
                 row = cursor.fetchone()
                 if row:
                     followee_id = row[0]
+                    cursor.execute('SELECT agent_id FROM user WHERE user_id = ?', (followee_id,))
+                    target = cursor.fetchone()
+                    if target and target[0] is not None:
+                        action_args['target_agent_id'] = target[0]
                     target_name = _get_user_name(cursor, followee_id, agent_names)
                     if target_name:
                         action_args['target_user_name'] = target_name
@@ -1034,6 +1049,7 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI,
         model_type=llm_model,
+        max_retries=0,
     )
 
 
@@ -1145,12 +1161,13 @@ async def run_twitter_simulation(
     agent_names = get_agent_names_from_config(config)
     # 如果配置中没有某个 agent，则使用 OASIS 的默认名称
     for agent_id, agent in result.agent_graph.get_agents():
+        agent.retry_attempts = 1
         if agent_id not in agent_names:
             agent_names[agent_id] = getattr(agent, 'name', f'Agent_{agent_id}')
     
     db_path = os.path.join(simulation_dir, "twitter_simulation.db")
     if os.path.exists(db_path):
-        os.remove(db_path)
+        raise RuntimeError('An existing simulation database must be preserved; create a new simulation.')
     
     result.env = oasis.make(
         agent_graph=result.agent_graph,
@@ -1204,11 +1221,14 @@ async def run_twitter_simulation(
         
         if initial_actions:
             await result.env.step(initial_actions)
+            # Seed posts are already logged as round 0; consume their DB rows
+            # so the first LLM round does not count them a second time.
+            _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
-    # 记录 round 0 结束
+    # 记录 round 0 结束（累计模拟时数 0 小时）
     if action_logger:
-        action_logger.log_round_end(0, initial_action_count)
+        action_logger.log_round_end(0, initial_action_count, simulated_hours=0.0)
     
     # 主模拟循环
     time_config = config.get("time_config", {})
@@ -1224,10 +1244,14 @@ async def run_twitter_simulation(
             log_info(f"轮数已截断: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
     
     start_time = datetime.now()
+    # 实际完成的轮数与退出原因（收到退出信号时不得回報為正常完成）
+    completed_rounds = 0
+    exit_reason = 'completed'
     
     for round_num in range(total_rounds):
         # 检查是否收到退出信号
         if _shutdown_event and _shutdown_event.is_set():
+            exit_reason = 'stopped'
             if main_logger:
                 main_logger.info(f"收到退出信号，在第 {round_num + 1} 轮停止模拟")
             break
@@ -1246,8 +1270,10 @@ async def run_twitter_simulation(
         
         if not active_agents:
             # 没有活跃agent时也记录round结束（actions_count=0）
+            completed_rounds += 1
             if action_logger:
-                action_logger.log_round_end(round_num + 1, 0)
+                action_logger.log_round_end(round_num + 1, 0,
+                                            simulated_hours=completed_rounds * minutes_per_round / 60)
             continue
         
         actions = {agent: LLMAction() for _, agent in active_agents}
@@ -1271,8 +1297,10 @@ async def run_twitter_simulation(
                 total_actions += 1
                 round_action_count += 1
         
+        completed_rounds += 1
         if action_logger:
-            action_logger.log_round_end(round_num + 1, round_action_count)
+            action_logger.log_round_end(round_num + 1, round_action_count,
+                                        simulated_hours=completed_rounds * minutes_per_round / 60)
         
         if (round_num + 1) % 20 == 0:
             progress = (round_num + 1) / total_rounds * 100
@@ -1281,7 +1309,8 @@ async def run_twitter_simulation(
     # 注意：不关闭环境，保留给Interview使用
     
     if action_logger:
-        action_logger.log_simulation_end(total_rounds, total_actions)
+        action_logger.log_simulation_end(completed_rounds, total_actions,
+                                         exit_reason=exit_reason, planned_rounds=total_rounds)
     
     result.total_actions = total_actions
     elapsed = (datetime.now() - start_time).total_seconds()
@@ -1336,12 +1365,13 @@ async def run_reddit_simulation(
     agent_names = get_agent_names_from_config(config)
     # 如果配置中没有某个 agent，则使用 OASIS 的默认名称
     for agent_id, agent in result.agent_graph.get_agents():
+        agent.retry_attempts = 1
         if agent_id not in agent_names:
             agent_names[agent_id] = getattr(agent, 'name', f'Agent_{agent_id}')
     
     db_path = os.path.join(simulation_dir, "reddit_simulation.db")
     if os.path.exists(db_path):
-        os.remove(db_path)
+        raise RuntimeError('An existing simulation database must be preserved; create a new simulation.')
     
     result.env = oasis.make(
         agent_graph=result.agent_graph,
@@ -1403,11 +1433,14 @@ async def run_reddit_simulation(
         
         if initial_actions:
             await result.env.step(initial_actions)
+            # Seed posts are already logged as round 0; consume their DB rows
+            # so the first LLM round does not count them a second time.
+            _, last_rowid = fetch_new_actions_from_db(db_path, last_rowid, agent_names)
             log_info(f"已发布 {len(initial_actions)} 条初始帖子")
     
-    # 记录 round 0 结束
+    # 记录 round 0 结束（累计模拟时数 0 小时）
     if action_logger:
-        action_logger.log_round_end(0, initial_action_count)
+        action_logger.log_round_end(0, initial_action_count, simulated_hours=0.0)
     
     # 主模拟循环
     time_config = config.get("time_config", {})
@@ -1423,10 +1456,14 @@ async def run_reddit_simulation(
             log_info(f"轮数已截断: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
     
     start_time = datetime.now()
+    # 实际完成的轮数与退出原因（收到退出信号时不得回報為正常完成）
+    completed_rounds = 0
+    exit_reason = 'completed'
     
     for round_num in range(total_rounds):
         # 检查是否收到退出信号
         if _shutdown_event and _shutdown_event.is_set():
+            exit_reason = 'stopped'
             if main_logger:
                 main_logger.info(f"收到退出信号，在第 {round_num + 1} 轮停止模拟")
             break
@@ -1445,8 +1482,10 @@ async def run_reddit_simulation(
         
         if not active_agents:
             # 没有活跃agent时也记录round结束（actions_count=0）
+            completed_rounds += 1
             if action_logger:
-                action_logger.log_round_end(round_num + 1, 0)
+                action_logger.log_round_end(round_num + 1, 0,
+                                            simulated_hours=completed_rounds * minutes_per_round / 60)
             continue
         
         actions = {agent: LLMAction() for _, agent in active_agents}
@@ -1470,8 +1509,10 @@ async def run_reddit_simulation(
                 total_actions += 1
                 round_action_count += 1
         
+        completed_rounds += 1
         if action_logger:
-            action_logger.log_round_end(round_num + 1, round_action_count)
+            action_logger.log_round_end(round_num + 1, round_action_count,
+                                        simulated_hours=completed_rounds * minutes_per_round / 60)
         
         if (round_num + 1) % 20 == 0:
             progress = (round_num + 1) / total_rounds * 100
@@ -1480,7 +1521,8 @@ async def run_reddit_simulation(
     # 注意：不关闭环境，保留给Interview使用
     
     if action_logger:
-        action_logger.log_simulation_end(total_rounds, total_actions)
+        action_logger.log_simulation_end(completed_rounds, total_actions,
+                                         exit_reason=exit_reason, planned_rounds=total_rounds)
     
     result.total_actions = total_actions
     elapsed = (datetime.now() - start_time).total_seconds()

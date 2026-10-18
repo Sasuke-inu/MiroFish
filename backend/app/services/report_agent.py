@@ -11,8 +11,12 @@ Report Agent服务
 
 import os
 import json
+import logging
+import threading
 import time
 import re
+import functools
+from contextvars import ContextVar
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -21,6 +25,7 @@ from enum import Enum
 from ..config import Config
 from ..utils.llm_client import LLMClient
 from ..utils.logger import get_logger
+from ..utils.atomic import write_json
 from ..utils.locale import get_language_instruction, t
 from .zep_tools import (
     ZepToolsService, 
@@ -31,6 +36,38 @@ from .zep_tools import (
 )
 
 logger = get_logger('mirofish.report_agent')
+
+# The console loggers are shared by name, so every report must carry its own
+# identity: handlers filter on it and drop records without one.
+current_report_id: ContextVar[Optional[str]] = ContextVar('mirofish_report_id', default=None)
+
+
+class _ReportIdentityFilter(logging.Filter):
+    """Only the records of the owning report reach its console_log.txt."""
+
+    def __init__(self, report_id: str):
+        super().__init__()
+        self.report_id = report_id
+
+    def filter(self, record) -> bool:
+        return current_report_id.get() == self.report_id
+
+
+class ReportNeedsReview(RuntimeError):
+    """An unconfirmed paid operation must not trigger fallback generation."""
+    outcome_unknown = True
+
+
+class ReportSectionsMissing(ReportNeedsReview):
+    """Outline sections without a saved body cannot be a completed report."""
+
+    def __init__(self, missing: List[int]):
+        self.missing = sorted(int(index) for index in missing)
+        self.public_error = (
+            f'報告章節不完整：缺少第 {"、".join(str(index) for index in self.missing)} 節；'
+            '已保存章節仍可閱讀，未宣告完成。'
+        )
+        super().__init__(self.public_error)
 
 
 class ReportLogger:
@@ -350,7 +387,10 @@ class ReportConsoleLogger:
             datefmt='%H:%M:%S'
         )
         self._file_handler.setFormatter(formatter)
-        
+
+        # 只允許本報告的紀錄寫入，避免共用 logger 互相混入其他報告的查詢與內容
+        self._file_handler.addFilter(_ReportIdentityFilter(self.report_id))
+
         # 添加到 report_agent 相关的 logger
         loggers_to_attach = [
             'mirofish.report_agent',
@@ -393,6 +433,8 @@ class ReportStatus(str, Enum):
     GENERATING = "generating"
     COMPLETED = "completed"
     FAILED = "failed"
+    INTERRUPTED = "interrupted"
+    NEEDS_REVIEW = "needs_review"
 
 
 @dataclass
@@ -451,6 +493,10 @@ class Report:
     created_at: str = ""
     completed_at: str = ""
     error: Optional[str] = None
+    run_id: Optional[str] = None
+    task_id: Optional[str] = None
+    version: int = 1
+    manifest: Dict = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -463,7 +509,11 @@ class Report:
             "markdown_content": self.markdown_content,
             "created_at": self.created_at,
             "completed_at": self.completed_at,
-            "error": self.error
+            "error": self.error,
+            "run_id": self.run_id,
+            "task_id": self.task_id,
+            "version": self.version,
+            "manifest": self.manifest,
         }
 
 
@@ -910,7 +960,7 @@ class ReportAgent:
         self.simulation_requirement = simulation_requirement
         
         self.llm = llm_client or LLMClient()
-        self.zep_tools = zep_tools or ZepToolsService()
+        self.zep_tools = zep_tools or ZepToolsService(llm_client=self.llm)
         
         # 工具定义
         self.tools = self._define_tools()
@@ -959,6 +1009,20 @@ class ReportAgent:
             }
         }
     
+    def _native_tools(self):
+        """Register the same application tools with compatible model APIs."""
+        schemas = {
+            'insight_forge': ({'query': {'type': 'string'}, 'report_context': {'type': 'string'}}, ['query']),
+            'panorama_search': ({'query': {'type': 'string'}, 'include_expired': {'type': 'boolean'}}, ['query']),
+            'quick_search': ({'query': {'type': 'string'}, 'limit': {'type': 'integer', 'minimum': 1, 'maximum': 50}}, ['query']),
+            'interview_agents': ({'interview_topic': {'type': 'string'}, 'max_agents': {'type': 'integer', 'minimum': 1, 'maximum': 10}}, ['interview_topic']),
+        }
+        return [{'type': 'function', 'function': {
+            'name': name, 'description': definition['description'],
+            'parameters': {'type': 'object', 'properties': schemas[name][0],
+                           'required': schemas[name][1], 'additionalProperties': False},
+        }} for name, definition in self.tools.items()]
+
     def _execute_tool(self, tool_name: str, parameters: Dict[str, Any], report_context: str = "") -> str:
         """
         执行工具调用
@@ -1064,8 +1128,8 @@ class ReportAgent:
                 return f"未知工具: {tool_name}。请使用以下工具之一: insight_forge, panorama_search, quick_search"
                 
         except Exception as e:
-            logger.error(t('report.toolExecFailed', toolName=tool_name, error=str(e)))
-            return f"工具执行失败: {str(e)}"
+            logger.error('Report tool execution unconfirmed: %s', type(e).__name__)
+            raise ReportNeedsReview('報告工具結果未確認；請核對此版本。') from None
     
     # 合法的工具名称集合，用于裸 JSON 兜底解析时校验
     VALID_TOOL_NAMES = {"insight_forge", "panorama_search", "quick_search", "interview_agents"}
@@ -1194,10 +1258,14 @@ class ReportAgent:
             progress_callback("planning", 0, t('progress.analyzingRequirements'))
         
         # 首先获取模拟上下文
-        context = self.zep_tools.get_simulation_context(
-            graph_id=self.graph_id,
-            simulation_requirement=self.simulation_requirement
-        )
+        try:
+            context = self.zep_tools.get_simulation_context(
+                graph_id=self.graph_id,
+                simulation_requirement=self.simulation_requirement
+            )
+        except Exception as error:
+            logger.error('Report context unconfirmed: %s', type(error).__name__)
+            raise ReportNeedsReview('報告資料取得結果未確認；請核對此版本。') from None
         
         if progress_callback:
             progress_callback("planning", 30, t('progress.generatingOutline'))
@@ -1224,7 +1292,15 @@ class ReportAgent:
             if progress_callback:
                 progress_callback("planning", 80, t('progress.parsingOutline'))
             
-            # 解析大纲
+            # A model response is required. Empty or malformed outlines cannot
+            # become completed empty reports or trigger substitute generation.
+            if (not isinstance(response, dict)
+                    or not isinstance(response.get('title'), str) or not response['title'].strip()
+                    or not isinstance(response.get('sections'), list) or not response['sections']
+                    or any(not isinstance(section, dict) or not isinstance(section.get('title'), str)
+                           or not section['title'].strip() for section in response['sections'])
+                    or not isinstance(response.get('summary', ''), str)):
+                raise ReportNeedsReview('報告大綱缺少有效標題或章節；請核對此版本。')
             sections = []
             for section_data in response.get("sections", []):
                 sections.append(ReportSection(
@@ -1233,7 +1309,7 @@ class ReportAgent:
                 ))
             
             outline = ReportOutline(
-                title=response.get("title", "模拟分析报告"),
+                title=response['title'],
                 summary=response.get("summary", ""),
                 sections=sections
             )
@@ -1245,18 +1321,22 @@ class ReportAgent:
             return outline
             
         except Exception as e:
-            logger.error(t('report.outlinePlanFailed', error=str(e)))
-            # 返回默认大纲（3个章节，作为fallback）
-            return ReportOutline(
-                title="未来预测报告",
-                summary="基于模拟预测的未来趋势与风险分析",
-                sections=[
-                    ReportSection(title="预测场景与核心发现"),
-                    ReportSection(title="人群行为预测分析"),
-                    ReportSection(title="趋势展望与风险提示")
-                ]
-            )
+            logger.error('Report outline unconfirmed: %s', type(e).__name__)
+            raise ReportNeedsReview('報告大綱回覆未確認；請核對此版本。') from None
     
+    def _checked_section_chat(self, **kwargs):
+        try:
+            response = self.llm.chat(**kwargs)
+        except Exception as error:
+            logger.error('Report section response unconfirmed: %s', type(error).__name__)
+            raise ReportNeedsReview('報告章節回覆未確認；請核對此版本。') from None
+        if not isinstance(response, str) or not response.strip():
+            raise ReportNeedsReview('報告章節沒有有效回覆；請核對此版本。')
+        cleaned = self._strip_fake_tool_results(response)
+        if not cleaned or ('Final Answer:' in cleaned and not cleaned.rsplit('Final Answer:', 1)[-1].strip()):
+            raise ReportNeedsReview('報告章節沒有有效內容；請核對此版本。')
+        return cleaned
+
     def _generate_section_react(
         self, 
         section: ReportSection,
@@ -1341,22 +1421,13 @@ class ReportAgent:
                 )
             
             # 调用LLM
-            response = self.llm.chat(
+            response = self._checked_section_chat(
                 messages=messages,
                 temperature=0.5,
-                max_tokens=4096
+                max_tokens=4096,
+                tools=self._native_tools(),
+                tool_choice='required' if tool_calls_count < min_tool_calls else 'auto',
             )
-
-            # 检查 LLM 返回是否为 None（API 异常或内容为空）
-            if response is None:
-                logger.warning(t('report.sectionIterNone', title=section.title, iteration=iteration + 1))
-                # 如果还有迭代次数，添加消息并重试
-                if iteration < max_iterations - 1:
-                    messages.append({"role": "assistant", "content": "（响应为空）"})
-                    messages.append({"role": "user", "content": "请继续生成内容。"})
-                    continue
-                # 最后一次迭代也返回 None，跳出循环进入强制收尾
-                break
 
             logger.debug(f"LLM响应: {response[:200]}...")
 
@@ -1547,17 +1618,13 @@ class ReportAgent:
         logger.warning(t('report.sectionMaxIter', title=section.title))
         messages.append({"role": "user", "content": REACT_FORCE_FINAL_MSG})
         
-        response = self.llm.chat(
+        response = self._checked_section_chat(
             messages=messages,
             temperature=0.5,
             max_tokens=4096
         )
 
-        # 检查强制收尾时 LLM 返回是否为 None
-        if response is None:
-            logger.error(t('report.sectionForceFailed', title=section.title))
-            final_answer = t('report.sectionGenFailedContent')
-        elif "Final Answer:" in response:
+        if "Final Answer:" in response:
             final_answer = response.split("Final Answer:")[-1].strip()
         else:
             final_answer = response
@@ -1617,7 +1684,10 @@ class ReportAgent:
         
         # 已完成的章节标题列表（用于进度追踪）
         completed_section_titles = []
-        
+
+        # 本次報告的身分；所有共用 logger 的紀錄都依此過濾，finally 一律解除
+        console_identity = current_report_id.set(report_id)
+
         try:
             # 初始化：创建报告文件夹并保存初始状态
             ReportManager._ensure_report_folder(report_id)
@@ -1709,6 +1779,8 @@ class ReportAgent:
                         ) if progress_callback else None,
                     section_index=section_num
                 )
+                if not isinstance(section_content, str) or not section_content.strip():
+                    raise ReportNeedsReview('報告章節沒有有效內容；請核對此版本。')
                 
                 section.content = section_content
                 generated_sections.append(f"## {section.title}\n\n{section_content}")
@@ -1747,8 +1819,15 @@ class ReportAgent:
                 completed_sections=completed_section_titles
             )
             
-            # 使用ReportManager组装完整报告
-            report.markdown_content = ReportManager.assemble_full_report(report_id, outline)
+            # 组装前核對大綱需要的章節與已保存正文；缺章不得宣告完成
+            missing_sections = ReportManager.missing_section_indexes(report_id, outline)
+            if missing_sections:
+                raise ReportSectionsMissing(missing_sections)
+
+            # 使用ReportManager组装完整报告（缺章時本身也會拒絕）
+            report.markdown_content = ReportManager.assemble_full_report(report_id, outline) or ''
+            if not report.markdown_content:
+                raise ReportNeedsReview('完整報告未能組裝；請核對此版本。')
             report.status = ReportStatus.COMPLETED
             report.completed_at = datetime.now().isoformat()
             
@@ -1782,19 +1861,19 @@ class ReportAgent:
             return report
             
         except Exception as e:
-            logger.error(t('report.reportGenFailed', error=str(e)))
-            report.status = ReportStatus.FAILED
-            report.error = str(e)
+            logger.error('Report generation failed: %s', type(e).__name__)
+            report.status = ReportStatus.NEEDS_REVIEW if getattr(e, 'outcome_unknown', False) else ReportStatus.FAILED
+            report.error = getattr(e, 'public_error', None) or '報告生成未完成；回覆結果未確認，已保存的內容仍保留。'
             
             # 记录错误日志
             if self.report_logger:
-                self.report_logger.log_error(str(e), "failed")
+                self.report_logger.log_error(report.error, report.status.value)
             
             # 保存失败状态
             try:
                 ReportManager.save_report(report)
                 ReportManager.update_progress(
-                    report_id, "failed", -1, t('progress.reportFailed', error=str(e)),
+                    report_id, report.status.value, -1, t('progress.reportFailed', error=report.error),
                     completed_sections=completed_section_titles
                 )
             except Exception:
@@ -1806,6 +1885,9 @@ class ReportAgent:
                 self.console_logger = None
             
             return report
+        finally:
+            # 成功、失敗與例外路徑都解除身分，處理器也已在各路径移除
+            current_report_id.reset(console_identity)
     
     def chat(
         self, 
@@ -1871,7 +1953,9 @@ class ReportAgent:
         for iteration in range(max_iterations):
             response = self.llm.chat(
                 messages=messages,
-                temperature=0.5
+                temperature=0.5,
+                tools=self._native_tools(),
+                tool_choice='auto',
             )
             
             # 解析工具调用
@@ -1928,6 +2012,22 @@ class ReportAgent:
         }
 
 
+# 每份報告一條生命週期鎖：保存／組裝與刪除不得交錯（同一行程內共用）
+_REPORT_LOCKS: Dict[str, threading.RLock] = {}
+_REPORT_LOCKS_GUARD = threading.Lock()
+
+
+def _lifecycle_locked(method):
+    """Run a report method under that report's lifecycle lock."""
+
+    @functools.wraps(method)
+    def locked(cls, report_id, *args, **kwargs):
+        with cls.report_lock(report_id):
+            return method(cls, report_id, *args, **kwargs)
+
+    return locked
+
+
 class ReportManager:
     """
     报告管理器
@@ -1950,6 +2050,12 @@ class ReportManager:
     REPORTS_DIR = os.path.join(Config.UPLOAD_FOLDER, 'reports')
     
     @classmethod
+    def report_lock(cls, report_id: str) -> threading.RLock:
+        """該報告的共用鎖（可重入）：刪除不會與背景保存或組裝交錯。"""
+        with _REPORT_LOCKS_GUARD:
+            return _REPORT_LOCKS.setdefault(report_id, threading.RLock())
+
+    @classmethod
     def _ensure_reports_dir(cls):
         """确保报告根目录存在"""
         os.makedirs(cls.REPORTS_DIR, exist_ok=True)
@@ -1957,6 +2063,8 @@ class ReportManager:
     @classmethod
     def _get_report_folder(cls, report_id: str) -> str:
         """获取报告文件夹路径"""
+        if not isinstance(report_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', report_id):
+            raise ValueError('Invalid report identity')
         return os.path.join(cls.REPORTS_DIR, report_id)
     
     @classmethod
@@ -2139,6 +2247,7 @@ class ReportManager:
         logger.info(t('report.outlineSaved', reportId=report_id))
     
     @classmethod
+    @_lifecycle_locked
     def save_section(
         cls,
         report_id: str,
@@ -2315,12 +2424,25 @@ class ReportManager:
         return sections
     
     @classmethod
-    def assemble_full_report(cls, report_id: str, outline: ReportOutline) -> str:
+    def missing_section_indexes(cls, report_id: str, outline: ReportOutline) -> List[int]:
+        """大綱要求但沒有保存正文檔的章節編號（組裝不得略過）。"""
+        saved = {info['section_index'] for info in cls.get_generated_sections(report_id)}
+        return [index for index in range(1, len(outline.sections or []) + 1) if index not in saved]
+
+    @classmethod
+    @_lifecycle_locked
+    def assemble_full_report(cls, report_id: str, outline: ReportOutline) -> Optional[str]:
         """
         组装完整报告
         
         从已保存的章节文件组装完整报告，并进行标题清理
+        
+        大綱章節缺正文時回傳 None：不得把部分章節當成完整全文寫入或宣告完成。
         """
+        if cls.missing_section_indexes(report_id, outline):
+            logger.warning('報告章節不完整，未寫入完整全文: %s', report_id)
+            return None
+
         folder = cls._get_report_folder(report_id)
         
         # 构建报告头部
@@ -2473,21 +2595,28 @@ class ReportManager:
     @classmethod
     def save_report(cls, report: Report) -> None:
         """保存报告元信息和完整报告"""
-        cls._ensure_report_folder(report.report_id)
-        
-        # 保存元信息JSON
-        with open(cls._get_report_path(report.report_id), 'w', encoding='utf-8') as f:
-            json.dump(report.to_dict(), f, ensure_ascii=False, indent=2)
-        
-        # 保存大纲
-        if report.outline:
-            cls.save_outline(report.report_id, report.outline)
-        
-        # 保存完整Markdown报告
-        if report.markdown_content:
-            with open(cls._get_report_markdown_path(report.report_id), 'w', encoding='utf-8') as f:
-                f.write(report.markdown_content)
-        
+        with cls.report_lock(report.report_id):
+            cls._ensure_report_folder(report.report_id)
+
+            # The agent updates content while the execution identity stays frozen.
+            path = cls._get_report_path(report.report_id)
+            if os.path.exists(path):
+                with open(path, encoding='utf-8') as stream:
+                    existing = json.load(stream)
+                for key in ('run_id', 'task_id', 'version', 'manifest'):
+                    if existing.get(key) is not None:
+                        setattr(report, key, existing[key])
+            write_json(path, report.to_dict())
+
+            # 保存大纲
+            if report.outline:
+                cls.save_outline(report.report_id, report.outline)
+
+            # 保存完整Markdown报告
+            if report.markdown_content:
+                with open(cls._get_report_markdown_path(report.report_id), 'w', encoding='utf-8') as f:
+                    f.write(report.markdown_content)
+
         logger.info(t('report.reportSaved', reportId=report.report_id))
     
     @classmethod
@@ -2530,6 +2659,11 @@ class ReportManager:
                 with open(full_report_path, 'r', encoding='utf-8') as f:
                     markdown_content = f.read()
         
+        if data.get('task_id') and data['status'] not in {'completed', 'failed', 'interrupted', 'needs_review'}:
+            from ..models.task import TaskManager
+            task = TaskManager().get_task(data['task_id'])
+            if task and task.status.value in {'failed', 'interrupted', 'needs_review'}:
+                data['status'], data['error'] = task.status.value, task.error
         return Report(
             report_id=data['report_id'],
             simulation_id=data['simulation_id'],
@@ -2540,29 +2674,16 @@ class ReportManager:
             markdown_content=markdown_content,
             created_at=data.get('created_at', ''),
             completed_at=data.get('completed_at', ''),
-            error=data.get('error')
+            error=data.get('error'),
+            run_id=data.get('run_id'), task_id=data.get('task_id'),
+            version=data.get('version', 1), manifest=data.get('manifest', {}),
         )
     
     @classmethod
     def get_report_by_simulation(cls, simulation_id: str) -> Optional[Report]:
         """根据模拟ID获取报告"""
-        cls._ensure_reports_dir()
-        
-        for item in os.listdir(cls.REPORTS_DIR):
-            item_path = os.path.join(cls.REPORTS_DIR, item)
-            # 新格式：文件夹
-            if os.path.isdir(item_path):
-                report = cls.get_report(item)
-                if report and report.simulation_id == simulation_id:
-                    return report
-            # 兼容旧格式：JSON文件
-            elif item.endswith('.json'):
-                report_id = item[:-5]
-                report = cls.get_report(report_id)
-                if report and report.simulation_id == simulation_id:
-                    return report
-        
-        return None
+        reports = cls.list_reports(simulation_id, limit=None)
+        return max(reports, key=lambda item: (item.created_at, item.version, item.report_id)) if reports else None
     
     @classmethod
     def list_reports(cls, simulation_id: Optional[str] = None, limit: int = 50) -> List[Report]:
@@ -2592,6 +2713,7 @@ class ReportManager:
         return reports[:limit]
     
     @classmethod
+    @_lifecycle_locked
     def delete_report(cls, report_id: str) -> bool:
         """删除报告（整个文件夹）"""
         import shutil

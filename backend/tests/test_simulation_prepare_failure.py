@@ -77,6 +77,8 @@ def test_zero_entities_persists_failed_state_and_raises(tmp_path, monkeypatch):
         simulation_id="sim_empty",
         project_id="project",
         graph_id="graph",
+        source_graph_id="source_graph",
+        graph_namespace_status="ready",
         status=SimulationStatus.READY,
         profiles_generated=True,
         config_generated=True,

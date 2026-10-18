@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-10-02T22:12:34.162Z",
+  "scope": "Isolated local synthetic fixture only; no production configuration or provider credentials changed",
+  "url": "http://127.0.0.1:3131/tests/ui-preview.html#/settings",
+  "mobile": {
+    "clientWidth": 384,
+    "innerHeight": 844,
+    "innerWidth": 390,
+    "scrollWidth": 384
+  },
+  "desktop": {
+    "innerWidth": 1280,
+    "innerHeight": 901,
+    "horizontalOverflow": false
+  },
+  "verified": [
+    "390px Chinese light/dark settings layout: no horizontal overflow",
+    "390px English models, appearance, data collection and service status: no horizontal overflow",
+    "1280px English desktop layout and controls",
+    "Keyboard Enter opens sections and moves focus into panel",
+    "Keyboard Tab enters theme radios; ArrowRight changes light to dark",
+    "Theme card click changes dark back to light",
+    "Fixture-only OpenRouter model loading, model selection and save; key cleared after saving",
+    "Uncapped OpenRouter limit shown as unknown dash, not unlimited wallet or zero",
+    "Service refresh works",
+    "English custom endpoint provider label fixed"
+  ],
+  "screenshots": [
+    "settings-mobile-390-light.jpg",
+    "settings-mobile-390-dark.jpg",
+    "settings-mobile-390-dark-form.jpg",
+    "settings-desktop-english.jpg"
+  ],
+  "consoleWarningsAndErrors": [
+    {
+      "level": "warn",
+      "message": "[intlify] Not found 'providers.customProvider' key in 'zh' locale messages.",
+      "timestamp": "2026-10-02T22:08:19.299Z",
+      "url": "http://127.0.0.1:3131/node_modules/.vite/deps/vue-i18n.js?v=96e8b553"
+    }
+  ],
+  "notes": [
+    "Viewport screenshots; full-page capture was unavailable",
+    "Chrome API-key generated-password preview was observed; parent changed autocomplete and password-manager hints afterward. No real key was exposed.",
+    "Frontend 122/122 test result supplied separately; this report records UI acceptance only",
+    "One historical intlify warning occurred during HMR at 08:08:19, before locale reload at 08:08:23. Final English UI contains the translated custom endpoint label."
+  ]
+}

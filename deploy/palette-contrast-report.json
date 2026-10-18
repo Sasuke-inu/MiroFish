@@ -1,0 +1,438 @@
+{
+  "date": "2026-10-02T21:46:24.532Z",
+  "method": "WCAG relative luminance, text foreground/background pairs; excludes images, disabled controls and decorative borders",
+  "results": [
+    {
+      "mode": "light",
+      "foregroundToken": "studio-ink",
+      "backgroundToken": "studio-paper",
+      "foreground": "#282b25",
+      "background": "#d5cec1",
+      "contrast": 9.18,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-ink",
+      "backgroundToken": "studio-surface",
+      "foreground": "#282b25",
+      "background": "#e4ded2",
+      "contrast": 10.72,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-muted",
+      "backgroundToken": "studio-paper",
+      "foreground": "#515548",
+      "background": "#d5cec1",
+      "contrast": 4.9,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-muted",
+      "backgroundToken": "studio-surface",
+      "foreground": "#515548",
+      "background": "#e4ded2",
+      "contrast": 5.72,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-faint",
+      "backgroundToken": "studio-paper",
+      "foreground": "#555946",
+      "background": "#d5cec1",
+      "contrast": 4.62,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-faint",
+      "backgroundToken": "studio-surface",
+      "foreground": "#555946",
+      "background": "#e4ded2",
+      "contrast": 5.4,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-on-filled",
+      "backgroundToken": "studio-button",
+      "foreground": "#f5efdf",
+      "background": "#34392d",
+      "contrast": 10.34,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-on-filled",
+      "backgroundToken": "studio-button-hover",
+      "foreground": "#f5efdf",
+      "background": "#474e3c",
+      "contrast": 7.55,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-info-ink",
+      "backgroundToken": "theme-info-surface",
+      "foreground": "#454f29",
+      "background": "#d8dcc8",
+      "contrast": 6.24,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-success-ink",
+      "backgroundToken": "theme-success-surface",
+      "foreground": "#355b40",
+      "background": "#d4dfcf",
+      "contrast": 5.6,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-warning-ink",
+      "backgroundToken": "theme-warning-surface",
+      "foreground": "#755019",
+      "background": "#ead8b2",
+      "contrast": 5.13,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-accent-ink",
+      "backgroundToken": "theme-accent-surface",
+      "foreground": "#805014",
+      "background": "#e8d8b9",
+      "contrast": 4.86,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-error-ink",
+      "backgroundToken": "theme-error-surface",
+      "foreground": "#963e31",
+      "background": "#ead0c5",
+      "contrast": 4.73,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "theme-purple-ink",
+      "backgroundToken": "theme-purple-surface",
+      "foreground": "#70495c",
+      "background": "#e0d2da",
+      "contrast": 5.15,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-0",
+      "foreground": "#f5efdf",
+      "background": "#9c5a22",
+      "contrast": 4.69,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-1",
+      "foreground": "#f5efdf",
+      "background": "#5b643b",
+      "contrast": 5.49,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-2",
+      "foreground": "#f5efdf",
+      "background": "#775569",
+      "contrast": 5.56,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-3",
+      "foreground": "#f5efdf",
+      "background": "#3c6b50",
+      "contrast": 5.36,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-4",
+      "foreground": "#f5efdf",
+      "background": "#9a4546",
+      "contrast": 5.52,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-5",
+      "foreground": "#f5efdf",
+      "background": "#8b603b",
+      "contrast": 4.77,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-6",
+      "foreground": "#f5efdf",
+      "background": "#636844",
+      "contrast": 5.09,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-7",
+      "foreground": "#f5efdf",
+      "background": "#6c526e",
+      "contrast": 5.96,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-8",
+      "foreground": "#f5efdf",
+      "background": "#4b684e",
+      "contrast": 5.4,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "light",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-9",
+      "foreground": "#f5efdf",
+      "background": "#886618",
+      "contrast": 4.62,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-ink",
+      "backgroundToken": "studio-paper",
+      "foreground": "#f0eadc",
+      "background": "#1b1d19",
+      "contrast": 14.16,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-ink",
+      "backgroundToken": "studio-surface",
+      "foreground": "#f0eadc",
+      "background": "#252822",
+      "contrast": 12.46,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-muted",
+      "backgroundToken": "studio-paper",
+      "foreground": "#b9bca9",
+      "background": "#1b1d19",
+      "contrast": 8.76,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-muted",
+      "backgroundToken": "studio-surface",
+      "foreground": "#b9bca9",
+      "background": "#252822",
+      "contrast": 7.71,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-faint",
+      "backgroundToken": "studio-paper",
+      "foreground": "#adb29e",
+      "background": "#1b1d19",
+      "contrast": 7.8,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-faint",
+      "backgroundToken": "studio-surface",
+      "foreground": "#adb29e",
+      "background": "#252822",
+      "contrast": 6.86,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-on-filled",
+      "backgroundToken": "studio-button",
+      "foreground": "#f5efdf",
+      "background": "#4e593f",
+      "contrast": 6.48,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-on-filled",
+      "backgroundToken": "studio-button-hover",
+      "foreground": "#f5efdf",
+      "background": "#606d4c",
+      "contrast": 4.83,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-info-ink",
+      "backgroundToken": "theme-info-surface",
+      "foreground": "#c2ce8c",
+      "background": "#343b25",
+      "contrast": 6.95,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-success-ink",
+      "backgroundToken": "theme-success-surface",
+      "foreground": "#aed19a",
+      "background": "#2b3928",
+      "contrast": 7.21,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-warning-ink",
+      "backgroundToken": "theme-warning-surface",
+      "foreground": "#ecc37e",
+      "background": "#403622",
+      "contrast": 7.17,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-accent-ink",
+      "backgroundToken": "theme-accent-surface",
+      "foreground": "#e8b869",
+      "background": "#3e3422",
+      "contrast": 6.68,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-error-ink",
+      "backgroundToken": "theme-error-surface",
+      "foreground": "#efac95",
+      "background": "#432d27",
+      "contrast": 6.7,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "theme-purple-ink",
+      "backgroundToken": "theme-purple-surface",
+      "foreground": "#d4b1c5",
+      "background": "#3a2d38",
+      "contrast": 6.76,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-0",
+      "foreground": "#23271d",
+      "background": "#e8b869",
+      "contrast": 8.33,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-1",
+      "foreground": "#23271d",
+      "background": "#bbc788",
+      "contrast": 8.44,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-2",
+      "foreground": "#23271d",
+      "background": "#cca7ba",
+      "contrast": 7.11,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-3",
+      "foreground": "#23271d",
+      "background": "#a3cea5",
+      "contrast": 8.65,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-4",
+      "foreground": "#23271d",
+      "background": "#e5a096",
+      "contrast": 7.1,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-5",
+      "foreground": "#23271d",
+      "background": "#d5ac87",
+      "contrast": 7.31,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-6",
+      "foreground": "#23271d",
+      "background": "#c4c08b",
+      "contrast": 8.16,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-7",
+      "foreground": "#23271d",
+      "background": "#bfa5c7",
+      "contrast": 6.83,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-8",
+      "foreground": "#23271d",
+      "background": "#a0b58a",
+      "contrast": 6.87,
+      "meetsNormalTextAA": true
+    },
+    {
+      "mode": "dark",
+      "foregroundToken": "studio-graph-badge-text",
+      "backgroundToken": "studio-graph-color-9",
+      "foreground": "#23271d",
+      "background": "#ded088",
+      "contrast": 9.78,
+      "meetsNormalTextAA": true
+    }
+  ]
+}

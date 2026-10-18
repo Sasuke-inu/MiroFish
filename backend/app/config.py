@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 
 if os.path.exists(project_root_env):
-    load_dotenv(project_root_env, override=True)
+    load_dotenv(project_root_env, override=False)
 else:
     # 如果根目录没有 .env，尝试加载环境变量（用于生产环境）
-    load_dotenv(override=True)
+    load_dotenv(override=False)
 
 
 class Config:
@@ -31,6 +31,31 @@ class Config:
     
     # Zep配置
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
+    # Keep Cloud available for existing installations; the local Compose uses Graphiti.
+    GRAPH_PROVIDER = os.environ.get('GRAPH_PROVIDER', 'zep').strip().lower()
+    GRAPHITI_BASE_URL = os.environ.get('GRAPHITI_BASE_URL', 'http://graphiti:5010')
+    GRAPHITI_API_KEY = os.environ.get('GRAPHITI_API_KEY', '')
+
+    # Optional input collection. The local integration never falls back to Cloud.
+    FIRECRAWL_ENABLED = os.environ.get('FIRECRAWL_ENABLED', 'false').lower() == 'true'
+    FIRECRAWL_BASE_URL = os.environ.get('FIRECRAWL_BASE_URL', 'http://127.0.0.1:3002')
+    FIRECRAWL_API_KEY = os.environ.get('FIRECRAWL_API_KEY', '')
+    FIRECRAWL_MAX_PAGES_PER_JOB = os.environ.get('FIRECRAWL_MAX_PAGES_PER_JOB', '3')
+    FIRECRAWL_DAILY_PAGE_LIMIT = os.environ.get('FIRECRAWL_DAILY_PAGE_LIMIT', '10')
+    FIRECRAWL_BUDGET_TIMEZONE = os.environ.get('FIRECRAWL_BUDGET_TIMEZONE', 'Australia/Sydney')
+
+    @classmethod
+    def graph_configuration_errors(cls, settings=None) -> list[str]:
+        get = settings.get if settings is not None else lambda key, default=None: getattr(cls, key, default)
+        provider = get('GRAPH_PROVIDER', 'zep')
+        if provider == 'graphiti':
+            return [f'{key} 未配置' for key in ('GRAPHITI_BASE_URL', 'GRAPHITI_API_KEY') if not get(key)]
+        if provider != 'zep':
+            return ['GRAPH_PROVIDER 必須是 graphiti 或 zep']
+        errors = [] if get('ZEP_API_KEY') else ['ZEP_API_KEY 未配置']
+        if os.environ.get('ZEP_API_URL'):
+            errors.append('ZEP_API_URL 不受支持；Cloud 模式僅連接 Zep Cloud')
+        return errors
     
     # 文件上传配置
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
@@ -64,12 +89,14 @@ class Config:
     def validate(cls) -> list[str]:
         """验证必要配置"""
         errors: list[str] = []
-        if not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY 未配置")
-        if not cls.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY 未配置")
-        if os.environ.get("ZEP_API_URL"):
-            errors.append("ZEP_API_URL 不受支持；MiroFish 仅连接 Zep Cloud")
+        from .provider_settings import get_model_settings, SettingsError
+        try:
+            current = get_model_settings({key: getattr(cls, key) for key in ('LLM_API_KEY', 'LLM_BASE_URL', 'LLM_MODEL_NAME', 'UPLOAD_FOLDER')})
+            if not current.get('api_key'):
+                errors.append("LLM_API_KEY 未配置")
+        except SettingsError as error:
+            errors.append(str(error))
+        errors.extend(cls.graph_configuration_errors())
         if cls.DEBUG:
             import warnings
             warnings.warn("Flask DEBUG mode is enabled. Do not use in production.", RuntimeWarning)

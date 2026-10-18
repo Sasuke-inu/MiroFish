@@ -1,31 +1,32 @@
 <template>
-  <div class="language-switcher" ref="switcherRef">
-    <button class="switcher-trigger" @click="toggleDropdown">
+  <div class="language-switcher" ref="switcherRef" @keydown.esc.stop="closeDropdown(true)" @focusout="onFocusOut">
+    <button ref="triggerRef" type="button" class="switcher-trigger" @click="toggleDropdown" :aria-label="`${$t('settings.language')}: ${currentLabel}`" :aria-expanded="open" :aria-controls="dropdownId" @keydown.down.prevent="openAndFocus(0)" @keydown.up.prevent="openAndFocus(availableLocales.length - 1)">
       {{ currentLabel }}
       <span class="caret">{{ open ? '▲' : '▼' }}</span>
     </button>
-    <ul v-if="open" class="switcher-dropdown">
+    <ul v-if="open" :id="dropdownId" class="switcher-dropdown" @keydown="onChoiceKeydown">
       <li
         v-for="loc in availableLocales"
         :key="loc.key"
         class="switcher-option"
         :class="{ active: loc.key === locale }"
-        @click="switchLocale(loc.key)"
       >
-        {{ loc.label }}
+        <button type="button" class="locale-choice" @click="switchLocale(loc.key)" :aria-pressed="loc.key === locale">{{ loc.label }}</button>
       </li>
     </ul>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, useId } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { availableLocales } from '@/i18n/index.js'
 
 const { locale } = useI18n()
 const open = ref(false)
 const switcherRef = ref(null)
+const triggerRef = ref(null)
+const dropdownId = useId()
 
 const currentLabel = computed(() => {
   const found = availableLocales.find(l => l.key === locale.value)
@@ -36,11 +37,36 @@ const toggleDropdown = () => {
   open.value = !open.value
 }
 
+const closeDropdown = (restoreFocus = false) => {
+  open.value = false
+  if (restoreFocus) triggerRef.value?.focus()
+}
+const openAndFocus = async (index) => {
+  open.value = true
+  await nextTick()
+  switcherRef.value?.querySelectorAll('.locale-choice')[index]?.focus()
+}
+const onChoiceKeydown = (event) => {
+  const choices = Array.from(switcherRef.value?.querySelectorAll('.locale-choice') || [])
+  const current = choices.indexOf(document.activeElement)
+  let target
+  if (event.key === 'ArrowDown') target = (current + 1) % choices.length
+  else if (event.key === 'ArrowUp') target = (current - 1 + choices.length) % choices.length
+  else if (event.key === 'Home') target = 0
+  else if (event.key === 'End') target = choices.length - 1
+  else return
+  event.preventDefault()
+  choices[target]?.focus()
+}
+const onFocusOut = (event) => {
+  if (!switcherRef.value?.contains(event.relatedTarget)) closeDropdown()
+}
+
 const switchLocale = (key) => {
   locale.value = key
-  localStorage.setItem('locale', key)
+  try { localStorage.setItem('locale', key) } catch { /* Keep language switching available without storage. */ }
   document.documentElement.lang = key
-  open.value = false
+  closeDropdown(true)
 }
 
 const onClickOutside = (e) => {
@@ -69,8 +95,8 @@ onUnmounted(() => {
 /* Light theme (default - for white header backgrounds) */
 .switcher-trigger {
   background: transparent;
-  color: #333;
-  border: 1px solid #CCC;
+  color: var(--theme-ink, #333);
+  border: 1px solid var(--theme-line, #CCC);
   padding: 4px 12px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
@@ -82,7 +108,7 @@ onUnmounted(() => {
 }
 
 .switcher-trigger:hover {
-  border-color: #999;
+  border-color: var(--theme-line-strong, #999);
 }
 
 .caret {
@@ -94,8 +120,8 @@ onUnmounted(() => {
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: #FFFFFF;
-  border: 1px solid #DDD;
+  background: var(--theme-surface, #FFFFFF);
+  border: 1px solid var(--theme-line, #DDD);
   list-style: none;
   padding: 4px 0;
   min-width: 100%;
@@ -104,21 +130,38 @@ onUnmounted(() => {
 }
 
 .switcher-option {
-  padding: 6px 12px;
+  padding: 0;
   font-size: 0.8rem;
-  color: #333;
+  color: var(--theme-ink, #333);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
 }
 
+.locale-choice {
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 8px 12px;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+  font: inherit;
+}
+
 .switcher-option:hover {
-  background: #F0F0F0;
+  background: var(--theme-surface-soft, #F0F0F0);
 }
 
 .switcher-option.active {
-  color: var(--orange, #FF4500);
+  color: var(--studio-accent, #b84d28);
 }
+
+.switcher-trigger { min-height: 44px; border-radius: 8px; font-family: var(--studio-font, system-ui); font-size: 13px; }
+.switcher-dropdown { min-width: 148px; padding: 5px; border-radius: 10px; box-shadow: 0 12px 32px #0002; }
+.locale-choice { min-height: 44px; border-radius: 6px; font-family: var(--studio-font, system-ui); font-size: 14px; cursor: pointer; }
+.switcher-option.active .locale-choice { background: var(--studio-soft); font-weight: 600; }
+.switcher-trigger:focus-visible, .locale-choice:focus-visible { outline: 3px solid var(--studio-accent, #b84d28); outline-offset: 2px; }
 
 
 </style>

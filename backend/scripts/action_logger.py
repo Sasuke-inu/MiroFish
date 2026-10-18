@@ -15,8 +15,47 @@
 import json
 import os
 import logging
-from datetime import datetime
+import tempfile
+import threading
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+
+
+class EnvironmentHeartbeat:
+    """Refresh a run-scoped environment receipt while interviews are busy."""
+    def __init__(self, path):
+        self.path = path
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = None
+        self.payload = {}
+
+    def _write(self):
+        payload = {**self.payload, 'timestamp': datetime.now(timezone.utc).isoformat(),
+                   'run_id': os.environ.get('MIROFISH_RUN_ID'),
+                   'attempt_id': os.environ.get('MIROFISH_ATTEMPT_ID')}
+        with tempfile.NamedTemporaryFile(mode='w', dir=os.path.dirname(self.path), encoding='utf-8', delete=False) as handle:
+            temporary = handle.name
+            json.dump(payload, handle, ensure_ascii=False)
+        os.replace(temporary, self.path)
+
+    def _loop(self):
+        while not self.stop_event.wait(5):
+            with self.lock:
+                if self.stop_event.is_set():
+                    return
+                self._write()
+
+    def update(self, status, **availability):
+        with self.lock:
+            self.payload = {'status': status, **availability}
+            if status != 'alive':
+                self.stop_event.set()
+            self._write()
+            if status == 'alive' and (self.thread is None or not self.thread.is_alive()):
+                self.stop_event.clear()
+                self.thread = threading.Thread(target=self._loop, daemon=True)
+                self.thread.start()
 
 
 class PlatformActionLogger:
@@ -39,6 +78,13 @@ class PlatformActionLogger:
     def _ensure_dir(self):
         """确保目录存在"""
         os.makedirs(self.log_dir, exist_ok=True)
+
+    def _append(self, entry):
+        entry.update(run_id=os.environ.get('MIROFISH_RUN_ID'),
+                     attempt_id=os.environ.get('MIROFISH_ATTEMPT_ID'))
+        entry.setdefault('simulation_time', getattr(self, '_simulation_time', None))
+        with open(self.log_path, 'a', encoding='utf-8') as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + '\n')
     
     def log_action(
         self,
@@ -62,10 +108,10 @@ class PlatformActionLogger:
             "success": success,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
     def log_round_start(self, round_num: int, simulated_hour: int):
+        self._simulation_time = simulated_hour
         """记录轮次开始"""
         entry = {
             "round": round_num,
@@ -74,20 +120,23 @@ class PlatformActionLogger:
             "simulated_hour": simulated_hour,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
-    def log_round_end(self, round_num: int, actions_count: int):
-        """记录轮次结束"""
+    def log_round_end(self, round_num: int, actions_count: int, simulated_hours: Optional[float] = None):
+        """记录轮次结束
+
+        simulated_hours: 自模拟开始的累计模拟时数（可选，旧调用不带此栏）
+        """
         entry = {
             "round": round_num,
             "timestamp": datetime.now().isoformat(),
             "event_type": "round_end",
             "actions_count": actions_count,
         }
+        if simulated_hours is not None:
+            entry["simulated_hours"] = simulated_hours
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
     def log_simulation_start(self, config: Dict[str, Any]):
         """记录模拟开始"""
@@ -99,21 +148,27 @@ class PlatformActionLogger:
             "agents_count": len(config.get("agent_configs", [])),
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
-    def log_simulation_end(self, total_rounds: int, total_actions: int):
-        """记录模拟结束"""
+    def log_simulation_end(self, total_rounds: int, total_actions: int,
+                           exit_reason: str = 'completed', planned_rounds: Optional[int] = None):
+        """记录模拟结束
+
+        total_rounds: 实际完成的轮数（不是计划轮数）
+        exit_reason: 'completed' 正常跑完计划轮数；'stopped' 提前收到退出信号
+        planned_rounds: 计划轮数（未提供时视为与 total_rounds 相同，保持旧呼叫兼容）
+        """
         entry = {
             "timestamp": datetime.now().isoformat(),
             "event_type": "simulation_end",
             "platform": self.platform,
             "total_rounds": total_rounds,
             "total_actions": total_actions,
+            "exit_reason": exit_reason,
+            "planned_rounds": total_rounds if planned_rounds is None else planned_rounds,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
 
 
 class SimulationLogManager:
@@ -147,7 +202,7 @@ class SimulationLogManager:
         self._main_logger.handlers.clear()
         
         # 文件处理器
-        file_handler = logging.FileHandler(log_path, encoding='utf-8', mode='w')
+        file_handler = logging.FileHandler(log_path, encoding='utf-8', mode='a')
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(levelname)s - %(message)s',
@@ -212,6 +267,13 @@ class ActionLogger:
         log_dir = os.path.dirname(self.log_path)
         if log_dir:
             os.makedirs(log_dir, exist_ok=True)
+
+    def _append(self, entry):
+        entry.update(run_id=os.environ.get('MIROFISH_RUN_ID'),
+                     attempt_id=os.environ.get('MIROFISH_ATTEMPT_ID'))
+        entry.setdefault('simulation_time', getattr(self, '_simulation_times', {}).get(entry.get('platform')))
+        with open(self.log_path, 'a', encoding='utf-8') as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + '\n')
     
     def log_action(
         self,
@@ -236,10 +298,11 @@ class ActionLogger:
             "success": success,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
     def log_round_start(self, round_num: int, simulated_hour: int, platform: str):
+        self._simulation_times = getattr(self, '_simulation_times', {})
+        self._simulation_times[platform] = simulated_hour
         entry = {
             "round": round_num,
             "timestamp": datetime.now().isoformat(),
@@ -248,10 +311,10 @@ class ActionLogger:
             "simulated_hour": simulated_hour,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
-    def log_round_end(self, round_num: int, actions_count: int, platform: str):
+    def log_round_end(self, round_num: int, actions_count: int, platform: str,
+                      simulated_hours: Optional[float] = None):
         entry = {
             "round": round_num,
             "timestamp": datetime.now().isoformat(),
@@ -259,9 +322,10 @@ class ActionLogger:
             "event_type": "round_end",
             "actions_count": actions_count,
         }
+        if simulated_hours is not None:
+            entry["simulated_hours"] = simulated_hours
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
     def log_simulation_start(self, platform: str, config: Dict[str, Any]):
         entry = {
@@ -272,20 +336,21 @@ class ActionLogger:
             "agents_count": len(config.get("agent_configs", [])),
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
     
-    def log_simulation_end(self, platform: str, total_rounds: int, total_actions: int):
+    def log_simulation_end(self, platform: str, total_rounds: int, total_actions: int,
+                           exit_reason: str = 'completed', planned_rounds: Optional[int] = None):
         entry = {
             "timestamp": datetime.now().isoformat(),
             "platform": platform,
             "event_type": "simulation_end",
             "total_rounds": total_rounds,
             "total_actions": total_actions,
+            "exit_reason": exit_reason,
+            "planned_rounds": total_rounds if planned_rounds is None else planned_rounds,
         }
         
-        with open(self.log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        self._append(entry)
 
 
 # 全局日志实例（兼容旧接口）

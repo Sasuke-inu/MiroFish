@@ -95,6 +95,10 @@ def test_provider_error_is_propagated_without_guessing_or_retrying():
     [
         ("gpt-5", True),
         (" GPT-5.1-mini ", True),
+        ("cx/gpt-5.6-luna", True),
+        ("ocg/gpt-5.6-luna", True),
+        ("opencode-go/gpt-5.6-luna", True),
+        ("custom/gpt-5-proxy", False),
         ("gpt-4.1", False),
         ("my-gpt-5-proxy", False),
         (None, False),
@@ -102,6 +106,18 @@ def test_provider_error_is_propagated_without_guessing_or_retrying():
 )
 def test_gpt5_family_detection(model, expected):
     assert is_gpt5_family(model) is expected
+
+
+def test_router_alias_keeps_routing_name_and_uses_completion_token_limit():
+    recorder = CompletionRecorder()
+    create_chat_completion(
+        client_for(recorder), model='cx/gpt-5.6-luna', messages=[],
+        temperature=0.7, max_tokens=512,
+    )
+    assert recorder.calls == [{
+        'model': 'cx/gpt-5.6-luna', 'messages': [],
+        'max_completion_tokens': 512,
+    }]
 
 
 def test_extracts_text_from_supported_content_shapes():

@@ -12,12 +12,14 @@ import os
 import json
 import time
 import uuid
+import threading
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from ..utils.logger import get_logger
+from ..utils.atomic import write_json
 
 logger = get_logger('mirofish.simulation_ipc')
 
@@ -44,13 +46,17 @@ class IPCCommand:
     command_type: CommandType
     args: Dict[str, Any]
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+    run_id: Optional[str] = None
+    attempt_id: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
             "command_id": self.command_id,
             "command_type": self.command_type.value,
             "args": self.args,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
+            "run_id": self.run_id,
+            "attempt_id": self.attempt_id,
         }
     
     @classmethod
@@ -59,7 +65,8 @@ class IPCCommand:
             command_id=data["command_id"],
             command_type=CommandType(data["command_type"]),
             args=data.get("args", {}),
-            timestamp=data.get("timestamp", datetime.now().isoformat())
+            timestamp=data.get("timestamp", datetime.now().isoformat()),
+            run_id=data.get('run_id'), attempt_id=data.get('attempt_id'),
         )
 
 
@@ -136,17 +143,21 @@ class SimulationIPCClient:
         Raises:
             TimeoutError: 等待响应超时
         """
+        if not self.check_env_alive():
+            raise ValueError('The interview environment is not verified and ready for this execution.')
+        with open(os.path.join(self.simulation_dir, 'run_state.json'), encoding='utf-8') as handle:
+            execution = json.load(handle)
         command_id = str(uuid.uuid4())
         command = IPCCommand(
             command_id=command_id,
             command_type=command_type,
-            args=args
+            args=args,
+            run_id=execution['run_id'], attempt_id=execution['attempt_id'],
         )
         
         # 写入命令文件
         command_file = os.path.join(self.commands_dir, f"{command_id}.json")
-        with open(command_file, 'w', encoding='utf-8') as f:
-            json.dump(command.to_dict(), f, ensure_ascii=False, indent=2)
+        write_json(command_file, command.to_dict())
         
         logger.info(f"发送IPC命令: {command_type.value}, command_id={command_id}")
         
@@ -159,6 +170,8 @@ class SimulationIPCClient:
                 try:
                     with open(response_file, 'r', encoding='utf-8') as f:
                         response_data = json.load(f)
+                    if any(response_data.get(key) != execution[key] for key in ('run_id', 'attempt_id')):
+                        raise ValueError('Interview response belongs to a different execution.')
                     response = IPCResponse.from_dict(response_data)
                     
                     # 清理命令和响应文件
@@ -280,8 +293,26 @@ class SimulationIPCClient:
         try:
             with open(status_file, 'r', encoding='utf-8') as f:
                 status = json.load(f)
-            return status.get("status") == "alive"
-        except (json.JSONDecodeError, OSError):
+            timestamp = datetime.fromisoformat(status.get('timestamp', ''))
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.astimezone()
+            age = (datetime.now(timezone.utc) - timestamp).total_seconds()
+            if status.get('status') != 'alive' or not -5 <= age <= 30:
+                return False
+            state_path = os.path.join(self.simulation_dir, 'run_state.json')
+            if not os.path.exists(state_path):
+                return False
+            with open(state_path, encoding='utf-8') as handle:
+                execution = json.load(handle)
+            if execution.get('runner_status') != 'completed' or not execution.get('run_id'):
+                return False
+            # Interviews only need the finished loop and a drained graph write.
+            # A completed run that never requested graph updates (R03) keeps
+            # graph_ready False by design and must not lose its interview window.
+            if execution.get('graph_ready') is not True and execution.get('graph_update_status') != 'not_requested':
+                return False
+            return all(status.get(key) == execution.get(key) for key in ('run_id', 'attempt_id'))
+        except (json.JSONDecodeError, OSError, ValueError, TypeError):
             return False
 
 
@@ -309,25 +340,38 @@ class SimulationIPCServer:
         
         # 环境状态
         self._running = False
+        self._heartbeat_stop = threading.Event()
+        self._heartbeat_lock = threading.Lock()
     
     def start(self):
         """标记服务器为运行状态"""
         self._running = True
         self._update_env_status("alive")
+        self._heartbeat_stop.clear()
+        threading.Thread(target=self._refresh_heartbeat, daemon=True).start()
+
+    def _refresh_heartbeat(self):
+        while not self._heartbeat_stop.wait(5):
+            with self._heartbeat_lock:
+                if self._running:
+                    self._update_env_status('alive')
     
     def stop(self):
         """标记服务器为停止状态"""
-        self._running = False
-        self._update_env_status("stopped")
+        with self._heartbeat_lock:
+            self._running = False
+            self._heartbeat_stop.set()
+            self._update_env_status("stopped")
     
     def _update_env_status(self, status: str):
         """更新环境状态文件"""
         status_file = os.path.join(self.simulation_dir, "env_status.json")
-        with open(status_file, 'w', encoding='utf-8') as f:
-            json.dump({
+        write_json(status_file, {
                 "status": status,
-                "timestamp": datetime.now().isoformat()
-            }, f, ensure_ascii=False, indent=2)
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "run_id": os.environ.get('MIROFISH_RUN_ID'),
+                "attempt_id": os.environ.get('MIROFISH_ATTEMPT_ID'),
+            })
     
     def poll_commands(self) -> Optional[IPCCommand]:
         """
@@ -352,6 +396,11 @@ class SimulationIPCServer:
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                if not os.environ.get('MIROFISH_RUN_ID') or any(
+                    data.get(key) != os.environ.get(environment)
+                    for key, environment in [('run_id', 'MIROFISH_RUN_ID'), ('attempt_id', 'MIROFISH_ATTEMPT_ID')]
+                ):
+                    continue
                 return IPCCommand.from_dict(data)
             except (json.JSONDecodeError, KeyError, OSError) as e:
                 logger.warning(f"读取命令文件失败: {filepath}, {e}")
@@ -367,8 +416,9 @@ class SimulationIPCServer:
             response: IPC响应
         """
         response_file = os.path.join(self.responses_dir, f"{response.command_id}.json")
-        with open(response_file, 'w', encoding='utf-8') as f:
-            json.dump(response.to_dict(), f, ensure_ascii=False, indent=2)
+        write_json(response_file, {**response.to_dict(),
+                   'run_id': os.environ.get('MIROFISH_RUN_ID'),
+                   'attempt_id': os.environ.get('MIROFISH_ATTEMPT_ID')})
         
         # 删除命令文件
         command_file = os.path.join(self.commands_dir, f"{response.command_id}.json")

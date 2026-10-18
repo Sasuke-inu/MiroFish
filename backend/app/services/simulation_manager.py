@@ -6,20 +6,34 @@ OASIS模拟管理器
 
 import os
 import json
-import shutil
+import hashlib
+import re
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from ..config import Config
+from ..provider_settings import with_model_snapshot, get_model_settings, model_settings_snapshot
+from ..models.execution import RunStore, public_manifest
+from ..utils.zep import get_zep_client
+from ..local_graph.namespace_clone import mapped_uuid
+from ..utils.atomic import write_json
 from ..utils.logger import get_logger
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
-from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
+from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile, PreparationNeedsReview
 from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
 from ..utils.locale import t
 
 logger = get_logger('mirofish.simulation')
+
+
+class PreparationNoEntities(ValueError):
+    """Known local validation failure with a fixed, safe public explanation."""
+    message = "没有找到符合条件的实体，请检查图谱是否正确构建"
+
+    def __init__(self):
+        super().__init__(self.message)
 
 
 class SimulationStatus(str, Enum):
@@ -33,6 +47,9 @@ class SimulationStatus(str, Enum):
     STOPPED = "stopped"      # 模拟被手动停止
     COMPLETED = "completed"  # 模拟自然完成
     FAILED = "failed"
+    FINALIZING = "finalizing"
+    INTERRUPTED = "interrupted"
+    NEEDS_REVIEW = "needs_review"
 
 
 class PlatformType(str, Enum):
@@ -76,6 +93,13 @@ class SimulationState:
     
     # 错误信息
     error: Optional[str] = None
+    model_snapshot: Dict[str, Any] = field(default_factory=dict)
+    preparation_task_id: Optional[str] = None
+    source_graph_id: Optional[str] = None
+    graph_namespace_status: str = 'legacy_unverified'
+    graph_clone_operation_id: Optional[str] = None
+    simulation_model_snapshot: Dict[str, Any] = field(default_factory=dict)
+    simulation_model_frozen_at: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """完整状态字典（内部使用）"""
@@ -98,6 +122,13 @@ class SimulationState:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "error": self.error,
+            "model_snapshot": self.model_snapshot,
+            "preparation_task_id": self.preparation_task_id,
+            "source_graph_id": self.source_graph_id,
+            "graph_namespace_status": self.graph_namespace_status,
+            "graph_clone_operation_id": self.graph_clone_operation_id,
+            "simulation_model_snapshot": self.simulation_model_snapshot,
+            "simulation_model_frozen_at": self.simulation_model_frozen_at,
         }
     
     def get_default_platform(self) -> str:
@@ -115,6 +146,9 @@ class SimulationState:
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
             "graph_id": self.graph_id,
+            "source_graph_id": self.source_graph_id,
+            "graph_namespace_status": self.graph_namespace_status,
+            "graph_clone_operation_id": self.graph_clone_operation_id,
             "status": self.status.value,
             "entities_count": self.entities_count,
             "profiles_count": self.profiles_count,
@@ -151,6 +185,8 @@ class SimulationManager:
     
     def _get_simulation_dir(self, simulation_id: str) -> str:
         """获取模拟数据目录"""
+        if not isinstance(simulation_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,200}', simulation_id):
+            raise ValueError('模擬識別格式無效。')
         sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
         os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
@@ -162,8 +198,7 @@ class SimulationManager:
         
         state.updated_at = datetime.now().isoformat()
         
-        with open(state_file, 'w', encoding='utf-8') as f:
-            json.dump(state.to_dict(), f, ensure_ascii=False, indent=2)
+        write_json(state_file, state.to_dict())
         
         self._simulations[state.simulation_id] = state
     
@@ -200,6 +235,13 @@ class SimulationManager:
             created_at=data.get("created_at", datetime.now().isoformat()),
             updated_at=data.get("updated_at", datetime.now().isoformat()),
             error=data.get("error"),
+            model_snapshot=data.get('model_snapshot', {}),
+            preparation_task_id=data.get('preparation_task_id'),
+            source_graph_id=data.get('source_graph_id'),
+            graph_namespace_status=data.get('graph_namespace_status', 'legacy_unverified'),
+            graph_clone_operation_id=data.get('graph_clone_operation_id'),
+            simulation_model_snapshot=data.get('simulation_model_snapshot', {}),
+            simulation_model_frozen_at=data.get('simulation_model_frozen_at'),
         )
         
         self._simulations[simulation_id] = state
@@ -230,17 +272,86 @@ class SimulationManager:
         state = SimulationState(
             simulation_id=simulation_id,
             project_id=project_id,
-            graph_id=graph_id,
+            graph_id=f'run_{simulation_id}',
+            source_graph_id=graph_id,
+            graph_namespace_status='preparing',
+            graph_clone_operation_id=simulation_id,
             enable_twitter=enable_twitter,
             enable_reddit=enable_reddit,
             status=SimulationStatus.CREATED,
         )
         
         self._save_simulation_state(state)
-        logger.info(f"创建模拟: {simulation_id}, project={project_id}, graph={graph_id}")
-        
+        try:
+            if Config.GRAPH_PROVIDER != 'graphiti':
+                raise ValueError('此圖譜服務尚不支援獨立執行副本，請先使用本機 Graphiti。')
+            settings = get_model_settings(stage='simulation')
+            state.simulation_model_snapshot = public_manifest(settings)
+            state.simulation_model_snapshot['connection_fingerprint'] = hashlib.sha256(settings['api_key'].encode()).hexdigest()
+            state.simulation_model_frozen_at = datetime.now(timezone.utc).isoformat()
+            self._save_simulation_state(state)
+            with model_settings_snapshot(settings):
+                receipt = get_zep_client().graph.clone(graph_id, graph_id=state.graph_id, operation_id=simulation_id)
+            self._accept_namespace_receipt(state, receipt)
+            self._save_simulation_state(state)
+            logger.info('已建立獨立模擬: %s, project=%s', simulation_id, project_id)
+            return state
+        except Exception:
+            state.status = SimulationStatus.NEEDS_REVIEW
+            state.graph_namespace_status = 'needs_review'
+            state.error = '獨立圖譜尚未確認；原始來源已保留，請核對複製狀態後再繼續。'
+            self._save_simulation_state(state)
+            raise ValueError(f'{state.error} simulation_id={simulation_id}') from None
+
+    @staticmethod
+    def _accept_namespace_receipt(state, receipt):
+        if (getattr(receipt, 'status', None) != 'ready'
+                or getattr(receipt, 'source_graph_id', None) != state.source_graph_id
+                or getattr(receipt, 'target_graph_id', None) != state.graph_id
+                or getattr(receipt, 'operation_id', None) != state.graph_clone_operation_id):
+            raise ValueError('圖譜複製回條需要核對。')
+        state.graph_namespace_status = 'ready'
+        summary = getattr(receipt, 'summary', {})
+        state._namespace_node_mapping = (summary.get('node_mapping', {}) if isinstance(summary, dict)
+                                         else getattr(summary, 'node_mapping', {}))
+
+    @staticmethod
+    def require_namespace(state):
+        if (state.graph_namespace_status != 'ready' or not state.source_graph_id
+                or state.source_graph_id == state.graph_id):
+            raise ValueError('此模擬尚未確認獨立圖譜；請複製成新模擬後再準備或執行。')
+
+    def recover_namespace(self, simulation_id: str) -> SimulationState:
+        """Explicitly reconcile one unfinished copy; never resume a simulation."""
+        state = self.get_simulation(simulation_id)
+        if (not state or not state.source_graph_id or state.source_graph_id == state.graph_id
+                or state.graph_clone_operation_id != simulation_id or Config.GRAPH_PROVIDER != 'graphiti'):
+            raise ValueError('此模擬沒有可核對的獨立圖譜複製識別；請建立新模擬。')
+        if state.graph_namespace_status == 'ready':
+            return state
+        if RunStore.get(simulation_id) is not None:
+            raise ValueError('此執行已有紀錄，請先核對執行狀態。')
+        saved = state.simulation_model_snapshot
+        if not saved.get('connection_fingerprint') or not state.simulation_model_frozen_at:
+            raise ValueError('複製時的模型設定未保存完整；請建立新模擬。')
+        current = get_model_settings(profile_id=saved.get('profile_id') or 'default')
+        if (any(current.get(key) != saved.get(key) for key in ('provider', 'base_url'))
+                or hashlib.sha256(current['api_key'].encode()).hexdigest() != saved['connection_fingerprint']):
+            raise ValueError('原模型連線或憑證已變更；請先恢復相同設定再核對。')
+        settings = {**current, 'model': saved['model']}
+        try:
+            with model_settings_snapshot(settings):
+                receipt = get_zep_client().graph.clone(state.source_graph_id, graph_id=state.graph_id,
+                                                      operation_id=state.graph_clone_operation_id)
+            self._accept_namespace_receipt(state, receipt)
+        except Exception:
+            raise ValueError('獨立圖譜仍需核對；沒有啟動模擬或改寫原始來源。') from None
+        state.status = SimulationStatus.CREATED
+        state.error = None
+        self._save_simulation_state(state)
         return state
     
+    @with_model_snapshot
     def prepare_simulation(
         self,
         simulation_id: str,
@@ -276,6 +387,9 @@ class SimulationManager:
         state = self._load_simulation_state(simulation_id)
         if not state:
             raise ValueError(f"模拟不存在: {simulation_id}")
+        self.require_namespace(state)
+        if RunStore.get(simulation_id) is not None:
+            raise ValueError('An existing execution cannot be prepared again; clone it first.')
         
         try:
             state.status = SimulationStatus.PREPARING
@@ -315,9 +429,9 @@ class SimulationManager:
             
             if filtered.filtered_count == 0:
                 state.status = SimulationStatus.FAILED
-                state.error = "没有找到符合条件的实体，请检查图谱是否正确构建"
+                state.error = PreparationNoEntities.message
                 self._save_simulation_state(state)
-                raise ValueError(state.error)
+                raise PreparationNoEntities()
             
             # ========== 阶段2: 生成Agent Profile ==========
             total_entities = len(filtered.entities)
@@ -441,8 +555,7 @@ class SimulationManager:
             
             # 保存配置文件
             config_path = os.path.join(sim_dir, "simulation_config.json")
-            with open(config_path, 'w', encoding='utf-8') as f:
-                f.write(sim_params.to_json())
+            write_json(config_path, json.loads(sim_params.to_json()))
             
             state.config_generated = True
             state.config_reasoning = sim_params.generation_reasoning
@@ -468,17 +581,88 @@ class SimulationManager:
             return state
             
         except Exception as e:
-            logger.error(f"模拟准备失败: {simulation_id}, error={str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            state.status = SimulationStatus.FAILED
-            state.error = str(e)
+            logger.error('模擬準備未完成: %s (%s)', simulation_id, type(e).__name__)
+            state.status = SimulationStatus.NEEDS_REVIEW if isinstance(e, PreparationNeedsReview) else SimulationStatus.FAILED
+            state.error = (str(e) if isinstance(e, PreparationNeedsReview) else
+                           PreparationNoEntities.message if isinstance(e, PreparationNoEntities) else
+                           '模擬準備未完成，請核對已保存內容。')
             self._save_simulation_state(state)
             raise
     
     def get_simulation(self, simulation_id: str) -> Optional[SimulationState]:
         """获取模拟状态"""
         return self._load_simulation_state(simulation_id)
+
+    def clone_simulation(self, simulation_id: str) -> SimulationState:
+        """Copy prepared inputs into a new identity; never copy runtime output."""
+        original = self.get_simulation(simulation_id)
+        if not original or not original.config_generated or not original.profiles_generated:
+            raise ValueError('Only fully prepared inputs can be cloned.')
+        source = self._get_simulation_dir(simulation_id)
+        with open(os.path.join(source, 'simulation_config.json'), encoding='utf-8') as handle:
+            configuration = json.load(handle)
+        required = (['twitter_profiles.csv'] if original.enable_twitter else []) + (['reddit_profiles.json'] if original.enable_reddit else [])
+        if not required or any(not os.path.isfile(os.path.join(source, name)) for name in required):
+            raise ValueError('Prepared profiles are incomplete; create a new simulation and prepare it.')
+        source_graph_id = original.source_graph_id
+        if not source_graph_id:
+            from ..models.project import ProjectManager
+            project = ProjectManager.get_project(original.project_id)
+            if not project or project.graph_id != original.graph_id:
+                raise ValueError('舊模擬的來源無法核對，請先確認專案來源圖譜。')
+            source_graph_id = project.graph_id
+        clone = self.create_simulation(original.project_id, source_graph_id, original.enable_twitter, original.enable_reddit)
+        destination = self._get_simulation_dir(clone.simulation_id)
+        try:
+            source_mapping = clone._namespace_node_mapping
+            mapping = {old if original.graph_id == source_graph_id else mapped_uuid(original.graph_id, old): new
+                       for old, new in source_mapping.items()}
+            def remap_inputs(value):
+                if isinstance(value, list):
+                    return [remap_inputs(item) for item in value]
+                if isinstance(value, dict):
+                    result = {}
+                    for key, item in value.items():
+                        if key in {'entity_uuid', 'source_entity_uuid'} and item:
+                            if item not in mapping:
+                                raise ValueError('原準備資料中的實體無法對應新圖譜，請重新準備新模擬。')
+                            result[key] = mapping[item]
+                        else:
+                            result[key] = remap_inputs(item)
+                    return result
+                return value
+            for name in required:
+                source_file, destination_file = os.path.join(source, name), os.path.join(destination, name)
+                if name.endswith('.json'):
+                    with open(source_file, encoding='utf-8') as handle:
+                        write_json(destination_file, remap_inputs(json.load(handle)))
+                else:
+                    import csv
+                    with open(source_file, encoding='utf-8', newline='') as handle:
+                        reader = csv.DictReader(handle)
+                        fields, rows = reader.fieldnames, [remap_inputs(row) for row in reader]
+                    with open(destination_file, 'x', encoding='utf-8', newline='') as handle:
+                        writer = csv.DictWriter(handle, fieldnames=fields)
+                        writer.writeheader()
+                        writer.writerows(rows)
+            configuration = remap_inputs(configuration)
+            configuration['simulation_id'] = clone.simulation_id
+            configuration['graph_id'] = clone.graph_id
+            configuration['llm_model'] = clone.simulation_model_snapshot['model']
+            configuration['llm_base_url'] = clone.simulation_model_snapshot['base_url']
+            write_json(os.path.join(destination, 'simulation_config.json'), configuration)
+            clone.status = SimulationStatus.READY
+            clone.profiles_generated = clone.config_generated = True
+            clone.entities_count, clone.profiles_count = original.entities_count, original.profiles_count
+            clone.entity_types = list(original.entity_types)
+            clone.model_snapshot = dict(original.model_snapshot)
+            self._save_simulation_state(clone)
+        except Exception:
+            clone.status = SimulationStatus.FAILED
+            clone.error = 'Prepared input copy was incomplete; the original simulation was preserved.'
+            self._save_simulation_state(clone)
+            raise
+        return clone
     
     def list_simulations(self, project_id: Optional[str] = None) -> List[SimulationState]:
         """列出所有模拟"""

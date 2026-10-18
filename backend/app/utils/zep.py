@@ -63,7 +63,19 @@ def _cached_zep_client(api_key: str, timeout: float) -> Zep:
 
 
 def get_zep_client(api_key: str | None = None, timeout: float | None = None) -> Zep:
-    """Return a process-shared, explicitly configured Zep Cloud client."""
+    """Return the selected graph provider with the existing application contract."""
+
+    if Config.GRAPH_PROVIDER == 'graphiti':
+        from .graphiti_client import get_graphiti_client
+        errors = Config.graph_configuration_errors()
+        if errors:
+            raise ValueError('; '.join(errors))
+        return get_graphiti_client(
+            Config.GRAPHITI_BASE_URL, Config.GRAPHITI_API_KEY,
+            timeout if timeout is not None else ZEP_HTTP_REQUEST_TIMEOUT_SECONDS,
+        )
+    if Config.GRAPH_PROVIDER != 'zep':
+        raise ValueError('GRAPH_PROVIDER 必須是 graphiti 或 zep')
 
     # zep-cloud gives ZEP_API_URL precedence even when base_url is explicit.
     # Reject it so this Cloud-only integration cannot silently target a
@@ -87,6 +99,8 @@ def clear_zep_client_cache() -> None:
     """Clear cached clients. Intended for tests and controlled reconfiguration."""
 
     _cached_zep_client.cache_clear()
+    from .graphiti_client import clear_graphiti_client_cache
+    clear_graphiti_client_cache()
 
 
 def is_retryable_zep_error(error: BaseException) -> bool:

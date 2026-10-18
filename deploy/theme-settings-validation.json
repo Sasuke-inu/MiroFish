@@ -1,0 +1,126 @@
+{
+  "startedAt": "2026-10-02T03:14:01.678Z",
+  "checks": [
+    {
+      "name": "dark-settings",
+      "result": "passed",
+      "screenshot": "deploy/theme-settings-dark.jpg"
+    },
+    {
+      "name": "home-draft-preserved-after-settings",
+      "result": "passed"
+    },
+    {
+      "name": "dark-preference-survives-reload",
+      "result": "passed"
+    },
+    {
+      "name": "follow-system-option",
+      "result": "passed",
+      "dynamicSystemChanges": "verified by unit tests"
+    },
+    {
+      "name": "language-and-status-refresh",
+      "result": "passed",
+      "language": "zh-TW restored after English test"
+    },
+    {
+      "name": "light-theme",
+      "result": "passed",
+      "paper": "rgb(247, 246, 242)",
+      "text": "#203449"
+    },
+    {
+      "name": "home-and-history-replay",
+      "result": "passed",
+      "screenshot": "deploy/theme-settings-history.jpg"
+    },
+    {
+      "name": "simulation-setup",
+      "result": "passed",
+      "profiles": 4,
+      "screenshot": "deploy/theme-settings-simulation-setup.jpg"
+    },
+    {
+      "name": "graph-and-details",
+      "result": "passed",
+      "nodes": 8,
+      "edges": 20,
+      "screenshot": "deploy/theme-settings-graph.jpg",
+      "overlay": "rgba(25,35,46,0.95)"
+    },
+    {
+      "name": "simulation-progress-survives-settings",
+      "result": "passed",
+      "rounds": "2/2",
+      "layout": "workbench",
+      "actualRunState": "completed"
+    },
+    {
+      "name": "report-page",
+      "result": "passed",
+      "chapters": 4,
+      "recordedToolCalls": 12,
+      "screenshot": "deploy/theme-settings-report.jpg"
+    },
+    {
+      "name": "interaction-draft-preserved",
+      "result": "passed"
+    },
+    {
+      "name": "survey-select-all-and-clear",
+      "result": "passed",
+      "availableCharacters": 4,
+      "noNewSurveySubmitted": true
+    },
+    {
+      "name": "direct-settings-page-after-final-deployment",
+      "result": "passed",
+      "screenshot": "deploy/theme-settings-dark.jpg"
+    }
+  ],
+  "completedAt": "2026-10-02T03:40:39.431Z",
+  "status": "passed",
+  "automated": {
+    "frontendTests": 46,
+    "failed": 0,
+    "productionBuild": "passed",
+    "backendResponsesMockedInComponentTests": true
+  },
+  "containers": [
+    {
+      "Service": "backend",
+      "ID": "18a256f83d43",
+      "Health": "healthy",
+      "State": "running"
+    },
+    {
+      "Service": "frontend",
+      "ID": "89cc73cd28ba",
+      "Health": "healthy",
+      "State": "running"
+    },
+    {
+      "Service": "graphiti",
+      "ID": "97cc89859f8b",
+      "Health": "healthy",
+      "State": "running"
+    },
+    {
+      "Service": "neo4j",
+      "ID": "bb28dfc66c97",
+      "Health": "healthy",
+      "State": "running"
+    }
+  ],
+  "backgroundServicesPreserved": {
+    "backend": "18a256f83d43",
+    "graphiti": "97cc89859f8b",
+    "neo4j": "bb28dfc66c97",
+    "result": "IDs unchanged and all healthy"
+  },
+  "finalAppearance": "dark",
+  "finalLanguage": "zh-TW",
+  "settingsUrl": "http://localhost:3100/settings",
+  "consoleErrors": []
+}

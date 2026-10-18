@@ -1,9 +1,9 @@
 <template>
-  <div class="main-view">
+  <div class="main-view" :data-layout="viewMode">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH</div>
+        <div class="brand" role="button" tabindex="0" @click="router.push('/')" @keydown.enter="router.push('/')" @keydown.space.prevent="router.push('/')">MIROFISH</div>
       </div>
       
       <div class="header-center">
@@ -12,7 +12,7 @@
             v-for="mode in ['graph', 'split', 'workbench']" 
             :key="mode"
             class="switch-btn"
-            :class="{ active: viewMode === mode }"
+            :class="{ active: viewMode === mode }" :aria-pressed="viewMode === mode"
             @click="viewMode = mode"
           >
             {{ { graph: $t('main.layoutGraph'), split: $t('main.layoutSplit'), workbench: $t('main.layoutWorkbench') }[mode] }}
@@ -21,25 +21,31 @@
       </div>
 
       <div class="header-right">
+        <RouterLink class="research-return" :to="returnToResearch">{{ $t('research.backToResearch') }}</RouterLink>
         <LanguageSwitcher />
+        <PreferenceControls />
         <div class="step-divider"></div>
         <div class="workflow-step">
           <span class="step-num">Step 4/5</span>
           <span class="step-name">{{ $tm('main.stepNames')[3] }}</span>
         </div>
         <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
+        <span class="status-indicator" :class="statusClass" role="status">
           <span class="dot"></span>
           {{ statusText }}
         </span>
       </div>
     </header>
+    <WorkflowProgress :current="4" />
+
+    <p v-if="loadError" class="workflow-error" role="alert">{{ loadError }}</p>
 
     <!-- Main Content Area -->
-    <main class="content-area">
+    <main id="workspace-content" class="content-area" tabindex="-1">
       <!-- Left Panel: Graph -->
-      <div class="panel-wrapper left" :style="leftPanelStyle">
-        <GraphPanel 
+      <div class="panel-wrapper left" v-show="viewMode !== 'workbench'" :inert="viewMode === 'workbench'" :aria-hidden="viewMode === 'workbench'" :style="leftPanelStyle">
+        <GraphPanel
+          :project-id="projectData?.project_id"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="4"
@@ -50,8 +56,9 @@
       </div>
 
       <!-- Right Panel: Step4 报告生成 -->
-      <div class="panel-wrapper right" :style="rightPanelStyle">
+      <div class="panel-wrapper right" v-show="viewMode !== 'graph'" :inert="viewMode === 'graph'" :aria-hidden="viewMode === 'graph'" :style="rightPanelStyle">
         <Step4Report
+          :project-id="projectData?.project_id"
           :reportId="currentReportId"
           :simulationId="simulationId"
           :systemLogs="systemLogs"
@@ -64,7 +71,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import {safeWorkbenchReturn} from '../utils/workbenchJourney'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -73,6 +81,8 @@ import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
 import { getReport } from '../api/report'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import PreferenceControls from '../components/PreferenceControls.vue'
+import WorkflowProgress from '../components/WorkflowProgress.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,13 +97,19 @@ const props = defineProps({
 const viewMode = ref('workbench')
 
 // Data State
-const currentReportId = ref(route.params.reportId)
+const returnToResearch=computed(()=>safeWorkbenchReturn(route.query.from,projectData.value?.project_id ? `/workbench/${projectData.value.project_id}?section=results&replay=${simulationId.value || ''}&report=${currentReportId.value}` : '/workbench'))
+const currentReportId = ref(props.reportId || route.params.reportId)
+let mounted = true
+let generation = 0
+let graphBusy = false
+const valid = token => mounted && token === generation
 const simulationId = ref(null)
 const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const systemLogs = ref([])
-const currentStatus = ref('processing') // processing | completed | error
+const loadError = ref('')
+const currentStatus = ref('loading')
 
 // --- Computed Layout Styles ---
 const leftPanelStyle = computed(() => {
@@ -114,9 +130,11 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Error'
-  if (currentStatus.value === 'completed') return 'Completed'
-  return 'Generating'
+  if (currentStatus.value === 'loading') return t('common.loading')
+  if (currentStatus.value === 'error') return t('common.error')
+  if (['failed', 'stopped', 'interrupted', 'needs_review'].includes(currentStatus.value)) return t('workbench.' + currentStatus.value)
+  if (currentStatus.value === 'completed') return t('common.completed')
+  return t('common.processing')
 })
 
 // --- Helpers ---
@@ -143,24 +161,30 @@ const toggleMaximize = (target) => {
 
 // --- Data Logic ---
 const loadReportData = async () => {
+  const token = generation
+  loadError.value = ''
   try {
     addLog(t('log.loadReportData', { id: currentReportId.value }))
 
     // 获取 report 信息以获取 simulation_id
     const reportRes = await getReport(currentReportId.value)
+    if (!valid(token)) return
     if (reportRes.success && reportRes.data) {
       const reportData = reportRes.data
+      currentStatus.value = reportData.status || 'processing'
       simulationId.value = reportData.simulation_id
 
       if (simulationId.value) {
         // 获取 simulation 信息
         const simRes = await getSimulation(simulationId.value)
+    if (!valid(token)) return
         if (simRes.success && simRes.data) {
           const simData = simRes.data
 
           // 获取 project 信息
           if (simData.project_id) {
             const projRes = await getProject(simData.project_id)
+    if (!valid(token)) return
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
               addLog(t('log.projectLoadSuccess', { id: projRes.data.project_id }))
@@ -174,26 +198,36 @@ const loadReportData = async () => {
         }
       }
     } else {
-      addLog(t('log.getReportInfoFailed', { error: reportRes.error || t('common.unknownError') }))
+      loadError.value = t('log.getReportInfoFailed', { error: reportRes.error || t('common.unknownError') })
+      currentStatus.value = 'error'
+      addLog(loadError.value)
     }
   } catch (err) {
-    addLog(t('log.loadException', { error: err.message }))
+    if (!valid(token)) return
+    loadError.value = t('log.loadException', { error: err.message })
+    currentStatus.value = 'error'
+    addLog(loadError.value)
   }
 }
 
 const loadGraph = async (graphId) => {
+  if (!mounted || graphBusy) return
+  const token = generation
+  graphBusy = true
   graphLoading.value = true
   
   try {
     const res = await getGraphData(graphId)
+    if (!valid(token)) return
     if (res.success) {
       graphData.value = res.data
       addLog(t('log.graphDataLoadSuccess'))
     }
   } catch (err) {
+    if (!valid(token)) return
     addLog(t('log.graphLoadFailed', { error: err.message }))
   } finally {
-    graphLoading.value = false
+    if (valid(token)) { graphLoading.value = false; graphBusy = false }
   }
 }
 
@@ -204,9 +238,15 @@ const refreshGraph = () => {
 }
 
 // Watch route params
-watch(() => route.params.reportId, (newId) => {
+watch(() => props.reportId || route.params.reportId, (newId) => {
   if (newId && newId !== currentReportId.value) {
+    generation++
     currentReportId.value = newId
+    simulationId.value = projectData.value = graphData.value = null
+    currentStatus.value = 'loading'
+    graphBusy = false
+    graphLoading.value = false
+    systemLogs.value = []
     loadReportData()
   }
 }, { immediate: true })
@@ -215,14 +255,31 @@ onMounted(() => {
   addLog(t('log.reportViewInit'))
   loadReportData()
 })
+onUnmounted(() => { mounted = false; generation++ })
 </script>
 
 <style scoped>
+.research-return { color: var(--studio-muted); font-size: .875rem; text-decoration: none; padding: 8px; min-height: 44px; display: inline-flex; align-items: center; }
+
+.workflow-error {
+  flex-shrink: 0;
+  margin: 12px 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--studio-line, #e3e5e4);
+  border-left: 3px solid var(--theme-error-ink, #a63b32);
+  border-radius: 8px;
+  background: var(--theme-error-surface, #fdf0ee);
+  color: var(--theme-error-ink, #a63b32);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 .main-view {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   overflow: hidden;
   font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
 }
@@ -230,12 +287,12 @@ onMounted(() => {
 /* Header */
 .app-header {
   height: 60px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--theme-line, #EAEAEA);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #FFF;
+  background: var(--theme-surface, #FFF);
   z-index: 100;
   position: relative;
 }
@@ -256,7 +313,7 @@ onMounted(() => {
 
 .view-switcher {
   display: flex;
-  background: #F5F5F5;
+  background: var(--theme-surface-soft, #F5F5F5);
   padding: 4px;
   border-radius: 6px;
   gap: 4px;
@@ -268,15 +325,15 @@ onMounted(() => {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--theme-muted, #666);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .switch-btn.active {
-  background: #FFF;
-  color: #000;
+  background: var(--theme-surface, #FFF);
+  color: var(--theme-ink, #000);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
@@ -296,18 +353,18 @@ onMounted(() => {
 .step-num {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 700;
-  color: #999;
+  color: var(--theme-muted, #999);
 }
 
 .step-name {
   font-weight: 700;
-  color: #000;
+  color: var(--theme-ink, #000);
 }
 
 .step-divider {
   width: 1px;
   height: 14px;
-  background-color: #E0E0E0;
+  background-color: var(--theme-surface-raised, #E0E0E0);
 }
 
 .status-indicator {
@@ -315,7 +372,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--theme-muted, #666);
   font-weight: 500;
 }
 
@@ -323,7 +380,7 @@ onMounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #CCC;
+  background: var(--theme-surface-raised, #CCC);
 }
 
 .status-indicator.processing .dot { background: #FF9800; animation: pulse 1s infinite; }
@@ -348,6 +405,6 @@ onMounted(() => {
 }
 
 .panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+  border-right: 1px solid var(--theme-line, #EAEAEA);
 }
 </style>

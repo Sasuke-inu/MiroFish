@@ -7,6 +7,8 @@ from app.utils.llm_client import LLMResponseError
 
 
 def _post_ontology(client):
+    # The app-wide guard requires the session CSRF token on writes.
+    token = client.get("/api/session").json["data"]["csrf_token"]
     return client.post(
         "/api/graph/ontology/generate",
         data={
@@ -14,6 +16,7 @@ def _post_ontology(client):
             "files": (io.BytesIO(b"A short source document."), "source.md"),
         },
         content_type="multipart/form-data",
+        headers={"X-MiroFish-CSRF": token},
     )
 
 

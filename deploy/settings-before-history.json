@@ -1,0 +1,22 @@
+[
+  {
+    "simulation_id": "sim_169b03a4b06b",
+    "runner_status": "completed",
+    "report_status": null
+  },
+  {
+    "simulation_id": "sim_17d0714bf9e9",
+    "runner_status": "stopped",
+    "report_status": null
+  },
+  {
+    "simulation_id": "sim_7bb2afd7b007",
+    "runner_status": "completed",
+    "report_status": null
+  },
+  {
+    "simulation_id": "sim_b34d08128624",
+    "runner_status": "stopped",
+    "report_status": null
+  }
+]

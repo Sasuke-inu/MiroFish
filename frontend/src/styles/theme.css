@@ -1,0 +1,140 @@
+:root {
+  color-scheme: light;
+  --studio-button: #34392d;
+  --studio-button-hover: #474e3c;
+  --studio-success-soft: #d4dfcf;
+  --studio-error: #963e31;
+  --studio-graph-edge: #868878;
+  --studio-graph-label-bg: rgba(228, 222, 210, .96);
+  --studio-graph-selection: #805014;
+  --studio-graph-selection-soft: #e8d8b9;
+  --studio-graph-color-0: #9c5a22;
+  --studio-graph-color-1: #5b643b;
+  --studio-graph-color-2: #775569;
+  --studio-graph-color-3: #3c6b50;
+  --studio-graph-color-4: #9a4546;
+  --studio-graph-color-5: #8b603b;
+  --studio-graph-color-6: #636844;
+  --studio-graph-color-7: #6c526e;
+  --studio-graph-color-8: #4b684e;
+  --studio-graph-color-9: #886618;
+  --studio-graph-badge-text: #f5efdf;
+  --theme-surface: var(--studio-surface);
+  --theme-surface-soft: #d9d5c9;
+  --theme-surface-raised: #c7c5b6;
+  --theme-surface-filled: var(--studio-button);
+  --theme-overlay: rgba(228, 222, 210, .97);
+  --theme-ink: var(--studio-ink);
+  --theme-muted: var(--studio-muted);
+  --theme-faint: #555946;
+  --theme-on-filled: #f5efdf;
+  --theme-line: var(--studio-line);
+  --theme-line-strong: #878c78;
+  --theme-control-line: #6f735f;
+  --theme-accent-text: #7b4a10;
+  --theme-info-surface: #d8dcc8;
+  --theme-info-ink: #454f29;
+  --theme-info-line: #919a74;
+  --theme-success-surface: var(--studio-success-soft);
+  --theme-success-ink: var(--studio-green);
+  --theme-success-line: #849b7d;
+  --theme-warning-surface: #ead8b2;
+  --theme-warning-ink: #755019;
+  --theme-warning-line: #b69758;
+  --theme-accent-surface: var(--studio-soft);
+  --theme-accent-ink: var(--studio-accent);
+  --theme-accent-line: #a57332;
+  --theme-error-surface: #ead0c5;
+  --theme-error-ink: var(--studio-error);
+  --theme-error-line: #b58270;
+  --theme-purple-surface: #e0d2da;
+  --theme-purple-ink: #70495c;
+  --theme-purple-line: #a38695;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --studio-paper: #1b1d19;
+  --studio-surface: #252822;
+  --studio-ink: #f0eadc;
+  --studio-muted: #b9bca9;
+  --studio-line: #4a5041;
+  --studio-accent: #e8b869;
+  --studio-soft: #3e3422;
+  --studio-green: #aed19a;
+  --studio-success-soft: #2b3928;
+  --studio-error: #efac95;
+  --studio-button: #4e593f;
+  --studio-button-hover: #606d4c;
+  --studio-graph-edge: #8c957d;
+  --studio-graph-label-bg: rgba(37, 40, 34, .96);
+  --studio-graph-selection: #e8b869;
+  --studio-graph-selection-soft: #3e3422;
+  --studio-graph-color-0: #e8b869;
+  --studio-graph-color-1: #bbc788;
+  --studio-graph-color-2: #cca7ba;
+  --studio-graph-color-3: #a3cea5;
+  --studio-graph-color-4: #e5a096;
+  --studio-graph-color-5: #d5ac87;
+  --studio-graph-color-6: #c4c08b;
+  --studio-graph-color-7: #bfa5c7;
+  --studio-graph-color-8: #a0b58a;
+  --studio-graph-color-9: #ded088;
+  --studio-graph-badge-text: #23271d;
+  --theme-surface-soft: #30352b;
+  --theme-surface-raised: #424a38;
+  --theme-overlay: rgba(37, 40, 34, .97);
+  --theme-faint: #adb29e;
+  --theme-line-strong: #7f896c;
+  --theme-control-line: var(--theme-line-strong);
+  --theme-accent-text: var(--studio-accent);
+  --theme-info-surface: #343b25;
+  --theme-info-ink: #c2ce8c;
+  --theme-info-line: #778551;
+  --theme-success-line: #718b5c;
+  --theme-warning-surface: #403622;
+  --theme-warning-ink: #ecc37e;
+  --theme-warning-line: #a0844b;
+  --theme-accent-line: #bf934b;
+  --theme-error-surface: #432d27;
+  --theme-error-line: #b6816d;
+  --theme-purple-surface: #3a2d38;
+  --theme-purple-ink: #d4b1c5;
+  --theme-purple-line: #92728c;
+}
+
+#app .settings-page { min-height: 0; flex: 1; overflow-y: auto; }
+#app input, #app textarea, #app select { color-scheme: inherit; }
+#app textarea:not([class]), #app input[type='number'], #app .survey-input, #app .chat-input {
+  background-color: var(--studio-surface); color: var(--studio-ink);
+}
+#app .studio-brand .brand-mark { background: var(--studio-button); }
+:root[data-theme='dark'] #app .project-index { color: var(--theme-accent-text); }
+:root[data-theme='dark'] #app .service-dot.connected { box-shadow: 0 0 0 4px var(--studio-success-soft); }
+#app .start-engine-btn:not(:disabled) { background: var(--studio-button); }
+#app .start-engine-btn:hover:not(:disabled) { background: var(--studio-button-hover); }
+#app .main-view .brand::before, #app .main-view .switch-btn.active,
+#app .main-view .next-btn, #app .main-view .start-btn,
+#app .main-view .action-btn.primary, #app .main-view .tab-pill.active,
+#app .main-view .send-btn, #app .main-view .survey-submit-btn { background: var(--studio-button); }
+:root[data-theme='dark'] #app .studio-progress .current .progress-number { color: #24251d; }
+:root[data-theme='dark'] #app .main-view .console-logs { background: var(--theme-surface-soft); color: var(--studio-muted); }
+#app .graph-svg .nodes circle { paint-order: stroke fill; }
+#app .project-index { color: var(--theme-accent-text); }
+#app .main-view .status-indicator.processing .dot { background: var(--studio-accent); }
+#app .main-view .status-indicator.completed .dot,
+#app .main-view .status-indicator.ready .dot { background: var(--studio-green); }
+#app .main-view .status-indicator.error .dot { background: var(--studio-error); }
+#app .main-view .next-btn:disabled, #app .main-view .start-btn:disabled,
+#app .main-view .send-btn:disabled, #app .main-view .survey-submit-btn:disabled,
+#app .main-view .action-btn:disabled { background: var(--theme-surface-raised); color: var(--studio-muted); opacity: .8; }
+:root[data-theme='dark'] #app .tool-badge.tool-green { color: var(--theme-success-ink); }
+:root[data-theme='dark'] #app .tool-badge.tool-cyan { background: var(--theme-info-surface); border-color: var(--theme-info-line); color: var(--theme-info-ink); }
+:root[data-theme='dark'] #app .tool-badge.tool-pink { background: var(--theme-purple-surface); border-color: var(--theme-purple-line); color: var(--theme-purple-ink); }
+:root[data-theme='dark'] #app .tool-badge.tool-cyan .tool-icon, :root[data-theme='dark'] #app .tool-badge.tool-pink .tool-icon { stroke: currentColor; }
+
+@media (max-width: 760px) {
+  #app .studio-navbar { flex-wrap: wrap; gap: 12px; }
+  #app .studio-nav-links { flex-wrap: wrap; gap: 10px; margin-left: auto; }
+  #app .main-view .header-right { flex-wrap: wrap; gap: 8px; }
+}

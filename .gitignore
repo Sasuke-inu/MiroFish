@@ -58,3 +58,18 @@ backend/uploads/
 
 # Docker 数据
 data/
+
+# Local UI acceptance evidence
+deploy/ui-*.png
+deploy/ui-scripts-before.json
+deploy/graphiti-*.png
+
+# Local research-workbench acceptance outputs (may contain local record IDs).
+# Keep source generators and the reviewed status/handoff documents in Git.
+deploy/workbench-*.json
+deploy/workbench-*.png
+deploy/workbench-*.jpg
+deploy/workbench-*.pdf
+deploy/workbench-*.txt
+deploy/p0-*.json
+deploy/print-fixture/

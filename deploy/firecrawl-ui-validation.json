@@ -1,0 +1,93 @@
+{
+  "started_at": "2026-10-02T04:25:44.118Z",
+  "checks": [
+    {
+      "name": "review_does_not_scrape",
+      "passed": true
+    },
+    {
+      "name": "one_page_preview_capped_at_8000_chars",
+      "passed": true
+    },
+    {
+      "name": "preview_does_not_add_files",
+      "passed": true
+    },
+    {
+      "name": "explicit_add_is_a_normal_markdown_input",
+      "passed": true
+    },
+    {
+      "name": "adding_does_not_start_analysis",
+      "passed": true
+    },
+    {
+      "name": "cache_reuse_shows_zero_new_requests",
+      "passed": true
+    },
+    {
+      "name": "settings_shows_one_of_ten_requests_and_zero_cloud_usage",
+      "passed": true
+    },
+    {
+      "name": "settings_round_trip_preserves_source_inputs",
+      "passed": true
+    },
+    {
+      "name": "cache_is_available_after_backend_restart",
+      "passed": true
+    },
+    {
+      "name": "light_and_dark_colors_adapt",
+      "passed": true
+    },
+    {
+      "name": "theme_changes_preserve_sources",
+      "passed": true
+    }
+  ],
+  "original_theme_preference": "system",
+  "light": {
+    "ink": "rgb(32, 52, 73)",
+    "panel": {
+      "bottom": 1333.2217407226562,
+      "height": 621.7029418945312,
+      "left": 308.8207092285156,
+      "right": 1202.8382263183594,
+      "top": 711.518798828125,
+      "width": 894.0175170898438,
+      "x": 308.8207092285156,
+      "y": 711.518798828125
+    },
+    "paper": "rgb(247, 246, 242)",
+    "theme": "light",
+    "viewport": {
+      "height": 783,
+      "width": 1881
+    }
+  },
+  "dark": {
+    "ink": "rgb(228, 237, 246)",
+    "panel": {
+      "bottom": 1333.2217407226562,
+      "height": 621.7029418945312,
+      "left": 308.8207092285156,
+      "right": 1202.8382263183594,
+      "top": 711.518798828125,
+      "width": 894.0175170898438,
+      "x": 308.8207092285156,
+      "y": 711.518798828125
+    },
+    "paper": "rgb(16, 24, 32)",
+    "scrollY": 0,
+    "theme": "dark"
+  },
+  "console_errors": [],
+  "status": "passed",
+  "completed_at": "2026-10-02T04:57:49.303Z",
+  "final_theme_preference": "system",
+  "screenshots": {
+    "light": "deploy/firecrawl-light.jpg",
+    "dark": "deploy/firecrawl-dark.jpg"
+  }
+}

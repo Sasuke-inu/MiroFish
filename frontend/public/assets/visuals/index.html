@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="MiroFish 群體模擬工作室的插畫素材、SVG 流程圖與介面設計說明。" />
+  <title>視覺素材與操作地圖 · MiroFish</title>
+  <style>
+    :root { color-scheme: light; --paper:#d5cec1; --surface:#e4ded2; --ink:#282b25; --muted:#515548; --line:#b4b1a3; --accent:#805014; --soft:#c7c5b6; --art:#d8d0bf; }
+    :root[data-theme="dark"] { color-scheme:dark; --paper:#1b1d19; --surface:#252822; --ink:#f0eadc; --muted:#b9bca9; --line:#4a5041; --accent:#e8b869; --soft:#30352b; --art:#20231d; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; } body { margin:0; background:var(--paper); color:var(--ink); font-family:"Microsoft JhengHei","PingFang TC",system-ui,sans-serif; font-size:16px; line-height:1.75; }
+    a { color:inherit; text-underline-offset:4px; } a:hover { color:var(--accent); } button,a { -webkit-tap-highlight-color:transparent; } button { font:inherit; cursor:pointer; } :focus-visible { outline:3px solid var(--accent); outline-offset:4px; }
+    .skip { position:absolute; top:-100px; left:16px; z-index:10; background:var(--surface); padding:12px; } .skip:focus { top:12px; }
+    header { border-bottom:1px solid var(--line); background:var(--surface); } .nav { max-width:1328px; margin:auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; padding:18px 28px; }
+    .brand { display:flex; align-items:center; gap:12px; text-decoration:none; font-weight:750; letter-spacing:1.8px; font-size:18px; } .mark { display:grid; place-items:center; width:40px; height:40px; background:var(--ink); color:var(--surface); border-radius:12px; font-size:31px; line-height:1; }
+    .nav-tools { display:flex; flex-wrap:wrap; gap:16px; align-items:center; } .back { min-height:44px; display:inline-flex; align-items:center; gap:10px; font-size:14px; text-decoration:none; } .switch { display:flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; } .switch button { padding:7px 13px; min-height:44px; border:0; border-radius:7px; background:transparent; color:var(--muted); font-size:14px; } .switch button[aria-pressed="true"] { color:var(--ink); background:var(--soft); }
+    main { max-width:1328px; margin:auto; padding:52px 28px 32px; } .eyebrow { color:var(--accent); letter-spacing:1.5px; font-weight:700; font-size:12px; margin:0 0 12px; } h1 { font-size:clamp(30px,4vw,44px); line-height:1.3; letter-spacing:-.6px; margin:0 0 16px; } .intro { max-width:800px; color:var(--muted); margin:0; } .note { display:inline-block; font-size:13px; color:var(--muted); background:var(--soft); padding:8px 12px; border-radius:7px; margin-top:20px; }
+    .section-nav { display:flex; flex-wrap:wrap; gap:12px; margin:28px 0 44px; } .section-nav a { display:inline-flex; align-items:center; min-height:44px; padding:8px 14px; border:1px solid var(--line); border-radius:8px; font-size:14px; text-decoration:none; background:var(--surface); }
+    section { margin-bottom:46px; scroll-margin-top:24px; } .section-heading { display:flex; justify-content:space-between; gap:20px; align-items:baseline; margin-bottom:18px; } h2 { font-size:24px; margin:0; line-height:1.45; } .section-heading p { color:var(--muted); font-size:14px; margin:0; } .assets { display:grid; grid-template-columns:1.25fr 1fr; gap:24px; }
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:16px; overflow:hidden; min-width:0; } figure { margin:0; } .image-stage { background:var(--art); display:grid; place-items:center; padding:24px; aspect-ratio:3/2; } .image-stage img { display:block; max-width:100%; max-height:100%; width:100%; height:auto; object-fit:contain; } .image-stage.small img { width:86%; }
+    figcaption,.card-copy { padding:24px; } h3 { font-size:19px; line-height:1.5; margin:0 0 8px; } figcaption p,.card-copy p { color:var(--muted); margin:0 0 16px; font-size:14px; } .meta { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; } .meta span { border:1px solid var(--line); color:var(--muted); padding:2px 8px; border-radius:5px; font-size:12px; }
+    .links { display:flex; flex-wrap:wrap; gap:8px; } .links a { display:inline-flex; align-items:center; justify-content:center; padding:8px 13px; min-height:44px; border:1px solid var(--line); border-radius:8px; font-size:14px; text-decoration:none; } .links a.primary { background:var(--ink); color:var(--surface); border-color:var(--ink); } .links a:hover { border-color:var(--accent); }
+    .vector-preview { display:block; background:#d5cec1; text-decoration:none; overflow:auto; border-bottom:1px solid var(--line); } .vector-preview img { display:block; width:100%; height:auto; } .vector-preview:focus-visible { outline-offset:-5px; } .vector-copy { display:flex; align-items:center; justify-content:space-between; gap:24px; } .vector-copy p { margin:0; max-width:760px; } .vector-copy .links { flex-shrink:0; }
+    .palette { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:20px; } .swatch { display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:10px; padding:13px; background:var(--surface); } .swatch i { flex:0 0 36px; width:36px; height:36px; border:1px solid #a6b2b366; border-radius:50%; } .swatch strong { display:block; font-size:14px; } .swatch small { display:block; color:var(--muted); font-family:ui-monospace,monospace; font-size:12px; }
+    footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; border-top:1px solid var(--line); padding:22px 0; color:var(--muted); font-size:13px; } footer p { margin:0; }
+    @media (max-width:800px) { main { padding-top:32px; } .assets { grid-template-columns:1fr; } .section-heading,.vector-copy { align-items:flex-start; flex-direction:column; gap:10px; } .palette { grid-template-columns:repeat(2,1fr); } .vector-preview img { min-width:720px; } .vector-preview.blueprint img { min-width:980px; } .section-nav { margin-bottom:32px; } }
+    @media (max-width:480px) { .nav { padding:14px 18px; } .nav-tools { width:100%; justify-content:space-between; gap:8px; } main { padding-inline:18px; } figcaption,.card-copy { padding:20px; } .image-stage { padding:14px; } .switch button { min-height:44px; } .swatch { gap:9px; padding:10px; } .swatch i { flex-basis:28px; width:28px; height:28px; } .section-nav { gap:8px; } h2 { font-size:22px; } }
+    @media (prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">跳到主要內容</a>
+  <header><nav class="nav" aria-label="素材頁導覽">
+    <a href="/" class="brand"><span class="mark" aria-hidden="true">≈</span> MIROFISH</a>
+    <div class="nav-tools"><a class="back" href="/">← 回到工作室</a><div class="switch" role="group" aria-label="此預覽頁的外觀"><button type="button" data-mode="light" aria-pressed="true">淺色</button><button type="button" data-mode="dark" aria-pressed="false">深色</button></div></div>
+  </nav></header>
+  <main id="content" tabindex="-1">
+    <p class="eyebrow">MIROFISH / VISUAL LIBRARY</p>
+    <h1>把探索過程，變得看得見。</h1>
+    <p class="intro">這裡收錄工作室的原創插畫、五步流程圖與介面配置說明。插畫建立氣氛；可編輯的 SVG 則把資料、操作與結果的關係說清楚。WebP 是網頁使用的輕量版本，原始 PNG 適合保留與後續編輯。</p>
+    <p class="note">這是視覺設計說明頁，不會啟動模擬、呼叫模型或抓取網頁。外觀切換僅影響此頁。</p>
+    <nav class="section-nav" aria-label="素材分類"><a href="#illustrations">01　工作室插畫</a><a href="#workflow">02　五步流程</a><a href="#blueprint">03　介面與操作地圖</a></nav>
+
+    <section id="illustrations" aria-labelledby="illustration-title">
+      <div class="section-heading"><h2 id="illustration-title">01　工作室插畫</h2><p>以文件、連結與收納，描繪從資料開始的探索。</p></div>
+      <div class="assets">
+        <figure class="card"><div class="image-stage"><img src="exploration-studio.webp" width="768" height="512" alt="暖灰立體文件與炭黑、暖灰及琥珀色節點相連，象徵從資料整理出關係網。" decoding="async" /></div><figcaption>
+          <h3>從資料開始，展開探索</h3><p>首頁主視覺。安靜的空間、清楚的連線，陪伴「先探索，再做決定」的第一步。</p><div class="meta"><span>首頁插畫</span><span>WebP · 768 × 512</span><span>AI 生成原創素材</span></div><div class="links"><a class="primary" href="exploration-studio.webp" download>下載 WebP</a><a href="exploration-studio.png" download>原始 PNG</a></div>
+        </figcaption></figure>
+        <figure class="card"><div class="image-stage small"><img src="first-connection.webp" width="480" height="320" alt="炭黑托盤、暖灰文件與琥珀色連結點，象徵等待第一份探索紀錄。" loading="lazy" decoding="async" /></div><figcaption>
+          <h3>為第一份紀錄，留一個位置</h3><p>尚無推演紀錄時的陪伴插畫。讓空白狀態有明確方向，邀請使用者建立自己的第一個探索。</p><div class="meta"><span>空白狀態插畫</span><span>WebP · 480 × 320</span><span>AI 生成原創素材</span></div><div class="links"><a class="primary" href="first-connection.webp" download>下載 WebP</a><a href="first-connection.png" download>原始 PNG</a></div>
+        </figcaption></figure>
+      </div>
+    </section>
+
+    <section id="workflow" aria-labelledby="workflow-title">
+      <div class="section-heading"><h2 id="workflow-title">02　五步流程</h2><p>看清每一步的目的，以及它如何連到下一步。</p></div>
+      <div class="card"><a class="vector-preview" href="workflow-map.svg" target="_blank" rel="noopener" aria-label="另開五步流程 SVG 原圖"><img src="workflow-map.svg" alt="MiroFish 從建立圖譜、設定環境、執行模擬、產生報告到深入互動的五步流程圖。" loading="lazy" decoding="async" /></a><div class="card-copy vector-copy"><p>這張流程圖用來理解操作順序。實際開始探索，請回到工作室加入資料並寫下目標。窄螢幕可在圖中左右捲動，或另開原圖放大。</p><div class="links"><a href="workflow-map.svg" target="_blank" rel="noopener">開啟原圖 ↗</a><a class="primary" href="workflow-map.svg" download>下載 SVG</a></div></div></div>
+    </section>
+
+    <section id="blueprint" aria-labelledby="blueprint-title">
+      <div class="section-heading"><h2 id="blueprint-title">03　介面與操作地圖</h2><p>桌面與手機，保留同一條清楚的操作主線。</p></div>
+      <div class="card"><a class="vector-preview blueprint" href="ui-blueprint.svg" target="_blank" rel="noopener" aria-label="另開介面與操作地圖 SVG 原圖"><img src="ui-blueprint.svg" width="1440" height="1260" alt="桌面首頁、窄螢幕重排、淺深色設定與視覺層級的繁體中文註解設計圖。" loading="lazy" decoding="async" /></a><div class="card-copy vector-copy"><p>以真實功能為基礎的區塊示意，呈現主要任務、輔助說明與歷史紀錄之間的關係。所有文字和形狀都是可編輯向量，方便後續設計調整。</p><div class="links"><a href="ui-blueprint.svg" target="_blank" rel="noopener">開啟原圖 ↗</a><a class="primary" href="ui-blueprint.svg" download>下載 SVG</a></div></div></div>
+      <div class="palette" aria-label="工作室主要色彩"><div class="swatch"><i style="background:#d5cec1" aria-hidden="true"></i><div><strong>暖石畫布</strong><small>#d5cec1</small></div></div><div class="swatch"><i style="background:#282b25" aria-hidden="true"></i><div><strong>炭黑文字</strong><small>#282b25</small></div></div><div class="swatch"><i style="background:#805014" aria-hidden="true"></i><div><strong>焦糖重點</strong><small>#805014</small></div></div><div class="swatch"><i style="background:#1b1d19" aria-hidden="true"></i><div><strong>深色畫布</strong><small>#1b1d19</small></div></div></div>
+    </section>
+    <footer><p>MIROFISH / 群體模擬工作室</p><p><a href="prompts.json" download>下載完整生成提示詞</a> · 無外部字型或追蹤程式</p></footer>
+  </main>
+  <script>
+    document.querySelectorAll('[data-mode]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.documentElement.dataset.theme = button.dataset.mode;
+        document.querySelectorAll('[data-mode]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+      });
+    });
+  </script>
+</body>
+</html>

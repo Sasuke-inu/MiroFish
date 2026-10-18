@@ -1,0 +1,62 @@
+{
+  "verified_at": "2026-10-03T02:26:48.4999495+10:00",
+  "result": "passed",
+  "tests": {
+    "total": 98,
+    "passed": 98,
+    "failed": 0
+  },
+  "production_dependency_advisories": 0,
+  "whitespace_exit_code": 0,
+  "services": [
+    "backend b75b658f89f2 healthy",
+    "frontend 79e99c3671e2 healthy",
+    "graphiti 97cc89859f8b healthy",
+    "neo4j bb28dfc66c97 healthy"
+  ],
+  "system": {
+    "embedding": "local",
+    "graph_configured": true,
+    "graph_provider": "graphiti",
+    "llm_configured": true,
+    "missing": [],
+    "ready": true
+  },
+  "source_budget": {
+    "daily_limit": 10,
+    "day": "2026-10-03",
+    "remaining": 10,
+    "reserved": 0,
+    "resets_at": "2026-10-04T00:00:00+10:00",
+    "timezone": "Australia/Sydney",
+    "used": 0
+  },
+  "browser": {
+    "existing_graph_nodes": 8,
+    "layouts": [
+      "graph",
+      "split",
+      "workbench"
+    ],
+    "live_model_requests_this_turn": 0,
+    "responsive_fixture_css_widths": [
+      320,
+      390,
+      768
+    ],
+    "existing_report_sections": 4,
+    "restored_theme_preference": "system",
+    "production_console_warnings": 0,
+    "observed_horizontal_overflow": false,
+    "new_firecrawl_fetches_this_turn": 0,
+    "existing_report_id": "report_c0c3a40d9b21",
+    "production_console_errors": 0,
+    "preserved_home_draft": true
+  },
+  "artifacts": [
+    "frontend-quality-home-light.jpg",
+    "frontend-quality-home-dark.jpg",
+    "frontend-quality-mobile.jpg"
+  ],
+  "scope": "Frontend only; full paid simulation was not rerun"
+}

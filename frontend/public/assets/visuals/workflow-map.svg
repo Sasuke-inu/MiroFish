@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title description">
+  <title id="title">MiroFish：從資料到洞察的五步工作流程</title>
+  <desc id="description">整理關係、設定模擬、觀察互動、閱讀報告、繼續追問。每一步展示所需資料、操作內容與得到的成果。此圖僅為操作導覽，不會啟動模擬。</desc>
+  <defs>
+    <style>
+      :root { --paper:#d5cec1; --surface:#e4ded2; --ink:#282b25; --muted:#515548; --line:#b4b1a3; --accent:#805014; --soft:#e8d8b9; }
+      @media (prefers-color-scheme:dark) { :root { --paper:#1b1d19; --surface:#252822; --ink:#f0eadc; --muted:#b9bca9; --line:#4a5041; --accent:#e8b869; --soft:#3e3422; } }
+      text { font-family:'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif; fill:var(--ink); }
+      .muted { fill:var(--muted); }
+      .accent { fill:var(--accent); }
+      .label { font-size:15px; letter-spacing:1px; fill:var(--muted); }
+      .body { font-size:20px; }
+      .card { fill:var(--surface); stroke:var(--line); }
+      .icon { fill:none; stroke:var(--accent); stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; }
+      .fine { fill:none; stroke:var(--line); stroke-width:1; }
+    </style>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="m1 1 4 3-4 3" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect width="1440" height="1040" rx="24" fill="var(--paper)"/>
+  <rect x="64" y="58" width="7" height="24" rx="3.5" fill="var(--accent)"/>
+  <text x="85" y="77" font-size="19" font-weight="700" letter-spacing="2">MIROFISH <tspan font-size="17" font-weight="400" letter-spacing="0" class="muted">/ 工作流程地圖</tspan></text>
+  <rect x="1147" y="48" width="229" height="44" rx="22" fill="var(--surface)" stroke="var(--line)"/>
+  <text x="1261" y="76" text-anchor="middle" font-size="17" class="muted">一個問題 · 五個步驟</text>
+  <text x="64" y="157" font-size="46" font-weight="700">從資料，走向可追問的洞察。</text>
+  <text x="65" y="203" font-size="22" class="muted">先認識每一步，再帶著自己的問題開始探索。</text>
+
+  <path d="M188 258H454M454 258H720M720 258H986M986 258h266" fill="none" stroke="var(--line)" stroke-width="2"/>
+  <g fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arrow)"><path d="M279 258h33"/><path d="M545 258h33"/><path d="M811 258h33"/><path d="M1077 258h33"/></g>
+  <g fill="var(--paper)" stroke="var(--accent)" stroke-width="2">
+    <circle cx="188" cy="258" r="8"/><circle cx="454" cy="258" r="8"/><circle cx="720" cy="258" r="8"/><circle cx="986" cy="258" r="8"/><circle cx="1252" cy="258" r="8"/>
+  </g>
+
+  <g transform="translate(64 292)">
+    <rect class="card" width="248" height="504" rx="18"/>
+    <text x="24" y="38" font-size="16" class="muted">01 / 關係</text>
+    <rect x="24" y="60" width="88" height="88" rx="20" fill="var(--soft)"/>
+    <g transform="translate(33 69) scale(1.75)" class="icon"><path d="M11 13 20 9l9 7-3 14-15-3V13m0 0 15 17M20 9l-9 18m18-11L11 27"/><path d="M14 11a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm9-4a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm9 9a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm-3 14a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm-15-3a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></g>
+    <text x="24" y="189" font-size="27" font-weight="700">整理關係</text>
+    <text x="24" y="227" class="body muted">分析人物、事件，</text><text x="24" y="256" class="body muted">找出資料中的連結。</text>
+    <path d="M24 281h200" class="fine"/>
+    <text x="24" y="312" class="label">投入</text>
+    <text x="24" y="343" class="body">參考資料與</text><text x="24" y="371" class="body">你想了解的問題</text>
+    <text x="24" y="419" class="label">得到</text>
+    <text x="24" y="451" class="body accent" font-weight="600">可探索的關係圖</text>
+  </g>
+  <g transform="translate(330 292)">
+    <rect class="card" width="248" height="504" rx="18"/>
+    <text x="24" y="38" font-size="16" class="muted">02 / 準備</text>
+    <rect x="24" y="60" width="88" height="88" rx="20" fill="var(--soft)"/>
+    <g transform="translate(33 69) scale(1.75)" class="icon"><path d="M8 11h24M8 20h24M8 29h24M14 8v6m12 3v6m-10 3v6"/></g>
+    <text x="24" y="189" font-size="27" font-weight="700">設定模擬</text>
+    <text x="24" y="227" class="body muted">建立角色，安排</text><text x="24" y="256" class="body muted">情境與模擬輪數。</text>
+    <path d="M24 281h200" class="fine"/>
+    <text x="24" y="312" class="label">投入</text>
+    <text x="24" y="343" class="body">關係圖與</text><text x="24" y="371" class="body">你的模擬目標</text>
+    <text x="24" y="419" class="label">得到</text>
+    <text x="24" y="451" class="body accent" font-weight="600">角色、情境與設定</text>
+  </g>
+  <g transform="translate(596 292)">
+    <rect class="card" width="248" height="504" rx="18"/>
+    <text x="24" y="38" font-size="16" class="muted">03 / 互動</text>
+    <rect x="24" y="60" width="88" height="88" rx="20" fill="var(--soft)"/>
+    <g transform="translate(33 69) scale(1.75)" class="icon"><path d="M6 8h20v14H15l-6 5v-5H6V8ZM29 16h5v15h-3v4l-6-4h-8v-5M11 13h10m-10 4h6"/></g>
+    <text x="24" y="189" font-size="27" font-weight="700">觀察互動</text>
+    <text x="24" y="227" class="body muted">跟隨角色的發言，</text><text x="24" y="256" class="body muted">看見不同的反應。</text>
+    <path d="M24 281h200" class="fine"/>
+    <text x="24" y="312" class="label">投入</text>
+    <text x="24" y="343" class="body">準備完成的</text><text x="24" y="371" class="body">角色與模擬設定</text>
+    <text x="24" y="419" class="label">得到</text>
+    <text x="24" y="451" class="body accent" font-weight="600">發言與互動紀錄</text>
+  </g>
+  <g transform="translate(862 292)">
+    <rect class="card" width="248" height="504" rx="18"/>
+    <text x="24" y="38" font-size="16" class="muted">04 / 理解</text>
+    <rect x="24" y="60" width="88" height="88" rx="20" fill="var(--soft)"/>
+    <g transform="translate(33 69) scale(1.75)" class="icon"><path d="M11 5h13l7 7v23H11V5Zm13 0v8h7M16 18h10m-10 4h6m-6 8v-4m5 4v-6m5 6v-3"/></g>
+    <text x="24" y="189" font-size="27" font-weight="700">閱讀報告</text>
+    <text x="24" y="227" class="body muted">整理過程與結果，</text><text x="24" y="256" class="body muted">了解原因與趨勢。</text>
+    <path d="M24 281h200" class="fine"/>
+    <text x="24" y="312" class="label">投入</text>
+    <text x="24" y="343" class="body">完成的模擬與</text><text x="24" y="371" class="body">互動紀錄</text>
+    <text x="24" y="419" class="label">得到</text>
+    <text x="24" y="451" class="body accent" font-weight="600">有依據的分析報告</text>
+  </g>
+  <g transform="translate(1128 292)">
+    <rect class="card" width="248" height="504" rx="18"/>
+    <text x="24" y="38" font-size="16" class="muted">05 / 深入</text>
+    <rect x="24" y="60" width="88" height="88" rx="20" fill="var(--soft)"/>
+    <g transform="translate(33 69) scale(1.75)" class="icon"><path d="M6 7h28v20H20l-8 7v-7H6V7ZM16 14a4 4 0 1 1 6 3.5c-1 .5-2 1-2 2.5m0 3v.1"/></g>
+    <text x="24" y="189" font-size="27" font-weight="700">繼續追問</text>
+    <text x="24" y="227" class="body muted">與角色及報告助手</text><text x="24" y="256" class="body muted">對話，探索新問題。</text>
+    <path d="M24 281h200" class="fine"/>
+    <text x="24" y="312" class="label">投入</text>
+    <text x="24" y="343" class="body">報告、角色與</text><text x="24" y="371" class="body">你的新問題</text>
+    <text x="24" y="419" class="label">得到</text>
+    <text x="24" y="451" class="body accent" font-weight="600">回答與不同觀點</text>
+  </g>
+
+  <rect x="64" y="835" width="1312" height="123" rx="18" fill="var(--soft)"/>
+  <circle cx="102" cy="875" r="12" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <path d="m97 875 3 3 7-7" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="126" y="883" font-size="23" font-weight="700">你控制每一步</text>
+  <text x="90" y="924" font-size="20" class="muted">先檢查資料與設定，再啟動模擬。結果用於探索，並非真實世界的預測保證。</text>
+  <text x="64" y="1002" font-size="15" class="muted">MIROFISH · 群體模擬工作室</text>
+  <text x="1376" y="1002" text-anchor="end" font-size="15" class="muted">操作導覽 / 不會啟動模擬</text>
+</svg>

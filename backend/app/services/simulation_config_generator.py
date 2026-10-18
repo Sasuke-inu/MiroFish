@@ -11,6 +11,7 @@
 """
 
 import json
+from ..utils.json_object import unwrap_properties
 import math
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field, asdict
@@ -23,6 +24,7 @@ from ..utils.logger import get_logger
 from ..utils.locale import get_language_instruction, t
 from ..utils.openai_chat_compat import create_chat_completion, extract_chat_completion_text
 from .zep_entity_reader import EntityNode, ZepEntityReader
+from .oasis_profile_generator import PreparationNeedsReview
 
 logger = get_logger('mirofish.simulation_config')
 
@@ -229,16 +231,21 @@ class SimulationConfigGenerator:
         base_url: Optional[str] = None,
         model_name: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model_name = model_name or Config.LLM_MODEL_NAME
+        from ..provider_settings import get_model_settings
+        settings = get_model_settings(stage='prepare')
+        self.api_key = api_key or settings['api_key']
+        self.base_url = base_url or settings['base_url']
+        self.model_name = model_name or settings['model']
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
         
+        from openai import DefaultHttpxClient
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            max_retries=0,
+            http_client=DefaultHttpxClient(follow_redirects=False, trust_env=False, timeout=180),
         )
     
     def generate_config(
@@ -433,54 +440,35 @@ class SimulationConfigGenerator:
         return "\n".join(lines)
     
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
-        """带重试的LLM调用，包含JSON修复逻辑"""
-        import re
+        """Historical method name; one model request plus local JSON repair."""
+        system_prompt += ('\nReturn exactly the JSON structure shown in the user request. '
+                          'Keep all English JSON property names unchanged. Do not translate keys, '
+                          'add wrappers, or replace the requested structure with another schema.')
         
-        max_attempts = 3
-        last_error = None
-        
-        for attempt in range(max_attempts):
+        try:
+            response = create_chat_completion(
+                self.client, model=self.model_name,
+                messages=[{'role': 'system', 'content': system_prompt}, {'role': 'user', 'content': prompt}],
+                response_format={'type': 'json_object'}, temperature=0.7,
+            )
+            content = extract_chat_completion_text(response)
+            if response.choices[0].finish_reason == 'length':
+                raise ValueError('Truncated model response')
             try:
-                response = create_chat_completion(
-                    self.client,
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1),  # 每次重试降低温度
-                    # 不设置max_tokens，让LLM自由发挥
-                )
-                
-                content = extract_chat_completion_text(response)
-                finish_reason = response.choices[0].finish_reason
-                
-                # 检查是否被截断
-                if finish_reason == 'length':
-                    logger.warning(f"LLM输出被截断 (attempt {attempt+1})")
-                    content = self._fix_truncated_json(content)
-                
-                # 尝试解析JSON
-                try:
-                    return json.loads(content)
-                except json.JSONDecodeError as e:
-                    logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(e)[:80]}")
-                    
-                    # 尝试修复JSON
-                    fixed = self._try_fix_config_json(content)
-                    if fixed:
-                        return fixed
-                    
-                    last_error = e
-                    
-            except Exception as e:
-                logger.warning(f"LLM调用失败 (attempt {attempt+1}): {str(e)[:80]}")
-                last_error = e
-                import time
-                time.sleep(2 * (attempt + 1))
-        
-        raise last_error or Exception("LLM调用失败")
+                result = json.loads(content)
+            except json.JSONDecodeError:
+                result = self._try_fix_config_json(content)
+            result = unwrap_properties(result, {
+                'total_simulation_hours', 'minutes_per_round', 'agents_per_hour_min',
+                'hot_topics', 'initial_posts', 'narrative_direction',
+                'agents', 'agent_configs', 'twitter_config', 'reddit_config',
+            })
+            if not isinstance(result, dict) or not result:
+                raise ValueError('Empty or invalid configuration')
+            return result
+        except Exception as error:
+            logger.warning('模擬設定生成結果未確認 (%s)', type(error).__name__)
+            raise PreparationNeedsReview('模擬設定生成結果未確認；已停止自動重試，請核對費用與已保存內容。') from None
     
     def _fix_truncated_json(self, content: str) -> str:
         """修复被截断的JSON"""
@@ -590,11 +578,10 @@ class SimulationConfigGenerator:
         system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合模拟场景中目标用户群体的作息习惯。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}"
 
-        try:
-            return self._call_llm_with_retry(prompt, system_prompt)
-        except Exception as e:
-            logger.warning(f"时间配置LLM生成失败: {e}, 使用默认配置")
-            return self._get_default_time_config(num_entities)
+        result = self._call_llm_with_retry(prompt, system_prompt)
+        if not {'total_simulation_hours', 'minutes_per_round'} <= set(result):
+            raise PreparationNeedsReview('時間設定缺少必要欄位；請核對模型輸出。')
+        return result
     
     def _get_default_time_config(self, num_entities: int) -> Dict[str, Any]:
         """获取默认时间配置（中国人作息）"""
@@ -707,16 +694,10 @@ class SimulationConfigGenerator:
         system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'poster_type' field value MUST be in English PascalCase exactly matching the available entity types. Only 'content', 'narrative_direction', 'hot_topics' and 'reasoning' fields should use the specified language."
 
-        try:
-            return self._call_llm_with_retry(prompt, system_prompt)
-        except Exception as e:
-            logger.warning(f"事件配置LLM生成失败: {e}, 使用默认配置")
-            return {
-                "hot_topics": [],
-                "narrative_direction": "",
-                "initial_posts": [],
-                "reasoning": "使用默认配置"
-            }
+        result = self._call_llm_with_retry(prompt, system_prompt)
+        if not {'hot_topics', 'initial_posts', 'narrative_direction'} <= set(result):
+            raise PreparationNeedsReview('事件設定缺少必要欄位；請核對模型輸出。')
+        return result
     
     def _parse_event_config(self, result: Dict[str, Any]) -> EventConfig:
         """解析事件配置结果"""
@@ -871,22 +852,19 @@ class SimulationConfigGenerator:
         system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合模拟场景中目标用户群体的作息习惯。"
         system_prompt = f"{system_prompt}\n\n{get_language_instruction()}\nIMPORTANT: The 'stance' field value MUST be one of the English strings: 'supportive', 'opposing', 'neutral', 'observer'. All JSON field names and numeric values must remain unchanged. Only natural language text fields should use the specified language."
 
-        try:
-            result = self._call_llm_with_retry(prompt, system_prompt)
-            llm_configs = {cfg["agent_id"]: cfg for cfg in result.get("agent_configs", [])}
-        except Exception as e:
-            logger.warning(f"Agent配置批次LLM生成失败: {e}, 使用规则生成")
-            llm_configs = {}
+        result = self._call_llm_with_retry(prompt, system_prompt)
+        records = result.get('agent_configs')
+        if (not isinstance(records, list) or any(not isinstance(cfg, dict) or type(cfg.get('agent_id')) is not int for cfg in records)
+                or len({cfg['agent_id'] for cfg in records}) != len(records)
+                or {cfg['agent_id'] for cfg in records} != set(range(start_idx, start_idx + len(entities)))):
+            raise PreparationNeedsReview('角色設定未完整對應所有角色；請核對模型輸出。')
+        llm_configs = {cfg['agent_id']: cfg for cfg in records}
         
         # 构建AgentActivityConfig对象
         configs = []
         for i, entity in enumerate(entities):
             agent_id = start_idx + i
             cfg = llm_configs.get(agent_id, {})
-            
-            # 如果LLM没有生成，使用规则生成
-            if not cfg:
-                cfg = self._generate_agent_config_by_rule(entity)
             
             config = AgentActivityConfig(
                 agent_id=agent_id,

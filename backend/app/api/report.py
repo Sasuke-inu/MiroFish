@@ -4,13 +4,17 @@ Report API路由
 """
 
 import os
+import io
 import traceback
 import threading
+from datetime import datetime, timezone
 from flask import request, jsonify, send_file
 
 from . import report_bp
 from ..config import Config
-from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
+from ..services.report_agent import Report, ReportAgent, ReportManager, ReportStatus
+from ..provider_settings import get_model_settings, model_settings_snapshot
+from ..models.execution import ACTIVE, public_manifest, RunStore
 from ..services.simulation_manager import SimulationManager
 from ..services.simulation_runner import SimulationRunner, RunnerStatus
 from ..services.zep_graph_memory_updater import ZepGraphMemoryManager
@@ -88,6 +92,7 @@ def generate_report():
             RunnerStatus.RUNNING,
             RunnerStatus.PAUSED,
             RunnerStatus.STOPPING,
+            RunnerStatus.FINALIZING,
         }
         if updater is not None or (
             run_state is not None and run_state.runner_status in active_statuses
@@ -100,18 +105,16 @@ def generate_report():
                 ),
                 "ingestion_pending": updater is not None,
             }), 409
-        successful_terminal_statuses = {
-            RunnerStatus.COMPLETED,
-            RunnerStatus.STOPPED,
-        }
+        successful_terminal_statuses = {RunnerStatus.COMPLETED}
         if (
             run_state is None
             or run_state.runner_status not in successful_terminal_statuses
+            or not getattr(run_state, 'graph_ready', False)
         ):
             return jsonify({
                 "success": False,
                 "error": (
-                    "A successfully completed or stopped simulation is required "
+                    "A successfully completed simulation with verified graph writes is required "
                     "before generating a report"
                 ),
             }), 409
@@ -130,18 +133,20 @@ def generate_report():
                 "error": "The project graph must be completely built before reporting",
             }), 409
 
-        graph_id = project.graph_id
+        source_graph_id = getattr(state, 'source_graph_id', None)
+        graph_id = state.graph_id
         if not graph_id:
             return jsonify({
                 "success": False,
                 "error": t('api.missingGraphIdEnsure')
             }), 400
-        if state.graph_id and state.graph_id != graph_id:
+        if (source_graph_id != project.graph_id or source_graph_id == graph_id
+                or getattr(state, 'graph_namespace_status', None) != 'ready'):
             return jsonify({
                 "success": False,
                 "error": (
-                    "The simulation references an older graph; prepare it "
-                    "again before generating a report"
+                    "This historical simulation has no verified isolated graph; "
+                    "preserved reports remain readable. Create a new draft run."
                 ),
             }), 409
         
@@ -172,12 +177,14 @@ def generate_report():
             if (
                 refreshed_state is None
                 or refreshed_project is None
-                or refreshed_project.graph_id != graph_id
+                or refreshed_project.graph_id != source_graph_id
                 or refreshed_project.status != ProjectStatus.GRAPH_COMPLETED
                 or (
                     refreshed_state.graph_id
                     and refreshed_state.graph_id != graph_id
                 )
+                or getattr(refreshed_state, 'source_graph_id', None) != source_graph_id
+                or getattr(refreshed_state, 'graph_namespace_status', None) != 'ready'
             ):
                 return jsonify({
                     "success": False,
@@ -199,11 +206,12 @@ def generate_report():
                 refreshed_run_state is None
                 or refreshed_run_state.runner_status
                 not in successful_terminal_statuses
+                or not getattr(refreshed_run_state, 'graph_ready', False)
             ):
                 return jsonify({
                     "success": False,
                     "error": (
-                        "A successfully completed or stopped simulation is "
+                        "A successfully completed simulation with verified graph writes is "
                         "required before generating a report"
                     ),
                 }), 409
@@ -211,38 +219,66 @@ def generate_report():
             # Cached-report reuse is now part of the same atomic barrier, so a
             # concurrent rerun cannot make the returned report stale between
             # the status check and response.
-            if not force_regenerate:
-                existing_report = ReportManager.get_report_by_simulation(
-                    simulation_id
+            existing_report = ReportManager.get_report_by_simulation(simulation_id)
+            if existing_report:
+                # 未啟動就失敗（無任何產出）的報告不阻擋一般重試：這類失敗
+                # 沒有可檢視的成果，若只有帶 force 才能重試，使用者會卡在
+                # 這份永遠失敗的報告上。
+                never_started_failure = (
+                    existing_report.status == ReportStatus.FAILED
+                    and not existing_report.outline
+                    and not (existing_report.markdown_content or '').strip()
                 )
-                if (
-                    existing_report
-                    and existing_report.status == ReportStatus.COMPLETED
-                ):
+                if (not force_regenerate and not never_started_failure) or existing_report.status in {
+                    ReportStatus.PENDING, ReportStatus.PLANNING, ReportStatus.GENERATING
+                }:
                     return jsonify({
                         "success": True,
                         "data": {
                             "simulation_id": simulation_id,
                             "report_id": existing_report.report_id,
-                            "status": "completed",
+                            "task_id": existing_report.task_id,
+                            "status": existing_report.status.value,
                             "message": t('api.reportAlreadyExists'),
-                            "already_generated": True
+                            "already_generated": existing_report.status == ReportStatus.COMPLETED,
+                            "reused": True,
+                            "error": existing_report.error,
                         }
                     })
 
+            settings_snapshot = get_model_settings(stage='report')
             task_manager = TaskManager()
-            task_id = task_manager.create_task(
-                task_type="report_generate",
+            # 版本編號來自持久化帳本（同一交易內配發並 claim）：刪除報告不會回收版本號
+            task_id, created, version = task_manager.claim_report_version(
+                simulation_id,
                 metadata={
                     "simulation_id": simulation_id,
                     "graph_id": graph_id,
                     "report_id": report_id
                 }
             )
-            current_locale = get_locale()
-            register_graph_reader(graph_id, report_id)
-
+            if not created:
+                claimed = task_manager.get_task(task_id)
+                reused_report_id = (claimed.metadata or {}).get('report_id') if claimed else None
+                claimed_status = claimed.status if claimed else None
+                artifact_missing = reused_report_id is None or ReportManager.get_report(reused_report_id) is None
+                # 已完成的工作若產物不存在：不得回報 already_generated；
+                # 仍在執行中的認領允許產物尚未落地（重複請求加入同一份工作）。
+                if not reused_report_id or (claimed_status == TaskStatus.COMPLETED and artifact_missing):
+                    # 舊工作已存在，但保存的產物不存在：不得回報 already_generated
+                    return jsonify({
+                        "success": False,
+                        "error": '先前版本的工作已完成，但保存的報告內容不存在；此版本需要重新檢查，未重用已刪除的產物。'
+                    }), 409
+                return jsonify(success=True, data={
+                    'simulation_id': simulation_id, 'report_id': reused_report_id,
+                    'task_id': task_id, 'status': claimed.status.value, 'reused': True,
+                    'already_generated': claimed.status == TaskStatus.COMPLETED})
             def run_generate():
+                with model_settings_snapshot(settings_snapshot):
+                    return _run_generate()
+
+            def _run_generate():
                 set_locale(current_locale)
                 try:
                     task_manager.update_task(
@@ -269,7 +305,8 @@ def generate_report():
                         progress_callback=progress_callback,
                         report_id=report_id
                     )
-                    ReportManager.save_report(report)
+                    # The agent persists every terminal status itself; a second
+                    # save here could recreate a folder deleted in between.
 
                     if report.status == ReportStatus.COMPLETED:
                         task_manager.complete_task(
@@ -281,21 +318,49 @@ def generate_report():
                             }
                         )
                     else:
-                        task_manager.fail_task(
-                            task_id,
-                            report.error or t('api.reportGenerateFailed')
-                        )
+                        task_manager.update_task(task_id,
+                            status=TaskStatus.NEEDS_REVIEW if report.status == ReportStatus.NEEDS_REVIEW else TaskStatus.FAILED,
+                            error=report.error or t('api.reportGenerateFailed'))
                 except Exception as e:
-                    logger.error(f"报告生成失败: {str(e)}")
-                    task_manager.fail_task(task_id, str(e))
+                    logger.error('Report failed: task=%s type=%s', task_id, type(e).__name__)
+                    task_manager.update_task(task_id, status=TaskStatus.NEEDS_REVIEW if getattr(e, 'outcome_unknown', False) else TaskStatus.FAILED,
+                                             error='報告未完成；回覆結果未確認，既有版本仍保留。')
                 finally:
                     unregister_graph_reader(graph_id, report_id)
 
+            registered_reader = False
+            report_saved = False
             try:
+                ReportManager.save_report(Report(
+                    report_id=report_id, simulation_id=simulation_id, graph_id=graph_id,
+                    simulation_requirement=simulation_requirement, status=ReportStatus.PENDING,
+                    created_at=datetime.now(timezone.utc).isoformat(), task_id=task_id,
+                    run_id=getattr(refreshed_run_state, 'run_id', None), version=version,
+                    manifest={'model': public_manifest(settings_snapshot), 'graph_id': graph_id,
+                              'execution': (RunStore.get(simulation_id) or {}).get('manifest', {}),
+                              'version': version, 'completeness': 'complete'}))
+                report_saved = True
+                current_locale = get_locale()
+                register_graph_reader(graph_id, report_id)
+                registered_reader = True
                 thread = threading.Thread(target=run_generate, daemon=True)
                 thread.start()
             except Exception:
-                unregister_graph_reader(graph_id, report_id)
+                # 啟動失敗不得留下沒有執行者的 pending 認領：工作標為失敗、
+                # 解除已完成的登錄；已保存的初始報告也標為失敗，後續請求
+                # 才會配到新版本，而不是一直重用這份殭屍工作。
+                task_manager.fail_task(task_id, '報告工作未能啟動；原有報告仍保留。')
+                if registered_reader:
+                    unregister_graph_reader(graph_id, report_id)
+                if report_saved:
+                    try:
+                        saved = ReportManager.get_report(report_id)
+                        if saved is not None:
+                            saved.status = ReportStatus.FAILED
+                            saved.error = '報告工作未能啟動；請重新產生。'
+                            ReportManager.save_report(saved)
+                    except Exception:
+                        logger.warning('報告啟動失敗後標記初始報告失敗出錯: report_id=%s', report_id)
                 raise
         
         return jsonify({
@@ -311,11 +376,10 @@ def generate_report():
         })
         
     except Exception as e:
-        logger.error(f"启动报告生成任务失败: {str(e)}")
+        logger.error('Report start failed: %s', type(e).__name__)
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": '報告未能啟動，既有版本仍保留；請檢查服務狀態。'
         }), 500
 
 
@@ -348,7 +412,7 @@ def get_generate_status():
         simulation_id = data.get('simulation_id')
         
         # 如果提供了simulation_id，先检查是否已有完成的报告
-        if simulation_id:
+        if simulation_id and not task_id:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
                 return jsonify({
@@ -533,16 +597,12 @@ def download_report(report_id: str):
         md_path = ReportManager._get_report_markdown_path(report_id)
         
         if not os.path.exists(md_path):
-            # 如果MD文件不存在，生成一个临时文件
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-                f.write(report.markdown_content)
-                temp_path = f.name
-            
+            # 全文檔不存在時直接由記憶體回傳，不在磁碟留下未清理的暫存檔
             return send_file(
-                temp_path,
+                io.BytesIO((report.markdown_content or '').encode('utf-8')),
                 as_attachment=True,
-                download_name=f"{report_id}.md"
+                download_name=f"{report_id}.md",
+                mimetype='text/markdown'
             )
         
         return send_file(
@@ -562,9 +622,37 @@ def download_report(report_id: str):
 
 @report_bp.route('/<report_id>', methods=['DELETE'])
 def delete_report(report_id: str):
-    """删除报告"""
+    """删除报告
+
+    仍在生成中的报告由背景工作继续寫入，刪除會被拒絕（409）；不因此停止模型工作。
+    """
     try:
-        success = ReportManager.delete_report(report_id)
+        with ReportManager.report_lock(report_id):
+            report = ReportManager.get_report(report_id)
+
+            if report is None:
+                return jsonify({
+                    "success": False,
+                    "error": t('api.reportNotFound', id=report_id)
+                }), 404
+
+            if report.status in {ReportStatus.PENDING, ReportStatus.PLANNING, ReportStatus.GENERATING}:
+                return jsonify({
+                    "success": False,
+                    "error": '報告仍在生成中，不能刪除。'
+                }), 409
+
+            if report.task_id:
+                task = TaskManager().get_task(report.task_id)
+                # 先宣告完成、工作仍在寫入的視窗同樣不得刪除，
+                # 否則資料夾會在刪除後被背景工作重建。
+                if task is not None and task.status.value in ACTIVE:
+                    return jsonify({
+                        "success": False,
+                        "error": '報告的工作仍在執行中，不能刪除。'
+                    }), 409
+
+            success = ReportManager.delete_report(report_id)
         
         if not success:
             return jsonify({

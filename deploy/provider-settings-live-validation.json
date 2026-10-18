@@ -1,0 +1,13 @@
+{
+  "persisted_after_restart": true,
+  "provider": "ninerouter",
+  "model": "cx/gpt-5.6-luna",
+  "key_present": true,
+  "balance_authorization": false,
+  "services_ready": true,
+  "invalid_origin_status": 403,
+  "missing_csrf_status": 403,
+  "firecrawl_online": true,
+  "page_limit": 3,
+  "daily_limit": 10
+}

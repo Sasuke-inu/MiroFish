@@ -1,0 +1,756 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T02:51:10.849Z",
+  "title": "Design System: MiroFish",
+  "extensions": {
+    "colorMeta": {
+      "studio-accent-light": {
+        "role": "primary",
+        "displayName": "淺色 · 琥珀重點",
+        "tonalRamp": [
+          "oklch(15% 0.0959 66.51)",
+          "oklch(26% 0.0959 66.51)",
+          "oklch(37% 0.0959 66.51)",
+          "oklch(48% 0.0959 66.51)",
+          "oklch(60% 0.0959 66.51)",
+          "oklch(72% 0.0959 66.51)",
+          "oklch(84% 0.0959 66.51)",
+          "oklch(95% 0.0959 66.51)"
+        ]
+      },
+      "studio-accent-dark": {
+        "role": "primary",
+        "displayName": "深色 · 琥珀重點",
+        "tonalRamp": [
+          "oklch(15% 0.1119 78.59)",
+          "oklch(26% 0.1119 78.59)",
+          "oklch(37% 0.1119 78.59)",
+          "oklch(48% 0.1119 78.59)",
+          "oklch(60% 0.1119 78.59)",
+          "oklch(72% 0.1119 78.59)",
+          "oklch(84% 0.1119 78.59)",
+          "oklch(95% 0.1119 78.59)"
+        ]
+      },
+      "studio-soft-light": {
+        "role": "primary",
+        "displayName": "淺色 · 琥珀底色",
+        "tonalRamp": [
+          "oklch(15% 0.0448 83.90)",
+          "oklch(26% 0.0448 83.90)",
+          "oklch(37% 0.0448 83.90)",
+          "oklch(48% 0.0448 83.90)",
+          "oklch(60% 0.0448 83.90)",
+          "oklch(72% 0.0448 83.90)",
+          "oklch(84% 0.0448 83.90)",
+          "oklch(95% 0.0448 83.90)"
+        ]
+      },
+      "studio-soft-dark": {
+        "role": "primary",
+        "displayName": "深色 · 琥珀底色",
+        "tonalRamp": [
+          "oklch(15% 0.0326 81.81)",
+          "oklch(26% 0.0326 81.81)",
+          "oklch(37% 0.0326 81.81)",
+          "oklch(48% 0.0326 81.81)",
+          "oklch(60% 0.0326 81.81)",
+          "oklch(72% 0.0326 81.81)",
+          "oklch(84% 0.0326 81.81)",
+          "oklch(95% 0.0326 81.81)"
+        ]
+      },
+      "studio-paper-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 頁面底色",
+        "tonalRamp": [
+          "oklch(15% 0.0193 83.06)",
+          "oklch(26% 0.0193 83.06)",
+          "oklch(37% 0.0193 83.06)",
+          "oklch(48% 0.0193 83.06)",
+          "oklch(60% 0.0193 83.06)",
+          "oklch(72% 0.0193 83.06)",
+          "oklch(84% 0.0193 83.06)",
+          "oklch(95% 0.0193 83.06)"
+        ]
+      },
+      "studio-paper-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 頁面底色",
+        "tonalRamp": [
+          "oklch(15% 0.0081 128.87)",
+          "oklch(26% 0.0081 128.87)",
+          "oklch(37% 0.0081 128.87)",
+          "oklch(48% 0.0081 128.87)",
+          "oklch(60% 0.0081 128.87)",
+          "oklch(72% 0.0081 128.87)",
+          "oklch(84% 0.0081 128.87)",
+          "oklch(95% 0.0081 128.87)"
+        ]
+      },
+      "studio-surface-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 內容表面",
+        "tonalRamp": [
+          "oklch(15% 0.0174 84.59)",
+          "oklch(26% 0.0174 84.59)",
+          "oklch(37% 0.0174 84.59)",
+          "oklch(48% 0.0174 84.59)",
+          "oklch(60% 0.0174 84.59)",
+          "oklch(72% 0.0174 84.59)",
+          "oklch(84% 0.0174 84.59)",
+          "oklch(95% 0.0174 84.59)"
+        ]
+      },
+      "studio-surface-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 內容表面",
+        "tonalRamp": [
+          "oklch(15% 0.0117 128.95)",
+          "oklch(26% 0.0117 128.95)",
+          "oklch(37% 0.0117 128.95)",
+          "oklch(48% 0.0117 128.95)",
+          "oklch(60% 0.0117 128.95)",
+          "oklch(72% 0.0117 128.95)",
+          "oklch(84% 0.0117 128.95)",
+          "oklch(95% 0.0117 128.95)"
+        ]
+      },
+      "studio-ink-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 主要文字",
+        "tonalRamp": [
+          "oklch(15% 0.0115 128.92)",
+          "oklch(26% 0.0115 128.92)",
+          "oklch(37% 0.0115 128.92)",
+          "oklch(48% 0.0115 128.92)",
+          "oklch(60% 0.0115 128.92)",
+          "oklch(72% 0.0115 128.92)",
+          "oklch(84% 0.0115 128.92)",
+          "oklch(95% 0.0115 128.92)"
+        ]
+      },
+      "studio-ink-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 主要文字",
+        "tonalRamp": [
+          "oklch(15% 0.0197 87.52)",
+          "oklch(26% 0.0197 87.52)",
+          "oklch(37% 0.0197 87.52)",
+          "oklch(48% 0.0197 87.52)",
+          "oklch(60% 0.0197 87.52)",
+          "oklch(72% 0.0197 87.52)",
+          "oklch(84% 0.0197 87.52)",
+          "oklch(95% 0.0197 87.52)"
+        ]
+      },
+      "studio-muted-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 次要文字",
+        "tonalRamp": [
+          "oklch(15% 0.0213 121.19)",
+          "oklch(26% 0.0213 121.19)",
+          "oklch(37% 0.0213 121.19)",
+          "oklch(48% 0.0213 121.19)",
+          "oklch(60% 0.0213 121.19)",
+          "oklch(72% 0.0213 121.19)",
+          "oklch(84% 0.0213 121.19)",
+          "oklch(95% 0.0213 121.19)"
+        ]
+      },
+      "studio-muted-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 次要文字",
+        "tonalRamp": [
+          "oklch(15% 0.0264 114.29)",
+          "oklch(26% 0.0264 114.29)",
+          "oklch(37% 0.0264 114.29)",
+          "oklch(48% 0.0264 114.29)",
+          "oklch(60% 0.0264 114.29)",
+          "oklch(72% 0.0264 114.29)",
+          "oklch(84% 0.0264 114.29)",
+          "oklch(95% 0.0264 114.29)"
+        ]
+      },
+      "studio-line-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 一般邊界",
+        "tonalRamp": [
+          "oklch(15% 0.0199 96.94)",
+          "oklch(26% 0.0199 96.94)",
+          "oklch(37% 0.0199 96.94)",
+          "oklch(48% 0.0199 96.94)",
+          "oklch(60% 0.0199 96.94)",
+          "oklch(72% 0.0199 96.94)",
+          "oklch(84% 0.0199 96.94)",
+          "oklch(95% 0.0199 96.94)"
+        ]
+      },
+      "studio-line-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 一般邊界",
+        "tonalRamp": [
+          "oklch(15% 0.0253 125.23)",
+          "oklch(26% 0.0253 125.23)",
+          "oklch(37% 0.0253 125.23)",
+          "oklch(48% 0.0253 125.23)",
+          "oklch(60% 0.0253 125.23)",
+          "oklch(72% 0.0253 125.23)",
+          "oklch(84% 0.0253 125.23)",
+          "oklch(95% 0.0253 125.23)"
+        ]
+      },
+      "theme-line-strong-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 輸入邊界",
+        "tonalRamp": [
+          "oklch(15% 0.0297 118.66)",
+          "oklch(26% 0.0297 118.66)",
+          "oklch(37% 0.0297 118.66)",
+          "oklch(48% 0.0297 118.66)",
+          "oklch(60% 0.0297 118.66)",
+          "oklch(72% 0.0297 118.66)",
+          "oklch(84% 0.0297 118.66)",
+          "oklch(95% 0.0297 118.66)"
+        ]
+      },
+      "theme-line-strong-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 輸入邊界",
+        "tonalRamp": [
+          "oklch(15% 0.0438 123.15)",
+          "oklch(26% 0.0438 123.15)",
+          "oklch(37% 0.0438 123.15)",
+          "oklch(48% 0.0438 123.15)",
+          "oklch(60% 0.0438 123.15)",
+          "oklch(72% 0.0438 123.15)",
+          "oklch(84% 0.0438 123.15)",
+          "oklch(95% 0.0438 123.15)"
+        ]
+      },
+      "studio-button-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 主要按鈕",
+        "tonalRamp": [
+          "oklch(15% 0.0215 125.96)",
+          "oklch(26% 0.0215 125.96)",
+          "oklch(37% 0.0215 125.96)",
+          "oklch(48% 0.0215 125.96)",
+          "oklch(60% 0.0215 125.96)",
+          "oklch(72% 0.0215 125.96)",
+          "oklch(84% 0.0215 125.96)",
+          "oklch(95% 0.0215 125.96)"
+        ]
+      },
+      "studio-button-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 主要按鈕",
+        "tonalRamp": [
+          "oklch(15% 0.0430 126.70)",
+          "oklch(26% 0.0430 126.70)",
+          "oklch(37% 0.0430 126.70)",
+          "oklch(48% 0.0430 126.70)",
+          "oklch(60% 0.0430 126.70)",
+          "oklch(72% 0.0430 126.70)",
+          "oklch(84% 0.0430 126.70)",
+          "oklch(95% 0.0430 126.70)"
+        ]
+      },
+      "studio-button-hover-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 按鈕指向",
+        "tonalRamp": [
+          "oklch(15% 0.0304 124.99)",
+          "oklch(26% 0.0304 124.99)",
+          "oklch(37% 0.0304 124.99)",
+          "oklch(48% 0.0304 124.99)",
+          "oklch(60% 0.0304 124.99)",
+          "oklch(72% 0.0304 124.99)",
+          "oklch(84% 0.0304 124.99)",
+          "oklch(95% 0.0304 124.99)"
+        ]
+      },
+      "studio-button-hover-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 按鈕指向",
+        "tonalRamp": [
+          "oklch(15% 0.0522 125.64)",
+          "oklch(26% 0.0522 125.64)",
+          "oklch(37% 0.0522 125.64)",
+          "oklch(48% 0.0522 125.64)",
+          "oklch(60% 0.0522 125.64)",
+          "oklch(72% 0.0522 125.64)",
+          "oklch(84% 0.0522 125.64)",
+          "oklch(95% 0.0522 125.64)"
+        ]
+      },
+      "theme-surface-soft-light": {
+        "role": "neutral",
+        "displayName": "淺色 · 次層表面",
+        "tonalRamp": [
+          "oklch(15% 0.0168 91.57)",
+          "oklch(26% 0.0168 91.57)",
+          "oklch(37% 0.0168 91.57)",
+          "oklch(48% 0.0168 91.57)",
+          "oklch(60% 0.0168 91.57)",
+          "oklch(72% 0.0168 91.57)",
+          "oklch(84% 0.0168 91.57)",
+          "oklch(95% 0.0168 91.57)"
+        ]
+      },
+      "theme-surface-soft-dark": {
+        "role": "neutral",
+        "displayName": "深色 · 次層表面",
+        "tonalRamp": [
+          "oklch(15% 0.0186 129.13)",
+          "oklch(26% 0.0186 129.13)",
+          "oklch(37% 0.0186 129.13)",
+          "oklch(48% 0.0186 129.13)",
+          "oklch(60% 0.0186 129.13)",
+          "oklch(72% 0.0186 129.13)",
+          "oklch(84% 0.0186 129.13)",
+          "oklch(95% 0.0186 129.13)"
+        ]
+      },
+      "theme-accent-line-light": {
+        "role": "primary",
+        "displayName": "淺色 · 琥珀焦點",
+        "tonalRamp": [
+          "oklch(15% 0.1025 70.48)",
+          "oklch(26% 0.1025 70.48)",
+          "oklch(37% 0.1025 70.48)",
+          "oklch(48% 0.1025 70.48)",
+          "oklch(60% 0.1025 70.48)",
+          "oklch(72% 0.1025 70.48)",
+          "oklch(84% 0.1025 70.48)",
+          "oklch(95% 0.1025 70.48)"
+        ]
+      },
+      "theme-accent-line-dark": {
+        "role": "primary",
+        "displayName": "深色 · 琥珀焦點",
+        "tonalRamp": [
+          "oklch(15% 0.1043 77.88)",
+          "oklch(26% 0.1043 77.88)",
+          "oklch(37% 0.1043 77.88)",
+          "oklch(48% 0.1043 77.88)",
+          "oklch(60% 0.1043 77.88)",
+          "oklch(72% 0.1043 77.88)",
+          "oklch(84% 0.1043 77.88)",
+          "oklch(95% 0.1043 77.88)"
+        ]
+      },
+      "studio-green-light": {
+        "role": "secondary",
+        "displayName": "淺色 · 成功文字",
+        "tonalRamp": [
+          "oklch(15% 0.0625 152.34)",
+          "oklch(26% 0.0625 152.34)",
+          "oklch(37% 0.0625 152.34)",
+          "oklch(48% 0.0625 152.34)",
+          "oklch(60% 0.0625 152.34)",
+          "oklch(72% 0.0625 152.34)",
+          "oklch(84% 0.0625 152.34)",
+          "oklch(95% 0.0625 152.34)"
+        ]
+      },
+      "studio-green-dark": {
+        "role": "secondary",
+        "displayName": "深色 · 成功文字",
+        "tonalRamp": [
+          "oklch(15% 0.0836 134.40)",
+          "oklch(26% 0.0836 134.40)",
+          "oklch(37% 0.0836 134.40)",
+          "oklch(48% 0.0836 134.40)",
+          "oklch(60% 0.0836 134.40)",
+          "oklch(72% 0.0836 134.40)",
+          "oklch(84% 0.0836 134.40)",
+          "oklch(95% 0.0836 134.40)"
+        ]
+      },
+      "studio-success-soft-light": {
+        "role": "secondary",
+        "displayName": "淺色 · 成功底色",
+        "tonalRamp": [
+          "oklch(15% 0.0246 135.69)",
+          "oklch(26% 0.0246 135.69)",
+          "oklch(37% 0.0246 135.69)",
+          "oklch(48% 0.0246 135.69)",
+          "oklch(60% 0.0246 135.69)",
+          "oklch(72% 0.0246 135.69)",
+          "oklch(84% 0.0246 135.69)",
+          "oklch(95% 0.0246 135.69)"
+        ]
+      },
+      "studio-success-soft-dark": {
+        "role": "secondary",
+        "displayName": "深色 · 成功底色",
+        "tonalRamp": [
+          "oklch(15% 0.0347 140.11)",
+          "oklch(26% 0.0347 140.11)",
+          "oklch(37% 0.0347 140.11)",
+          "oklch(48% 0.0347 140.11)",
+          "oklch(60% 0.0347 140.11)",
+          "oklch(72% 0.0347 140.11)",
+          "oklch(84% 0.0347 140.11)",
+          "oklch(95% 0.0347 140.11)"
+        ]
+      },
+      "studio-error-light": {
+        "role": "secondary",
+        "displayName": "淺色 · 錯誤文字",
+        "tonalRamp": [
+          "oklch(15% 0.1214 30.56)",
+          "oklch(26% 0.1214 30.56)",
+          "oklch(37% 0.1214 30.56)",
+          "oklch(48% 0.1214 30.56)",
+          "oklch(60% 0.1214 30.56)",
+          "oklch(72% 0.1214 30.56)",
+          "oklch(84% 0.1214 30.56)",
+          "oklch(95% 0.1214 30.56)"
+        ]
+      },
+      "studio-error-dark": {
+        "role": "secondary",
+        "displayName": "深色 · 錯誤文字",
+        "tonalRamp": [
+          "oklch(15% 0.0856 39.75)",
+          "oklch(26% 0.0856 39.75)",
+          "oklch(37% 0.0856 39.75)",
+          "oklch(48% 0.0856 39.75)",
+          "oklch(60% 0.0856 39.75)",
+          "oklch(72% 0.0856 39.75)",
+          "oklch(84% 0.0856 39.75)",
+          "oklch(95% 0.0856 39.75)"
+        ]
+      },
+      "theme-error-surface-light": {
+        "role": "secondary",
+        "displayName": "淺色 · 錯誤底色",
+        "tonalRamp": [
+          "oklch(15% 0.0329 44.35)",
+          "oklch(26% 0.0329 44.35)",
+          "oklch(37% 0.0329 44.35)",
+          "oklch(48% 0.0329 44.35)",
+          "oklch(60% 0.0329 44.35)",
+          "oklch(72% 0.0329 44.35)",
+          "oklch(84% 0.0329 44.35)",
+          "oklch(95% 0.0329 44.35)"
+        ]
+      },
+      "theme-error-surface-dark": {
+        "role": "secondary",
+        "displayName": "深色 · 錯誤底色",
+        "tonalRamp": [
+          "oklch(15% 0.0345 35.86)",
+          "oklch(26% 0.0345 35.86)",
+          "oklch(37% 0.0345 35.86)",
+          "oklch(48% 0.0345 35.86)",
+          "oklch(60% 0.0345 35.86)",
+          "oklch(72% 0.0345 35.86)",
+          "oklch(84% 0.0345 35.86)",
+          "oklch(95% 0.0345 35.86)"
+        ]
+      },
+      "theme-on-filled": {
+        "role": "neutral",
+        "displayName": "實色按鈕上的暖白文字",
+        "tonalRamp": [
+          "oklch(15% 0.0221 89.79)",
+          "oklch(26% 0.0221 89.79)",
+          "oklch(37% 0.0221 89.79)",
+          "oklch(48% 0.0221 89.79)",
+          "oklch(60% 0.0221 89.79)",
+          "oklch(72% 0.0221 89.79)",
+          "oklch(84% 0.0221 89.79)",
+          "oklch(95% 0.0221 89.79)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "首頁問題標題",
+        "purpose": "首頁的短問題，隨視窗寬度調整。"
+      },
+      "headline": {
+        "displayName": "設定頁主標題",
+        "purpose": "設定頁標題；窄版另有縮小值。"
+      },
+      "title": {
+        "displayName": "一般段落標題",
+        "purpose": "一般段落標題；首頁流程另使用 title-journey。"
+      },
+      "title-workbench": {
+        "displayName": "工作卡片標題",
+        "purpose": "五個工作頁的卡片標題。"
+      },
+      "body": {
+        "displayName": "一般內文",
+        "purpose": "一般說明與設定介紹。"
+      },
+      "reading": {
+        "displayName": "報告閱讀",
+        "purpose": "需要連續閱讀的報告內容。"
+      },
+      "label": {
+        "displayName": "一般欄位標籤",
+        "purpose": "一般表單標籤；首頁網址標籤使用 0.875rem。"
+      },
+      "control": {
+        "displayName": "主要按鈕",
+        "purpose": "首頁的主要操作文字。"
+      },
+      "caption": {
+        "displayName": "一般補充說明",
+        "purpose": "一般次要備註；首頁流程與網址短說明使用各自字級。"
+      },
+      "title-journey": {
+        "displayName": "首頁流程標題",
+        "purpose": "直向三階段流程標題，1.25rem（預設 20px）。"
+      },
+      "stage-journey": {
+        "displayName": "流程步驟名稱",
+        "purpose": "每個場景旁的步驟名稱，1rem（預設 16px）。"
+      },
+      "detail-journey": {
+        "displayName": "流程短說明",
+        "purpose": "每個步驟的原生短說明，0.875rem（預設 14px）。"
+      },
+      "caption-journey": {
+        "displayName": "流程備註",
+        "purpose": "流程示意與結果限制，0.8125rem（預設 13px）。"
+      },
+      "input": {
+        "displayName": "首頁輸入文字",
+        "purpose": "問題欄與網址欄所有寬度維持 1rem（預設 16px）。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "language-menu",
+        "value": "0 12px 36px #20344916",
+        "purpose": "語言下拉選單；由 studio.css 的較高優先序共用樣式設定。"
+      },
+      {
+        "name": "graph-overlay",
+        "value": "0 8px 24px #2034490d",
+        "purpose": "圖譜圖例與詳情浮層。"
+      },
+      {
+        "name": "active-card",
+        "value": "0 0 0 2px var(--studio-soft)",
+        "purpose": "目前進行中的工作卡片外框。"
+      },
+      {
+        "name": "settings-active",
+        "value": "inset 3px 0 var(--studio-accent)",
+        "purpose": "桌面設定分區的目前位置；窄版改為下緣線。"
+      },
+      {
+        "name": "history-dialog",
+        "value": "0 20px 60px rgb(0 0 0 / .18)",
+        "purpose": "歷史回放視窗；清單列本身沒有卡片陰影。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease",
+        "purpose": "流程說明與選單項目背景等短狀態過渡。"
+      },
+      {
+        "name": "control-standard",
+        "value": "200ms ease",
+        "purpose": "語言入口邊框與圖譜工具的狀態切換。"
+      },
+      {
+        "name": "graph-toggle",
+        "value": "300ms ease",
+        "purpose": "圖譜開關滑塊的位移。"
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "prefers-reduced-motion: reduce 時沿用全域極短動畫與過渡；平滑捲動改為 auto。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "provider-stack",
+        "value": "1150px"
+      },
+      {
+        "name": "workflow-header",
+        "value": "1050px"
+      },
+      {
+        "name": "home-stack",
+        "value": "959px"
+      },
+      {
+        "name": "settings-navigation",
+        "value": "900px"
+      },
+      {
+        "name": "workbench-container",
+        "value": "850px"
+      },
+      {
+        "name": "workflow-mobile",
+        "value": "680px"
+      },
+      {
+        "name": "home-mobile",
+        "value": "600px"
+      },
+      {
+        "name": "settings-mobile",
+        "value": "560px"
+      },
+      {
+        "name": "history-mobile",
+        "value": "540px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "開始分析按鈕",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "首頁的主要動作；保留準備來源、執行中與不可送出狀態。",
+      "html": "<button class=\"ds-primary\" type=\"button\"><span>開始分析</span><svg viewBox=\"0 0 20 20\" fill=\"none\" aria-hidden=\"true\"><path d=\"M3 10h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-primary{display:inline-flex;justify-content:center;align-items:center;gap:20px;min-height:48px;min-width:145px;padding:12px 18px;border:0;border-radius:9px;background:var(--studio-button,#34392d);color:var(--theme-on-filled,#f5efdf);font-size:1rem;line-height:1.5;font-weight:600;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-primary svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5}.ds-primary:hover:not(:disabled){background:var(--studio-button-hover,#474e3c)}.ds-primary:disabled{background:var(--theme-surface-soft,#d9d5c9);color:var(--studio-muted,#515548);cursor:not-allowed}.ds-primary:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+    },
+    {
+      "name": "設定次要按鈕",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "設定與偏好控制使用有邊框的次要按鈕，文字與圖示並列。",
+      "html": "<button class=\"ds-secondary\" type=\"button\"><svg viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><path d=\"m9.5 3-.6 2.1-2 .9-2-.6-2.4 4.2L4 11v2l-1.5 1.4L5 18.6l2-.6 2 .9.6 2.1h4.8l.6-2.1 2-.9 2 .6 2.4-4.2L20 13v-2l1.5-1.4L19 5.4l-2 .6-2-.9-.6-2.1Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg><span>設定</span></button>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:8px 10px;border:1px solid var(--studio-line,#b4b1a3);border-radius:8px;background:var(--studio-surface,#e4ded2);color:var(--studio-muted,#515548);font-size:13px;white-space:nowrap;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-secondary svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.7}.ds-secondary:hover{color:var(--studio-accent,#805014);border-color:var(--studio-accent,#805014);background:var(--studio-soft,#e8d8b9)}.ds-secondary:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+    },
+    {
+      "name": "文字導覽按鈕",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "歷史紀錄等低強度導覽使用純文字；保持完整點選範圍。",
+      "html": "<button class=\"ds-ghost\" type=\"button\">歷史紀錄</button>",
+      "css": ".ds-ghost{min-height:44px;display:inline-flex;align-items:center;padding:8px 0;border:0;background:none;color:var(--studio-muted,#515548);font-size:.875rem;font-weight:500;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-ghost:hover{color:var(--studio-accent,#805014)}.ds-ghost:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+    },
+    {
+      "name": "網址輸入框",
+      "kind": "input",
+      "refersTo": "field-source",
+      "description": "兩行網址輸入區與常駐用途說明；準備來源時沿用停用與進度提示。",
+      "html": "<div class=\"ds-source-field\"><label class=\"ds-source-label\" for=\"ds-source-url\">貼上網頁網址</label><textarea class=\"ds-source-input\" id=\"ds-source-url\" rows=\"2\" placeholder=\"https://example.com/article\" spellcheck=\"false\" aria-describedby=\"ds-source-help\"></textarea><p class=\"ds-source-help\" id=\"ds-source-help\">開始分析時會自動讀取並加入資料。</p></div>",
+      "css": ".ds-source-field{min-width:0;font-family:var(--studio-font,system-ui,sans-serif);}.ds-source-label{display:block;font-size:.875rem;line-height:1.65;font-weight:600;margin-bottom:8px;color:var(--studio-ink,#282b25)}.ds-source-input{display:block;box-sizing:border-box;width:100%;min-height:80px;resize:vertical;padding:10px 13px;border:1px solid var(--theme-line-strong,#878c78);border-radius:9px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font:1rem/1.7 var(--studio-font,system-ui,sans-serif);caret-color:var(--studio-accent,#805014)}.ds-source-input::placeholder{color:var(--studio-muted,#515548)}.ds-source-input:disabled{opacity:.7}.ds-source-help{font-size:.875rem;color:var(--studio-muted,#515548);line-height:1.75;margin:7px 0 0}.ds-source-input:focus-visible{outline:2px solid var(--studio-accent,#805014);outline-offset:3px;}"
+    },
+    {
+      "name": "設定頁分區導覽",
+      "kind": "nav",
+      "refersTo": "nav-settings-active",
+      "description": "目前分區以表面底色、邊框、字重與琥珀側線共同呈現。",
+      "html": "<nav class=\"ds-settings-nav\" aria-label=\"設定分區\"><button class=\"ds-settings-item ds-settings-active\" type=\"button\" aria-current=\"page\">模型設定</button><button class=\"ds-settings-item\" type=\"button\">外觀與語言</button></nav>",
+      "css": ".ds-settings-nav{display:grid;gap:6px;max-width:240px;font-family:var(--studio-font,system-ui,sans-serif);}.ds-settings-item{display:flex;align-items:center;gap:12px;min-height:50px;padding:14px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--studio-muted,#515548);font-size:13px;text-align:left;cursor:pointer;font-family:var(--studio-font,system-ui,sans-serif);}.ds-settings-active{background:var(--studio-surface,#e4ded2);border-color:var(--studio-line,#b4b1a3);color:var(--studio-ink,#282b25);font-weight:700;box-shadow:inset 3px 0 var(--studio-accent,#805014)}.ds-settings-item:hover{color:var(--studio-ink,#282b25);background:var(--studio-surface,#e4ded2)}.ds-settings-item:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px;}"
+    },
+    {
+      "name": "已完成狀態標籤",
+      "kind": "chip",
+      "refersTo": "chip-success",
+      "description": "狀態以簡短文字和綠色底層一起表示；標籤本身不充當按鈕。",
+      "html": "<span class=\"ds-status-chip\">已完成</span>",
+      "css": ".ds-status-chip{display:inline-block;border-radius:6px;padding:5px 8px;background:var(--theme-success-surface,#d4dfcf);color:var(--studio-green,#355b40);font-size:12px;line-height:1.6;font-family:var(--studio-font,system-ui,sans-serif);}"
+    },
+    {
+      "name": "新的探索內容卡",
+      "kind": "card",
+      "refersTo": "card-project",
+      "description": "首頁表單使用的安靜容器；以表面色與細框分層。",
+      "html": "<section class=\"ds-project-card\" aria-labelledby=\"ds-card-title\"><h3 class=\"ds-card-title\" id=\"ds-card-title\"><span class=\"ds-card-number\" aria-hidden=\"true\">1</span>描述你的問題</h3><p class=\"ds-card-copy\">加入參考資料，探索不同人的反應與可能走向。</p></section>",
+      "css": ".ds-project-card{min-width:0;padding:24px;border:1px solid var(--studio-line,#b4b1a3);border-radius:16px;background:var(--studio-surface,#e4ded2);color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-card-title{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:1rem;font-weight:700;line-height:1.5}.ds-card-number{display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--studio-paper,#d5cec1);color:var(--studio-muted,#515548);font-size:12px;font-variant-numeric:tabular-nums}.ds-card-copy{margin:0;color:var(--studio-muted,#515548);font-size:14px;line-height:1.8}@media(max-width:959px){.ds-project-card{padding:20px}}@media(max-width:600px){.ds-project-card{padding:18px 16px}}"
+    },
+    {
+      "name": "工作步驟進度",
+      "kind": "nav",
+      "refersTo": "workflow-progress",
+      "description": "五個工作頁共用的進度標示；目前、已完成與未開始使用不同外觀。",
+      "html": "<nav class=\"ds-progress\" aria-label=\"探索流程\"><ol class=\"ds-progress-list\"><li class=\"ds-progress-passed\"><span class=\"ds-progress-number\">✓</span><span>建立圖譜</span></li><li class=\"ds-progress-current\" aria-current=\"step\"><span class=\"ds-progress-number\">02</span><span>設定模擬</span></li><li><span class=\"ds-progress-number\">03</span><span>執行模擬</span></li><li><span class=\"ds-progress-number\">04</span><span>分析報告</span></li><li><span class=\"ds-progress-number\">05</span><span>互動對話</span></li></ol></nav>",
+      "css": ".ds-progress{padding:15px 24px;background:var(--studio-paper,#d5cec1);border-bottom:1px solid var(--studio-line,#b4b1a3);font-family:var(--studio-font,system-ui,sans-serif);}.ds-progress-list{display:flex;list-style:none;max-width:920px;margin:0 auto;padding:0}.ds-progress-list li{display:flex;align-items:center;gap:9px;flex:1;font-size:13px;font-weight:600;color:var(--studio-muted,#515548);white-space:nowrap}.ds-progress-number{display:grid;place-items:center;width:28px;height:28px;flex-shrink:0;border:1px solid var(--studio-line,#b4b1a3);border-radius:50%;font-size:11px}.ds-progress-list .ds-progress-current{color:var(--studio-accent,#805014)}.ds-progress-current .ds-progress-number{color:var(--theme-on-filled,#f5efdf);background:var(--studio-accent,#805014);border-color:var(--studio-accent,#805014)}.ds-progress-passed .ds-progress-number{background:var(--theme-success-surface,#d4dfcf);border-color:var(--theme-success-line,#849b7d);color:var(--studio-green,#355b40)}:host-context([data-theme='dark']) .ds-progress-current .ds-progress-number{color:#24251d}@media(max-width:680px){.ds-progress{padding:12px 14px}.ds-progress-list li{justify-content:center;gap:7px}.ds-progress-list li:not(.ds-progress-current)>span:last-child{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.ds-progress-number{width:26px;height:26px}}.ds-progress-list li:last-child{flex:0}.ds-progress-list li:not(:last-child)::after{content:'';height:1px;background:var(--theme-surface-raised,#c7c5b6);flex:1;margin:0 18px}@media(max-width:1050px){.ds-progress-list li:not(:last-child)::after{margin:0 8px}}@media(max-width:680px){.ds-progress-list{gap:6px}.ds-progress-list li:last-child{flex:1}.ds-progress-list .ds-progress-current{flex:0 0 auto;padding-right:5px}.ds-progress-list li:not(:last-child)::after{display:none}}"
+    },
+    {
+      "name": "直向三階段流程",
+      "kind": "custom",
+      "refersTo": "journey-caption",
+      "description": "既有 research-journey-v2.webp 由 CSS 裁成三個場景；桌面左欄依序排列，原生文字在每個場景右側。預覽用相同素材路徑與裁切方式。",
+      "html": "<section class=\"ds-journey\" aria-labelledby=\"ds-journey-title\"><h2 class=\"ds-journey-title\" id=\"ds-journey-title\">從資料，看見不同觀點</h2><ol class=\"ds-journey-stages\"><li style=\"--stage-index:0\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>參考資料</strong><span>網頁或檔案</span></div><svg class=\"ds-journey-connector\" viewBox=\"0 0 16 28\" aria-hidden=\"true\"><path d=\"M8 1v24m-4-5 4 5 4-5\"/></svg></li><li style=\"--stage-index:1\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>人物與互動</strong><span>關係與可能反應</span></div><svg class=\"ds-journey-connector\" viewBox=\"0 0 16 28\" aria-hidden=\"true\"><path d=\"M8 1v24m-4-5 4 5 4-5\"/></svg></li><li style=\"--stage-index:2\"><span class=\"ds-journey-artwork\" aria-hidden=\"true\"><img src=\"/assets/visuals/research-journey-v2.webp\" alt=\"\" width=\"880\" height=\"440\" decoding=\"async\" /></span><div class=\"ds-journey-stage-copy\"><strong>分析報告</strong><span>觀察與依據</span></div></li></ol><p class=\"ds-journey-note\">流程示意。模擬提供可能情境，並非未來的預測。</p></section>",
+      "css": ".ds-journey{min-width:0;max-width:320px;color:var(--studio-ink,#282b25);font-family:var(--studio-font,system-ui,sans-serif);}.ds-journey-title{margin:0;font-size:1.25rem;line-height:1.45;font-weight:700;text-wrap:balance}.ds-journey-stages{--artwork-size:116px;display:grid;gap:28px;padding:0;margin:24px 0 0;list-style:none}.ds-journey-stages li{position:relative;min-width:0;display:grid;grid-template-columns:var(--artwork-size) minmax(0,1fr);align-items:center;gap:16px}.ds-journey-artwork{position:relative;display:block;width:var(--artwork-size);height:var(--artwork-size);overflow:hidden}.ds-journey-artwork img{position:absolute;top:50%;left:calc(var(--stage-index) * -100%);display:block;width:300%;max-width:none;height:auto;transform:translateY(-50%)}.ds-journey-stage-copy{min-width:0;overflow-wrap:anywhere}.ds-journey-stage-copy strong{display:block;font-size:1rem;line-height:1.5;font-weight:600}.ds-journey-stage-copy span{display:block;margin-top:4px;color:var(--studio-muted,#515548);font-size:.875rem;line-height:1.75}.ds-journey-connector{position:absolute;top:100%;left:calc(var(--artwork-size) / 2 - 8px);width:16px;height:28px;fill:none;stroke:var(--studio-accent,#805014);stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}.ds-journey-note{color:var(--studio-muted,#515548);font-size:.8125rem;line-height:1.75;margin:24px 0 0;max-width:65ch}@media(max-width:959px){.ds-journey{max-width:540px}.ds-journey-stages{--artwork-size:96px;gap:28px;margin-top:20px}}"
+    },
+    {
+      "name": "歷史紀錄清單列",
+      "kind": "custom",
+      "refersTo": "history-row",
+      "description": "緊湊回放入口的外觀範例；問題與時間是示例內容。",
+      "html": "<div class=\"ds-history-list\"><div class=\"ds-history-row\" role=\"button\" tabindex=\"0\" aria-label=\"查看咖啡店延長營業的可能反應\"><div class=\"ds-history-content\"><h3 class=\"ds-history-title\">咖啡店延長營業的可能反應</h3><div class=\"ds-history-meta\"><time datetime=\"2026-10-03T10:00:00\">2026-10-03 10:00</time><span class=\"ds-history-completed\">已完成 · 2/2 輪</span><span class=\"ds-history-completed\">報告可查看</span></div><p class=\"ds-history-files\">參考資料.md</p></div><span class=\"ds-history-open\" aria-hidden=\"true\">查看回放 <span>→</span></span></div></div>",
+      "css": ".ds-history-list{border-block:1px solid var(--studio-line,#b4b1a3);font-family:var(--studio-font,system-ui,sans-serif);color:var(--studio-ink,#282b25)}.ds-history-row{display:flex;align-items:center;gap:24px;min-height:100px;padding:18px 12px;cursor:pointer;transition:background-color .15s ease}.ds-history-row+.ds-history-row{border-top:1px solid var(--studio-line,#b4b1a3)}.ds-history-row:hover{background:var(--theme-surface-soft,#d9d5c9)}.ds-history-row:focus-visible{outline:3px solid var(--studio-accent,#805014);outline-offset:3px}.ds-history-content{flex:1;min-width:0}.ds-history-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin:0 0 7px;font-size:16px;line-height:1.65;font-weight:600;overflow-wrap:anywhere}.ds-history-meta{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--studio-muted,#515548);font-size:12px;line-height:1.8}.ds-history-meta time{font-variant-numeric:tabular-nums}.ds-history-completed{color:var(--studio-green,#355b40)}.ds-history-files{margin:5px 0 0;color:var(--studio-muted,#515548);font-size:12px;line-height:1.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ds-history-open{display:inline-flex;align-items:center;gap:12px;flex-shrink:0;min-height:44px;color:var(--studio-accent,#805014);font-size:13px}@media(max-width:540px){.ds-history-row{align-items:flex-start;gap:10px;padding:16px 4px}.ds-history-open{font-size:12px;gap:4px}.ds-history-title{font-size:15px}}@media(prefers-reduced-motion:reduce){.ds-history-row{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "暖石探索工作室",
+    "overview": "MiroFish 的視覺像一張整理思路的工作桌：暖石色與炭灰色提供安定的底，琥珀色指向目前重點。文件、人物關係與報告以可辨識的圖像連起來，讓第一次使用的人也能理解資料如何變成可追問的結果。\n\n介面以清楚、沉穩、易操作為主。圖示、示意圖與簡短文字共同說明工作；進一步的細節可在需要時展開。淺色與深色共用同一套層次與狀態語意，並支援跟隨系統；繁體中文、簡體中文與英文都必須保留完整內容與可讀排版。\n\n本輪依 Home.vue、ExplorationJourney.vue 與 WebSources.vue 同步設計約束；此資料不代表本輪瀏覽器驗證已完成。",
+    "keyCharacteristics": [
+      "暖石、炭灰與琥珀色，保留清楚的文字和邊界。",
+      "圖像與短句一起解釋資料、關係、模擬與報告。",
+      "以底色、細邊框與留白分層，陰影只作輔助。",
+      "可收合說明，但保留既有操作、進度、錯誤和復原入口。",
+      "深淺外觀、三種語言與鍵盤操作採相同的設計標準。"
+    ],
+    "rules": [
+      {
+        "name": "The Amber Focus Rule",
+        "body": "琥珀色用於目前步驟、選取、焦點與需要注意的狀態；同層級的一般資訊維持中性色。",
+        "section": "colors"
+      },
+      {
+        "name": "The Shared Theme Rule",
+        "body": "新元件使用既有語意色彩變數，深色與淺色同步設計；不要只替單一頁面硬編一套色票。",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Language Rule",
+        "body": "文字容器必須容納繁體中文、簡體中文與英文；讓內容換行，並保留圖示操作的可讀名稱。",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Depth Rule",
+        "body": "大部分表面先以底色和邊框分層；焦點、選取與浮層才加強外框或陰影。",
+        "section": "elevation"
+      },
+      {
+        "name": "The Home Layout Rule",
+        "body": "首頁寬度至少 960px 時，左欄以 320px 為目標（minmax(280px, 320px)），放置直向三階段流程，右欄放表單，欄距 40px；小於 960px 時表單在先、流程在後，區塊間距 32px。原生內容順序保留表單在流程之前。",
+        "section": "layout"
+      },
+      {
+        "name": "The Home Navigation Rule",
+        "body": "首頁頁首保留品牌、歷史、語言與偏好入口，移除 GitHub 連結。",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** 延用炭灰、暖石與琥珀色的共同主題，讓一般文字、次要說明和邊框都能清楚辨識。",
+      "**Do** 用圖示、簡短標題與適量圖像說明流程，並讓使用者看得到下一個操作。",
+      "**Do** 保留淺色、深色、跟隨系統，以及繁體中文、簡體中文、英文的完整功能。",
+      "**Do** 在收合詳細說明時，保留操作中的進度、來源數量、錯誤、重試和繼續入口。",
+      "**Do** 讓主要操作維持足夠點選範圍，提供清楚的鍵盤焦點，並尊重減少動態效果的偏好。",
+      "**Do** 依工作需要安排首頁、圖譜、報告、互動與設定的空間，沿用共同色彩與元件語言。"
+    ],
+    "donts": [
+      "**Don't** 把大面積亮白、通用 AI 藍色或霓虹漸層引入主要介面。",
+      "**Don't** 以簡化畫面為由移除 Firecrawl 一鍵來源流程、模型設定、歷史紀錄或五個工作步驟。",
+      "**Don't** 把首頁的示意圖、欄數或排列方式當成所有頁面必須遵守的規則。",
+      "**Don't** 只靠顏色或沒有名稱的圖示表達成功、失敗、選取或可操作狀態。",
+      "**Don't** 把裝飾性示意圖標成真實執行結果，或讓圖片代替必要的表單標籤。"
+    ]
+  }
+}

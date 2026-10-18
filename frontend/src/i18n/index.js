@@ -1,4 +1,5 @@
 import { createI18n } from 'vue-i18n'
+import { watch } from 'vue'
 import languages from '../../../locales/languages.json'
 
 const localeFiles = import.meta.glob('../../../locales/!(languages).json', { eager: true })
@@ -14,14 +15,21 @@ for (const path in localeFiles) {
   }
 }
 
-const savedLocale = localStorage.getItem('locale') || 'zh'
+let preference = null
+try { preference = localStorage.getItem('locale') } catch { /* Browser storage can be unavailable. */ }
+const savedLocale = messages[preference] ? preference : 'zh-TW'
 
 const i18n = createI18n({
   legacy: false,
   locale: savedLocale,
-  fallbackLocale: 'zh',
+  fallbackLocale: 'zh-TW',
   messages
 })
+
+watch(i18n.global.locale, (locale) => {
+  document.documentElement.lang = locale
+  document.title = messages[locale]?.meta?.title || messages['zh-TW'].meta.title
+}, { immediate: true })
 
 export { availableLocales }
 export default i18n
