@@ -40,6 +40,15 @@ MiroFish is dedicated to creating a swarm intelligence mirror that maps reality.
 
 From serious predictions to playful simulations, we let every "what if" see its outcome, making it possible to predict anything.
 
+## 🍴 About This Fork
+
+This fork (`Sasuke-inu/MiroFish`) adds a local-first research setup on top of upstream. See [CHANGELOG.md](./CHANGELOG.md) for the full list.
+
+- **Local graph instead of Zep**: set `GRAPH_PROVIDER=graphiti` to use the bundled Graphiti + Neo4j stack (no Zep account needed). The default stays `GRAPH_PROVIDER=zep`. Details: [ZEP-REPLACEMENT-ZH-TW.md](./ZEP-REPLACEMENT-ZH-TW.md).
+- **Local Docker install**: `docker compose -f docker-compose.local.yml up -d --wait` serves the UI at `http://localhost:3100` and the API at `http://localhost:5001`, bound to `127.0.0.1`. On Windows, `Start-MiroFish.cmd` / `Stop-MiroFish.cmd` wrap this. Details: [INSTALLATION-ZH-TW.md](./INSTALLATION-ZH-TW.md).
+- **Optional Firecrawl sources**: self-hosted Firecrawl via the `FIRECRAWL_*` settings in `.env.example`. Details: [FIRECRAWL-INTEGRATION-ZH-TW.md](./FIRECRAWL-INTEGRATION-ZH-TW.md).
+- **API protection**: every `/api` route only accepts local trusted origins, and `POST`/`PUT`/`PATCH`/`DELETE` requests must send the `X-MiroFish-CSRF` header with the token from `GET /api/session`. The bundled frontend does this automatically; custom scripts must do the same.
+
 ## 🌐 Live Demo
 
 Welcome to visit our online demo environment and experience a prediction simulation on trending public opinion events we've prepared for you: [mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
@@ -125,6 +134,7 @@ LLM_MODEL_NAME=qwen-plus
 # Zep Cloud Configuration
 # Free monthly quota is sufficient for simple usage: https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
+# Or use this fork's local graph instead of Zep: set GRAPH_PROVIDER=graphiti and leave ZEP_API_KEY empty
 ```
 
 #### 2. Install Dependencies

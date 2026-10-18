@@ -40,6 +40,15 @@ MiroFish 致力于打造映射现实的群体智能镜像，通过捕捉个体�
 
 从严肃预测到趣味仿真，我们让每一个如果都能看见结果，让预测万物成为可能。
 
+## 🍴 关于此 Fork
+
+此 fork（`Sasuke-inu/MiroFish`）在上游基础上加入本机优先的研究环境，完整列表见 [CHANGELOG.md](./CHANGELOG.md)。
+
+- **本机图谱替代 Zep**：设置 `GRAPH_PROVIDER=graphiti` 即使用内置的 Graphiti + Neo4j（无需 Zep 账号），默认仍为 `GRAPH_PROVIDER=zep`。详见 [ZEP-REPLACEMENT-ZH-TW.md](./ZEP-REPLACEMENT-ZH-TW.md)。
+- **本机 Docker 安装**：`docker compose -f docker-compose.local.yml up -d --wait`，前端 `http://localhost:3100`、API `http://localhost:5001`，仅绑定 `127.0.0.1`。Windows 可用 `Start-MiroFish.cmd` / `Stop-MiroFish.cmd`。详见 [INSTALLATION-ZH-TW.md](./INSTALLATION-ZH-TW.md)。
+- **可选 Firecrawl 来源**：通过 `.env.example` 中的 `FIRECRAWL_*` 设置接入自建 Firecrawl。详见 [FIRECRAWL-INTEGRATION-ZH-TW.md](./FIRECRAWL-INTEGRATION-ZH-TW.md)。
+- **API 保护**：所有 `/api` 路由只接受本机可信来源；`POST`/`PUT`/`PATCH`/`DELETE` 请求须带 `X-MiroFish-CSRF` 头（token 由 `GET /api/session` 取得）。内置前端会自动处理，自定义脚本须自行携带。
+
 ## 🌐 在线体验
 
 欢迎访问在线 Demo 演示环境，体验我们为你准备的一次关于热点舆情事件的推演预测：[mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
@@ -125,6 +134,7 @@ LLM_MODEL_NAME=qwen-plus
 # Zep Cloud 配置
 # 每月免费额度即可支撑简单使用：https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
+# 或使用此 fork 的本机图谱替代 Zep：设置 GRAPH_PROVIDER=graphiti，ZEP_API_KEY 留空
 ```
 
 #### 2. 安装依赖
