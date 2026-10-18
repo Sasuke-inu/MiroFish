@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import sqlite3
+import sys
 import pytest
 from app.storage import database, database_path
 
@@ -37,6 +38,8 @@ def test_concurrent_leases_never_share_connection_or_lose_updates():
         assert conn.execute('SELECT COUNT(*) FROM counts').fetchone()[0] == 48
 
 
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='Windows keeps an open SQLite handle locked; external replacement is a POSIX restore scenario')
 def test_replaced_file_does_not_read_stale_connection():
     with database() as conn:
         conn.execute('CREATE TABLE obsolete(id)')

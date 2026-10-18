@@ -6,6 +6,7 @@ def test_partial_install_stays_live_and_reports_missing_graph_key():
     class PartialConfig(Config):
         LLM_API_KEY = 'private-router-key'
         ZEP_API_KEY = ''
+        GRAPH_PROVIDER = 'zep'
 
     client = create_app(PartialConfig).test_client()
     assert client.get('/health').status_code == 200
@@ -24,6 +25,7 @@ def test_fully_configured_install_reports_readiness_without_exposing_keys():
     class ReadyConfig(Config):
         LLM_API_KEY = 'private-router-key'
         ZEP_API_KEY = 'private-zep-key'
+        GRAPH_PROVIDER = 'zep'
 
     response = create_app(ReadyConfig).test_client().get('/api/system/status')
     assert response.json['data']['ready'] is True
@@ -33,6 +35,7 @@ def test_fully_configured_install_reports_readiness_without_exposing_keys():
 
 def test_graph_build_without_zep_reports_configuration_dependency(monkeypatch):
     from app.api import graph
+    monkeypatch.setattr(graph.Config, 'GRAPH_PROVIDER', 'zep')
     monkeypatch.setattr(graph.Config, 'ZEP_API_KEY', '')
     client = create_app().test_client()
     token = client.get('/api/session').json['data']['csrf_token']
