@@ -221,7 +221,15 @@ def generate_report():
             # the status check and response.
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report:
-                if not force_regenerate or existing_report.status in {
+                # 未啟動就失敗（無任何產出）的報告不阻擋一般重試：這類失敗
+                # 沒有可檢視的成果，若只有帶 force 才能重試，使用者會卡在
+                # 這份永遠失敗的報告上。
+                never_started_failure = (
+                    existing_report.status == ReportStatus.FAILED
+                    and not existing_report.outline
+                    and not (existing_report.markdown_content or '').strip()
+                )
+                if (not force_regenerate and not never_started_failure) or existing_report.status in {
                     ReportStatus.PENDING, ReportStatus.PLANNING, ReportStatus.GENERATING
                 }:
                     return jsonify({

@@ -118,3 +118,36 @@ def test_thread_start_failure_fails_the_claim_and_releases_the_registration(envi
     zombie = TaskManager().find_task('report:sim_safe:v1')
     assert zombie.status == TaskStatus.FAILED
     assert released == [('graph_run', zombie.metadata['report_id'])]
+
+
+def test_never_started_failed_report_does_not_block_a_normal_retry(environment, monkeypatch):
+    """A report that was marked FAILED before its worker started must not be
+    returned by a plain retry: with nothing produced there is no artifact to
+    reuse, so the request must allocate the next version instead."""
+    client, started = environment
+    calls = {'n': 0}
+    real_register = api.register_graph_reader
+
+    def flaky_register(graph_id, report_id):
+        calls['n'] += 1
+        if calls['n'] == 1:
+            raise RuntimeError('registration down (fixture)')
+        return real_register(graph_id, report_id)
+
+    monkeypatch.setattr(api, 'register_graph_reader', flaky_register)
+
+    first = client.post('/api/report/generate', json={'simulation_id': 'sim_safe'})
+    assert first.status_code == 500
+    manager = TaskManager()
+    failed = manager.find_task('report:sim_safe:v1')
+    assert failed.status == TaskStatus.FAILED
+
+    second = client.post('/api/report/generate', json={'simulation_id': 'sim_safe'})
+
+    assert second.status_code == 200, second.json
+    data = second.json['data']
+    assert data['task_id'] != failed.task_id
+    assert data['report_id'] != failed.metadata['report_id']
+    assert manager.find_task('report:sim_safe:v2') is not None
+    fresh = ReportManager.get_report(data['report_id'])
+    assert fresh is not None and fresh.version == 2
